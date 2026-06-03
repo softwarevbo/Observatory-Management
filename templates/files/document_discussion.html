@@ -1,0 +1,1494 @@
+{% extends 'base.html' %}
+{% block title %}
+    {% if folder %}
+        {{ folder.name }} — Folder Discussion
+    {% else %}
+        {{ file.display_name }} — Discussion & Annotations
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* PAGE CUSTOM STYLE FOR DYNAMIC LAYOUT */
+    body {
+        overflow: hidden;
+    }
+    
+    /* COLLAPSIBLE SIDEBAR ADJUSTMENTS */
+    .sidebar {
+        width: 60px !important;
+        transition: width 0.3s ease;
+    }
+    .sidebar-logo .logo-text,
+    .sidebar-logo .logo-subtitle,
+    .nav-section-label,
+    .nav-item span,
+    .user-info,
+    .sidebar-user .user-card i,
+    .sidebar-logout span,
+    .logo-mark div:last-child {
+        display: none !important;
+    }
+    .sidebar-logo {
+        padding: 11px 0 !important;
+        display: flex;
+        justify-content: center;
+    }
+    .sidebar-nav {
+        padding: 10px 0 !important;
+    }
+    .nav-item {
+        padding: 12px 0 !important;
+        justify-content: center;
+    }
+    .sidebar-user {
+        padding: 10px 0 !important;
+    }
+    .user-card {
+        padding: 5px !important;
+        justify-content: center;
+        border: none !important;
+    }
+    .sidebar-logout {
+        padding: 0 0 16px !important;
+    }
+    .btn-logout {
+        border: none !important;
+        padding: 10px 0 !important;
+        justify-content: center;
+    }
+    .btn-logout span {
+        display: none !important;
+    }
+
+    /* CRITICAL: Override page-body to remove padding and max-width
+       so the split layout fills the entire viewport */
+    html, body {
+        overflow: hidden !important;
+        height: 100% !important;
+    }
+    .page-body {
+        padding: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+    .main-content {
+        margin-left: 60px !important;
+        height: 100vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        min-height: 0 !important;
+    }
+    .topbar {
+        position: relative !important;
+        flex-shrink: 0 !important;
+        z-index: 2000 !important;
+        display: flex !important;
+    }
+
+    /* DOCUMENT DISCUSSION SPLIT LAYOUT */
+    .discussion-layout {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
+        background-color: var(--bg-primary);
+    }
+
+    /* Missing btn-xs class */
+    .btn-xs {
+        padding: 3px 8px;
+        font-size: 11px;
+        border-radius: 4px;
+    }
+
+    /* TOPBAR USER DROPDOWN */
+    .dropdown-menu-custom {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 40px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        min-width: 200px;
+        z-index: 1100;
+        overflow: hidden;
+    }
+    .dropdown-menu-custom.show {
+        display: block !important;
+    }
+    .dropdown-menu-custom a {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: var(--transition);
+    }
+    .dropdown-menu-custom a:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-primary) !important;
+    }
+
+    /* PDF VIEWER AREA */
+    .pdf-viewer-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        border-right: 1px solid var(--border);
+    }
+
+    .viewer-toolbar {
+        height: 48px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        z-index: 10;
+        flex-shrink: 0;
+    }
+
+    .pdf-container {
+        flex: 1;
+        overflow: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: var(--bg-primary);
+    }
+
+    .pdf-page-wrapper {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        background: white;
+        position: relative;
+        margin-bottom: 24px;
+        border-radius: 4px;
+    }
+
+    .pdf-annotation-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 5;
+    }
+
+    /* RIGHT COLLAPSIBLE SIDEBAR */
+    .right-sidebar {
+        width: 320px;
+        height: 100%;
+        background: var(--bg-secondary);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        position: relative;
+    }
+
+    .right-sidebar.collapsed {
+        width: 0px !important;
+        border-left: none !important;
+    }
+
+    .sidebar-toggle-btn {
+        position: absolute;
+        left: -15px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 15px;
+        height: 50px;
+        background: var(--border);
+        border-radius: 4px 0 0 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 100;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-right: none;
+    }
+
+    /* TABS */
+    .tabs-header {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-secondary);
+        flex-shrink: 0;
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 12px 8px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: var(--transition);
+    }
+
+    .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        background: var(--bg-card-hover);
+    }
+
+    .tab-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* COMMENT CARDS & OUTLINE */
+    .comment-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .comment-card:hover, .comment-card.active {
+        border-color: var(--accent);
+        background: var(--bg-card-hover);
+        box-shadow: var(--shadow);
+    }
+
+    .comment-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .comment-meta {
+        font-size: 10px;
+        color: var(--text-muted);
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 4px;
+    }
+
+    /* BOTTOM CONVERSATION PANEL */
+    .bottom-panel {
+        height: 250px;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border);
+        display: flex;
+        transition: height 0.3s ease;
+        overflow: hidden;
+        flex-shrink: 0;
+        z-index: 8;
+    }
+
+    .bottom-panel.collapsed {
+        height: 0px !important;
+        border-top: none !important;
+    }
+
+    .bottom-panel-left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border);
+        height: 100%;
+        min-width: 0;
+    }
+
+    .bottom-panel-right {
+        width: 340px;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        height: 100%;
+        overflow-y: auto;
+        background: var(--bg-card);
+        flex-shrink: 0;
+    }
+
+    .thread-header {
+        padding: 10px 16px;
+        background: var(--bg-card-hover);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .thread-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .message-bubble {
+        padding: 10px 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        max-width: 85%;
+    }
+
+    .message-bubble.mine {
+        align-self: flex-end;
+        background: var(--accent-glow);
+        border-color: var(--accent);
+    }
+
+    /* HIGHLIGHT INDICATOR IN PDF */
+    .db-highlight {
+        transition: filter 0.2s ease;
+    }
+    .db-highlight:hover, .db-highlight.active {
+        filter: brightness(0.85);
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+    }
+
+    /* COLOR PICKER TOOLTIP */
+    .color-picker-tooltip {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        border-color: var(--border-light) !important;
+    }
+
+    /* FOLDER VIEW & VSCODE TREE PREVIEW */
+    .vscode-tree {
+        font-family: var(--font-primary);
+        font-size: 13px;
+        color: var(--text-secondary);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        text-align: left;
+    }
+    .tree-item {
+        border-radius: 6px;
+        transition: background 0.15s;
+    }
+    .tree-row {
+        display: flex;
+        align-items: center;
+        padding: 6px 10px;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 0.15s;
+    }
+    .tree-row:hover {
+        background: var(--bg-card-hover);
+    }
+    .tree-row a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .tree-row a:hover {
+        color: var(--accent);
+    }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+    <!-- PROFILE AVATAR MENU ON RIGHT SIDE TOP -->
+    <div class="topbar-user-menu" style="position:relative;display:inline-block;cursor:pointer;margin-left:12px;">
+        <div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation(); document.getElementById('topbarUserDropdown').classList.toggle('show');">
+            {% include 'partials/user_avatar.html' with avatar_user=user size="32" radius="50%" font_size="12" %}
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ user.display_name }}</span>
+            <i class="fas fa-chevron-down" style="font-size:10px;color:var(--text-muted);"></i>
+        </div>
+        <div class="dropdown-menu-custom" id="topbarUserDropdown">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-card-hover);">
+                <div style="font-weight:600;font-size:12px;color:var(--text-primary);">{{ user.display_name }}</div>
+                <div style="font-size:10px;color:var(--text-muted);">{{ user.get_role_display }}</div>
+            </div>
+            <a href="{% url 'accounts:profile' %}"><i class="fas fa-user" style="width:14px;"></i> Profile</a>
+            <a href="{% url 'accounts:settings' %}"><i class="fas fa-cog" style="width:14px;"></i> Settings</a>
+            <a href="{% url 'tasks:notifications' %}">
+                <i class="fas fa-bell" style="width:14px;"></i> Notifications 
+                {% if unread_count %}<span class="badge badge-red" style="padding:1px 4px;font-size:9px;margin-left:auto;background:var(--red);color:white;border-radius:4px;">{{ unread_count }}</span>{% endif %}
+            </a>
+            <div style="border-top:1px solid var(--border);"></div>
+            <a href="{% url 'accounts:logout' %}" style="color:var(--red);"><i class="fas fa-sign-out-alt" style="width:14px;"></i> Logout</a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block page_title %}
+    <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--text-muted);">
+        {% if folder %}
+            <i class="fas fa-folder" style="color:var(--accent);margin-right:6px;"></i>
+            <a href="{% url 'files:project_files' project.pk %}" style="color:inherit;text-decoration:none;">{{ project.name }}</a>
+            / Folder Discussion / {{ folder.name }}
+        {% else %}
+            <i class="fas {{ file.icon_class|default:'fa-file-alt' }}" style="color:{{ file.icon_color|default:'var(--accent)' }};margin-right:6px;"></i>
+            <a href="{% url 'files:project_files' project.pk %}" style="color:inherit;text-decoration:none;">{{ project.name }}</a>
+            / Discussion & Annotation / {{ file.display_name }}
+        {% endif %}
+    </span>
+{% endblock %}
+
+{% block content %}
+<div class="discussion-layout">
+    
+    <!-- VIEWER PANEL -->
+    <div class="pdf-viewer-area">
+        
+        <!-- Viewer Toolbar -->
+        <div class="viewer-toolbar">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                {% if folder %}
+                    <span style="font-weight:600;font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ folder.name }}</span>
+                    <div style="border-left:1px solid var(--border);height:18px;margin:0 4px;flex-shrink:0;"></div>
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);min-width:0;">
+                        <i class="fas fa-comments" style="color:var(--accent);flex-shrink:0;"></i>
+                        <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Folder Discussion</span>
+                    </div>
+                {% else %}
+                    <span style="font-weight:600;font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ file.original_name }}</span>
+                    <span class="badge badge-blue" style="font-size:10px;flex-shrink:0;">v{{ file.version }}</span>
+                    <div style="border-left:1px solid var(--border);height:18px;margin:0 4px;flex-shrink:0;"></div>
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);min-width:0;">
+                        {% if file.is_pdf %}
+                            <i class="fas fa-file-signature" style="color:var(--accent);flex-shrink:0;"></i>
+                            <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Highlighter Active</span>
+                        {% else %}
+                            <i class="fas fa-comments" style="color:var(--accent);flex-shrink:0;"></i>
+                            <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">File Discussion</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                {% if not folder %}
+                    <!-- Download options -->
+                    {% if file.is_pdf %}
+                        <div class="btn-group" style="position:relative;display:inline-block;">
+                            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); document.getElementById('downloadOptions').classList.toggle('show');">
+                                <i class="fas fa-download"></i> Download Options <i class="fas fa-caret-down" style="font-size:9px;margin-left:4px;"></i>
+                            </button>
+                            <div class="dropdown-menu-custom" id="downloadOptions" style="right:0;top:32px;">
+                                <a href="?download=with_annotations"><i class="fas fa-file-medical"></i> Download with Annotations</a>
+                                <a href="?download=without_annotations"><i class="fas fa-file-pdf"></i> Download without Annotations</a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'files:file_download' file.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-download"></i> Download</a>
+                    {% endif %}
+                    
+                    {% if file.is_pdf %}
+                        <div style="border-left:1px solid var(--border);height:18px;margin:0 4px;"></div>
+                        <button class="btn btn-secondary btn-icon btn-sm" onclick="zoomOut()" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
+                        <span id="zoom-percent" style="font-size:11px;font-weight:600;min-width:34px;text-align:center;">120%</span>
+                        <button class="btn btn-secondary btn-icon btn-sm" onclick="zoomIn()" title="Zoom In"><i class="fas fa-search-plus"></i></button>
+                    {% endif %}
+                {% else %}
+                    <a href="{% url 'files:download_folder' folder.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-download"></i> Download ZIP</a>
+                {% endif %}
+                
+                <div style="border-left:1px solid var(--border);height:18px;margin:0 4px;"></div>
+                
+                <button class="btn btn-secondary btn-sm" onclick="toggleBottomPanel()" id="bottom-toggle-btn" title="Toggle Bottom Panel">
+                    <i class="fas fa-window-minimize"></i> Thread View
+                </button>
+                {% if can_delete %}
+                    <div style="border-left:1px solid var(--border);height:18px;margin:0 4px;"></div>
+                    {% if folder %}
+                        <form action="{% url 'files:category_delete' folder.pk %}" method="post" style="margin: 0; display: inline-block;" onsubmit="return confirmDeleteFolder(event);">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm" style="background-color: var(--red) !important; border-color: var(--red) !important; color: white !important;">
+                                <i class="fas fa-trash-alt"></i> Delete Folder
+                            </button>
+                        </form>
+                    {% else %}
+                        <form action="{% url 'files:file_delete' file.pk %}" method="post" style="margin: 0; display: inline-block;" onsubmit="return confirmDeleteDocument(event);">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm" style="background-color: var(--red) !important; border-color: var(--red) !important; color: white !important;">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Viewer scrollable container -->
+        <div class="pdf-container" id="pdf-viewer-container" style="{% if folder or not file.is_pdf %}padding:30px;background:var(--bg-primary);display:block;overflow-y:auto;{% endif %}">
+            {% if folder %}
+                <!-- FOLDER DETAILS PREVIEW -->
+                <div class="card" style="max-width:800px;margin:0 auto;padding:30px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);">
+                    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;text-align:left;">
+                        <div style="width:64px;height:64px;border-radius:12px;background:var(--accent-glow);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--accent);">
+                            <i class="fas fa-folder"></i>
+                        </div>
+                        <div>
+                            <h2 style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);margin:0 0 4px 0;">{{ folder.name }}</h2>
+                            <p style="font-size:12px;color:var(--text-muted);margin:0;"><i class="fas fa-project-diagram"></i> Path: {{ folder.full_path|default:folder.name }}</p>
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:30px;">
+                        <div style="background:var(--bg-secondary);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-weight:600;">Total Files</div>
+                            <div style="font-size:20px;font-weight:700;color:var(--text-primary);">{{ folder.latest_files.count }}</div>
+                        </div>
+                        <div style="background:var(--bg-secondary);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-weight:600;">Subfolders</div>
+                            <div style="font-size:20px;font-weight:700;color:var(--text-primary);">{{ folder.children.count }}</div>
+                        </div>
+                        <div style="background:var(--bg-secondary);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-weight:600;">Discussion Comments</div>
+                            <div style="font-size:20px;font-weight:700;color:var(--accent);">{{ all_comments.count }}</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="font-size:14px;font-weight:700;margin:0 0 12px 0;color:var(--text-primary);border-bottom:1px solid var(--border);padding-bottom:8px;text-align:left;">Folder Directory Contents</h3>
+                    {% if folder.children.exists or folder.latest_files.exists %}
+                        <div class="vscode-tree" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                            {% for child in folder.children.all %}
+                                {% if not child.is_in_trash %}
+                                <div class="tree-item" style="padding:4px 0;">
+                                    <div class="tree-row" style="display:flex;align-items:center;gap:8px;color:var(--text-primary);">
+                                        <i class="fas fa-folder" style="color:var(--accent);"></i>
+                                        <a href="{% url 'tasks:folder_discussion' project.pk child.pk %}" style="color:inherit;text-decoration:none;font-weight:600;">{{ child.name }}</a>
+                                        <span style="font-size:10px;color:var(--text-muted);margin-left:auto;">Subfolder</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                            {% for f in folder.latest_files %}
+                                <div class="tree-item" style="padding:4px 0;">
+                                    <div class="tree-row" style="display:flex;align-items:center;gap:8px;color:var(--text-secondary);">
+                                        <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }};"></i>
+                                        <a href="{% url 'tasks:document_discussion' project.pk f.pk %}" style="color:inherit;text-decoration:none;">{{ f.display_name }}</a>
+                                        <span style="font-size:10px;color:var(--text-muted);margin-left:auto;">{{ f.file_size_display }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;">
+                            This folder is empty.
+                        </div>
+                    {% endif %}
+                </div>
+            {% elif not file.is_pdf %}
+                <!-- NON-PDF FILE PREVIEW -->
+                <div class="card" style="max-width:800px;margin:0 auto;padding:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);">
+                    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px;text-align:left;">
+                        <div style="width:52px;height:52px;border-radius:10px;background:{{ file.icon_color }}20;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">
+                            <i class="fas {{ file.icon_class }}" style="color:{{ file.icon_color }};"></i>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <h2 style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);margin:0 0 2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ file.display_name }}</h2>
+                            <p style="font-size:11px;color:var(--text-muted);margin:0;">{{ file.get_file_type_display }} · {{ file.file_size_display }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- File Preview Content -->
+                    <div style="margin-bottom:20px;">
+                        {% if file.is_image %}
+                            <div style="text-align:center;background:var(--bg-secondary);padding:12px;border-radius:8px;border:1px solid var(--border);">
+                                <img src="{% url 'files:file_view' file.pk %}" alt="{{ file.display_name }}" style="max-width:100%;max-height:400px;border-radius:4px;object-fit:contain;">
+                            </div>
+                        {% elif file.is_text_viewable and text_content %}
+                            <div style="background:#0d1117;border-radius:8px;padding:16px;max-height:350px;overflow-y:auto;font-family:'Fira Code',monospace;font-size:12px;line-height:1.5;color:#e6edf3;white-space:pre-wrap;text-align:left;">{{ text_content }}</div>
+                        {% else %}
+                            <div style="text-align:center;padding:40px 20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
+                                <i class="fas {{ file.icon_class }}" style="font-size:48px;color:{{ file.icon_color }};margin-bottom:16px;opacity:0.8;"></i>
+                                <h3 style="font-size:14px;color:var(--text-primary);margin:0 0 8px 0;">No Preview Available for {{ file.extension }} Files</h3>
+                                <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px 0;">You can write comments on this file or download it to view.</p>
+                                <a href="{% url 'files:file_download' file.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download File</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div style="color:var(--text-muted);font-size:13px;padding:40px;text-align:center;">
+                    <i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Loading PDF Preview...
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Bottom Panel (Thread & Assignment Drawer) -->
+        <div class="bottom-panel collapsed" id="bottom-panel">
+            <div class="bottom-panel-left">
+                <div class="thread-header">
+                    <span id="thread-title">Select a comment thread to reply</span>
+                    <button class="btn btn-secondary btn-icon btn-sm" onclick="toggleBottomPanel()" style="border:none;background:none;"><i class="fas fa-chevron-down"></i></button>
+                </div>
+                <div class="thread-messages" id="thread-messages">
+                    <div style="color:var(--text-muted);font-size:12px;text-align:center;margin-top:20px;">
+                        No thread active. Select an outline comment on the right to view discussion history.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bottom-panel-right" id="thread-controls" style="opacity:0.5;pointer-events:none;">
+                <h4 style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin:0 0 4px 0;"><i class="fas fa-user-tag"></i> Task Assignment</h4>
+                
+                <!-- Assignment Form (Handled via AJAX) -->
+                <form id="assignment-form" method="post" style="display:flex;flex-direction:column;gap:8px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_assignment">
+                    <input type="hidden" name="comment_id" id="assign-comment-id" value="">
+                    
+                    <select name="assigned_to" id="assignee-select" class="form-control" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:6px;font-size:12px;color:var(--text-primary);width:100%;outline:none;">
+                        <option value="">-- Unassigned --</option>
+                        {% for m in project_members %}
+                        <option value="{{ m.pk }}">{{ m.display_name }} ({{ m.get_role_display }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-secondary btn-sm" style="align-self:flex-end;">Update Assignee</button>
+                </form>
+                
+                <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
+                
+                <!-- Reply Form (Handled via AJAX) -->
+                <form id="reply-form" method="post" style="display:flex;flex-direction:column;gap:6px;flex:1;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reply">
+                    <input type="hidden" name="parent_id" id="reply-parent-id" value="">
+                    
+                    <textarea name="content" id="reply-content-box" placeholder="Type a reply..." required style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;color:var(--text-primary);resize:none;min-height:50px;outline:none;"></textarea>
+                    <button type="submit" class="btn btn-primary btn-sm" style="align-self:flex-end;"><i class="fas fa-paper-plane"></i> Reply</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RIGHT COLLAPSIBLE SIDEBAR PANEL -->
+    <div class="right-sidebar" id="right-sidebar">
+        <!-- Toggle button to collapse -->
+        <div class="sidebar-toggle-btn" onclick="toggleRightSidebar()" title="Toggle Sidebar">
+            <i class="fas fa-chevron-right" id="sidebar-toggle-icon"></i>
+        </div>
+        
+        <!-- Tabs Header -->
+        <div class="tabs-header">
+            <div class="tab-btn active" id="tab-comments-btn" onclick="switchTab('comments')"><i class="fas fa-comments"></i> Outline</div>
+            <div class="tab-btn" id="tab-versions-btn" onclick="switchTab('versions')">{% if folder %}<i class="fas fa-info-circle"></i> Info{% else %}<i class="fas fa-history"></i> History{% endif %}</div>
+        </div>
+        
+        <!-- TAB 1: COMMENTS OUTLINE -->
+        <div class="tab-content active" id="tab-comments">
+            
+            <!-- NEW COMMENT FORM (Auto-fills page and section reference) -->
+            <div id="new-annotation-form" style="display:none;background:var(--bg-card-hover);border:1px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:16px;text-align:left;">
+                <h3 style="font-size:13px;font-weight:700;margin:0 0 10px 0;color:var(--accent);display:flex;align-items:center;gap:6px;">
+                    <i class="fas fa-marker"></i> <span id="form-title-text">New Annotation</span>
+                </h3>
+                <form id="comment-add-form" method="post" style="display:flex;flex-direction:column;gap:10px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_comment">
+                    <input type="hidden" name="page_number" id="form-page-number" value="">
+                    <input type="hidden" name="highlight_color" id="form-highlight-color" value="#ffeb3b">
+                    <input type="hidden" name="annotation_coords" id="form-annotation-coords" value="">
+                    
+                    {% if file and file.is_pdf %}
+                    <div style="display:flex;gap:6px;align-items:center;" id="pdf-highlight-meta">
+                        <span style="font-size:10px;font-weight:600;background:var(--accent-glow);color:var(--accent);padding:2px 6px;border-radius:4px;" id="badge-page-info">Page: 1</span>
+                        <div id="color-indicator" style="width:14px;height:14px;border-radius:50%;background:#ffeb3b;border:1px solid rgba(0,0,0,0.2);"></div>
+                    </div>
+                    {% endif %}
+                    
+                    <div>
+                        <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:2px;">Section / Reference</label>
+                        <input type="text" name="section" id="form-section" placeholder="e.g. Paragraph 2" style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:6px;font-size:12px;color:var(--text-primary);outline:none;">
+                    </div>
+                    
+                    <div>
+                        <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:2px;">Assigned To</label>
+                        <select name="assigned_to" style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:6px;font-size:12px;color:var(--text-primary);outline:none;">
+                            <option value="">-- Unassigned --</option>
+                            {% for m in project_members %}
+                            <option value="{{ m.pk }}">{{ m.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:2px;">Comment</label>
+                        <textarea name="content" required placeholder="Write comment details..." style="width:100%;height:60px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;color:var(--text-primary);resize:none;outline:none;"></textarea>
+                    </div>
+                    
+                    <div style="display:flex;justify-content:flex-end;gap:6px;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="cancelNewAnnotation()">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Save Comment</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- List of comments (outline style, first comment only) -->
+            <div id="comments-outline-list" style="text-align:left;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Comments & Discussion</div>
+                    <button class="btn btn-primary btn-xs" onclick="openGeneralCommentForm()" style="padding:2px 8px;font-size:10px;font-weight:600;"><i class="fas fa-plus"></i> Add Comment</button>
+                </div>
+                
+                {% for c in comments %}
+                <div class="comment-card" id="comment-card-{{ c.pk }}" onclick="selectComment({{ c.pk }})">
+                    <div class="comment-header">
+                        {% include 'partials/user_avatar.html' with avatar_user=c.author size="24" radius="50%" font_size="10" %}
+                        <span style="font-weight:600;font-size:12px;color:var(--text-primary);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.author.display_name }}</span>
+                        
+                        {% if c.highlight_color and not folder %}
+                        <div style="width:10px;height:10px;border-radius:50%;background:{{ c.highlight_color }};border:1px solid rgba(0,0,0,0.1);margin-left:auto;" title="Highlight color"></div>
+                        {% endif %}
+                    </div>
+                    <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;margin:0 0 6px 0;word-break:break-word;">
+                        {{ c.content|truncatechars:60 }}
+                    </p>
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="comment-meta">
+                            {% if c.page_number and not folder %}
+                            <span><i class="far fa-file"></i> Page {{ c.page_number }}</span>
+                            {% endif %}
+                            {% if c.section %}
+                            <span>• {{ c.section }}</span>
+                            {% endif %}
+                            {% if c.assigned_to %}
+                            <span style="color:var(--accent);font-weight:600;"><i class="fas fa-user-circle"></i> {{ c.assigned_to.display_name }}</span>
+                            {% endif %}
+                        </div>
+                        {% if c.page_number and file.is_pdf %}
+                        <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation(); showAnnotationOnPDF({{ c.page_number }}, {{ c.pk }});" title="Show Annotation" style="padding:2px 6px;font-size:10px;">
+                            Show Annotation
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;" id="no-comments-placeholder">
+                    {% if file and file.is_pdf %}
+                    No annotations created yet. Highlight text or drag a box on the document or click "Add Comment" to start the conversation.
+                    {% else %}
+                    No comments created yet. Click "Add Comment" to start the conversation.
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- TAB 2: VERSION & UPLOAD HISTORY / FOLDER INFO -->
+        <div class="tab-content" id="tab-versions" style="text-align:left;">
+            {% if folder %}
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Folder Info</div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div style="border:1px solid var(--border);background:var(--bg-card);border-radius:8px;padding:12px;">
+                        <div style="font-weight:600;font-size:12px;color:var(--text-primary);margin-bottom:4px;">Folder Details</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Created by: {{ folder.created_by.display_name|default:"System" }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Created on: {{ folder.created_at|date:"M d, Y" }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);">Project: {{ project.name }}</div>
+                    </div>
+                </div>
+            {% else %}
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Version History</div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <!-- Current Active Version -->
+                    <div style="border:1px solid var(--accent);background:var(--accent-glow);border-radius:8px;padding:12px;position:relative;">
+                        <div style="position:absolute;top:10px;right:10px;background:var(--accent);color:#fff;font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase;">Active</div>
+                        <div style="font-weight:600;font-size:12px;color:var(--text-primary);margin-bottom:4px;">Version {{ file.version }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Uploaded by {{ file.uploaded_by.display_name }} • {{ file.created_at|date:"M d, Y" }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">Size: {{ file.file_size_display }}</div>
+                        <a href="{% url 'files:file_download' file.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-download"></i> Download</a>
+                    </div>
+                    
+                    {% for v in versions %}
+                    <div style="border:1px solid var(--border);background:var(--bg-card);border-radius:8px;padding:12px;">
+                        <div style="font-weight:600;font-size:12px;color:var(--text-primary);margin-bottom:4px;">Version {{ v.version }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Uploaded by {{ v.uploaded_by.display_name }} • {{ v.created_at|date:"M d, Y" }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">Size: {{ v.file_size_display }}</div>
+                        <a href="{% url 'files:file_download' v.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-download"></i> Download</a>
+                    </div>
+                    {% empty %}
+                    <div style="color:var(--text-muted);font-size:11px;text-align:center;padding:10px;">No prior historical versions.</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS FOR PDF.JS RENDERING & ANNOTATION LOGIC -->
+{% if file and file.is_pdf %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+{% endif %}
+<script>
+    {% if file and file.is_pdf %}
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    const url = "{% url 'files:file_view' file.pk %}";
+    let pdfDoc = null;
+    let scale = 1.2;
+    {% endif %}
+    
+    // DB Comments and threads array
+    const commentsData = {
+        {% for c in comments %}
+        "{{ c.pk }}": {
+            id: {{ c.pk }},
+            author: "{{ c.author.display_name|escapejs }}",
+            authorAvatar: "{% include 'partials/user_avatar.html' with avatar_user=c.author size='24' radius='50%' font_size='10' %}",
+            content: "{{ c.content|escapejs }}",
+            page: {% if folder %}0{% else %}{{ c.page_number|default:0 }}{% endif %},
+            section: "{{ c.section|default:''|escapejs }}",
+            color: "{{ c.highlight_color|default:''|escapejs }}",
+            assignedToId: "{{ c.assigned_to.pk|default:'' }}",
+            replies: [
+                {% for r in c.replies.all %}
+                {
+                    author: "{{ r.author.display_name|escapejs }}",
+                    content: "{{ r.content|escapejs }}",
+                    createdAt: "{{ r.created_at|date:'M d, H:i' }}",
+                    mine: {% if r.author == user %}true{% else %}false{% endif %}
+                },
+                {% endfor %}
+            ]
+        },
+        {% endfor %}
+    };
+    
+    // All annotations coords array to draw on PDF
+    const annotations = [
+        {% if not folder %}
+        {% for c in all_comments %}
+        {% if c.page_number and c.annotation_coords %}
+        {
+            id: {{ c.pk }},
+            parent_id: {% if c.parent_id %}{{ c.parent_id }}{% else %}{{ c.pk }}{% endif %},
+            author: "{{ c.author.display_name|escapejs }}",
+            content: "{{ c.content|escapejs }}",
+            page: {{ c.page_number }},
+            section: "{{ c.section|escapejs }}",
+            color: "{{ c.highlight_color|escapejs }}",
+            coords: {{ c.annotation_coords|safe }}
+        },
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    ];
+
+    {% if file and file.is_pdf %}
+    // Initialize document
+    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+        pdfDoc = pdfDoc_;
+        
+        // Render all pages
+        const container = document.getElementById('pdf-viewer-container');
+        container.innerHTML = '';
+        
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            renderPage(i, container);
+        }
+    }).catch(function(err) {
+        console.error("PDF loading error: ", err);
+        document.getElementById('pdf-viewer-container').innerHTML = `
+            <div style="color:var(--red);padding:40px;text-align:center;">
+                <i class="fas fa-exclamation-triangle" style="font-size:24px;margin-bottom:12px;"></i>
+                <p>Failed to load PDF. Verify file integrity.</p>
+            </div>
+        `;
+    });
+    
+    function renderPage(num, container) {
+        const pageWrapper = document.createElement('div');
+        pageWrapper.className = 'pdf-page-wrapper';
+        pageWrapper.id = 'page-wrapper-' + num;
+        pageWrapper.dataset.pageNumber = num;
+        pageWrapper.style.position = 'relative';
+        pageWrapper.style.display = 'block';
+        pageWrapper.style.margin = '0 auto 24px auto';
+        
+        const canvas = document.createElement('canvas');
+        canvas.id = 'canvas-' + num;
+        pageWrapper.appendChild(canvas);
+        
+        const overlay = document.createElement('div');
+        overlay.className = 'pdf-annotation-overlay';
+        overlay.id = 'overlay-' + num;
+        pageWrapper.appendChild(overlay);
+        
+        container.appendChild(pageWrapper);
+        
+        pdfDoc.getPage(num).then(function(page) {
+            const viewport = page.getViewport({scale: scale});
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            pageWrapper.style.width = viewport.width + 'px';
+            pageWrapper.style.height = viewport.height + 'px';
+            
+            const renderContext = {
+                canvasContext: canvas.getContext('2d'),
+                viewport: viewport
+            };
+            page.render(renderContext).promise.then(function() {
+                drawAnnotationsForPage(num, overlay);
+            });
+            
+            setupHighlighter(num, overlay);
+        });
+    }
+    
+    function drawAnnotationsForPage(num, overlay) {
+        annotations.forEach(function(ann) {
+            if (ann.page === num) {
+                ann.coords.forEach(function(rect) {
+                    const highlight = document.createElement('div');
+                    highlight.className = 'db-highlight highlight-ann-' + ann.parent_id;
+                    highlight.style.position = 'absolute';
+                    highlight.style.left = (rect.x * 100) + '%';
+                    highlight.style.top = (rect.y * 100) + '%';
+                    highlight.style.width = (rect.w * 100) + '%';
+                    highlight.style.height = (rect.h * 100) + '%';
+                    highlight.style.backgroundColor = ann.color;
+                    highlight.style.opacity = '0.35';
+                    highlight.style.cursor = 'pointer';
+                    highlight.style.borderRadius = '2px';
+                    
+                    highlight.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        selectComment(ann.parent_id);
+                        showAnnotationOnPDF(ann.page, ann.parent_id);
+                    });
+                    
+                    overlay.appendChild(highlight);
+                });
+            }
+        });
+    }
+
+    function redrawAllAnnotations() {
+        document.querySelectorAll('.db-highlight').forEach(el => el.remove());
+        if (pdfDoc) {
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const overlay = document.getElementById('overlay-' + i);
+                if (overlay) {
+                    drawAnnotationsForPage(i, overlay);
+                }
+            }
+        }
+    }
+    
+    // Zoom Functions
+    function zoomIn() {
+        if (scale >= 3) return;
+        scale = parseFloat((scale + 0.1).toFixed(1));
+        updateZoom();
+    }
+    
+    function zoomOut() {
+        if (scale <= 0.6) return;
+        scale = parseFloat((scale - 0.1).toFixed(1));
+        updateZoom();
+    }
+    
+    function updateZoom() {
+        document.getElementById('zoom-percent').textContent = Math.round(scale * 100) + '%';
+        const container = document.getElementById('pdf-viewer-container');
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Re-rendering PDF pages...</div>';
+        
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            renderPage(i, container);
+        }
+    }
+    
+    // DRAW BOX HIGHLIGHTER CODE
+    let activeTooltip = null;
+    
+    function clearTempHighlight() {
+        if (activeTooltip) {
+            activeTooltip.remove();
+            activeTooltip = null;
+        }
+        document.querySelectorAll('.temp-highlight').forEach(el => el.remove());
+    }
+    
+    function setupHighlighter(pageNum, overlay) {
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let currentBox = null;
+        
+        overlay.addEventListener('mousedown', function(e) {
+            if (e.button !== 0) return;
+            clearTempHighlight();
+            
+            isDrawing = true;
+            const rect = overlay.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            
+            currentBox = document.createElement('div');
+            currentBox.className = 'temp-highlight';
+            currentBox.style.position = 'absolute';
+            currentBox.style.left = startX + 'px';
+            currentBox.style.top = startY + 'px';
+            currentBox.style.border = '1px dashed var(--accent)';
+            currentBox.style.backgroundColor = 'rgba(79, 142, 247, 0.15)';
+            overlay.appendChild(currentBox);
+        });
+        
+        overlay.addEventListener('mousemove', function(e) {
+            if (!isDrawing) return;
+            const rect = overlay.getBoundingClientRect();
+            const curX = e.clientX - rect.left;
+            const curY = e.clientY - rect.top;
+            
+            const width = curX - startX;
+            const height = curY - startY;
+            
+            currentBox.style.width = Math.abs(width) + 'px';
+            currentBox.style.height = Math.abs(height) + 'px';
+            currentBox.style.left = (width < 0 ? curX : startX) + 'px';
+            currentBox.style.top = (height < 0 ? curY : startY) + 'px';
+        });
+        
+        overlay.addEventListener('mouseup', function(e) {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const rect = overlay.getBoundingClientRect();
+            const width = parseFloat(currentBox.style.width) || 0;
+            const height = parseFloat(currentBox.style.height) || 0;
+            
+            if (width < 6 || height < 6) {
+                currentBox.remove();
+                return;
+            }
+            
+            const xPercent = parseFloat(currentBox.style.left) / rect.width;
+            const yPercent = parseFloat(currentBox.style.top) / rect.height;
+            const wPercent = width / rect.width;
+            const hPercent = height / rect.height;
+            
+            showColorPickerTooltip(pageNum, currentBox, {
+                x: xPercent,
+                y: yPercent,
+                w: wPercent,
+                h: hPercent
+            });
+        });
+    }
+    
+    function showColorPickerTooltip(pageNum, box, coords) {
+        if (activeTooltip) activeTooltip.remove();
+        
+        const tooltip = document.createElement('div');
+        tooltip.className = 'color-picker-tooltip';
+        tooltip.style.position = 'absolute';
+        tooltip.style.left = box.style.left;
+        
+        const boxTop = parseFloat(box.style.top);
+        tooltip.style.top = (boxTop > 50 ? boxTop - 45 : boxTop + parseFloat(box.style.height) + 10) + 'px';
+        tooltip.style.zIndex = '1000';
+        tooltip.style.backgroundColor = 'var(--bg-card)';
+        tooltip.style.border = '1px solid var(--border)';
+        tooltip.style.borderRadius = '20px';
+        tooltip.style.padding = '5px 10px';
+        tooltip.style.display = 'flex';
+        tooltip.style.alignItems = 'center';
+        tooltip.style.gap = '8px';
+        tooltip.style.boxShadow = 'var(--shadow)';
+        
+        const colors = ['#ffeb3b', '#8bc34a', '#e91e63', '#00bcd4', '#ff9800', '#9c27b0'];
+        colors.forEach(function(col) {
+            const dot = document.createElement('div');
+            dot.style.width = '16px';
+            dot.style.height = '16px';
+            dot.style.borderRadius = '50%';
+            dot.style.backgroundColor = col;
+            dot.style.cursor = 'pointer';
+            dot.style.border = '1px solid rgba(0,0,0,0.15)';
+            dot.addEventListener('click', function(e) {
+                e.stopPropagation();
+                applyHighlightColor(pageNum, col, coords, box);
+            });
+            tooltip.appendChild(dot);
+        });
+        
+        const picker = document.createElement('input');
+        picker.type = 'color';
+        picker.value = '#ffeb3b';
+        picker.style.width = '18px';
+        picker.style.height = '18px';
+        picker.style.padding = '0';
+        picker.style.border = 'none';
+        picker.style.borderRadius = '50%';
+        picker.style.cursor = 'pointer';
+        picker.style.backgroundColor = 'transparent';
+        picker.addEventListener('change', function(e) {
+            applyHighlightColor(pageNum, picker.value, coords, box);
+        });
+        tooltip.appendChild(picker);
+        
+        const cancel = document.createElement('i');
+        cancel.className = 'fas fa-times';
+        cancel.style.cursor = 'pointer';
+        cancel.style.fontSize = '12px';
+        cancel.style.color = 'var(--text-muted)';
+        cancel.style.marginLeft = '4px';
+        cancel.addEventListener('click', function(e) {
+            e.stopPropagation();
+            clearTempHighlight();
+        });
+        tooltip.appendChild(cancel);
+        
+        box.parentNode.appendChild(tooltip);
+        activeTooltip = tooltip;
+    }
+    
+    function applyHighlightColor(pageNum, color, coords, box) {
+        box.style.border = 'none';
+        box.style.backgroundColor = color;
+        box.style.opacity = '0.35';
+        
+        document.getElementById('form-title-text').textContent = 'New Annotation';
+        document.getElementById('form-page-number').value = pageNum;
+        document.getElementById('form-highlight-color').value = color;
+        document.getElementById('form-annotation-coords').value = JSON.stringify([coords]);
+        
+        const pdfMeta = document.getElementById('pdf-highlight-meta');
+        if (pdfMeta) pdfMeta.style.display = 'flex';
+        
+        // Auto pre-fill section text from selected annotations
+        document.getElementById('form-section').value = 'Page ' + pageNum + ', Sec';
+        const pageInfo = document.getElementById('badge-page-info');
+        if (pageInfo) pageInfo.textContent = 'Page: ' + pageNum;
+        const colorInd = document.getElementById('color-indicator');
+        if (colorInd) colorInd.style.backgroundColor = color;
+        
+        if (activeTooltip) {
+            activeTooltip.remove();
+            activeTooltip = null;
+        }
+        
+        openNewAnnotationForm();
+    }
+    {% endif %}
+    
+    function openGeneralCommentForm() {
+        document.getElementById('form-title-text').textContent = 'New Comment';
+        document.getElementById('form-page-number').value = '';
+        document.getElementById('form-highlight-color').value = '';
+        document.getElementById('form-annotation-coords').value = '';
+        
+        const pdfMeta = document.getElementById('pdf-highlight-meta');
+        if (pdfMeta) pdfMeta.style.display = 'none';
+        
+        document.getElementById('form-section').value = '';
+        openNewAnnotationForm();
+    }
+    
+    function openNewAnnotationForm() {
+        document.getElementById('new-annotation-form').style.display = 'block';
+        document.getElementById('comments-outline-list').style.display = 'none';
+        document.getElementById('tab-comments').scrollTop = 0;
+    }
+    
+    function cancelNewAnnotation() {
+        document.getElementById('new-annotation-form').style.display = 'none';
+        document.getElementById('comments-outline-list').style.display = 'block';
+        {% if file and file.is_pdf %}
+        clearTempHighlight();
+        {% endif %}
+    }
+    
+    // COMMENTS & INTERACTION CODE
+    let activeCommentId = null;
+    
+    function selectComment(id) {
+        activeCommentId = id;
+        
+        // Highlight active card in Outline list
+        document.querySelectorAll('.comment-card').forEach(el => el.classList.remove('active'));
+        const card = document.getElementById('comment-card-' + id);
+        if (card) {
+            card.classList.add('active');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // Highlight active drawings on canvas
+        document.querySelectorAll('.db-highlight').forEach(el => {
+            el.classList.remove('active');
+            el.style.outline = 'none';
+        });
+        document.querySelectorAll('.highlight-ann-' + id).forEach(el => {
+            el.classList.add('active');
+            el.style.outline = '2px solid var(--accent)';
+        });
+        
+        // Render thread details in bottom panel
+        const thread = commentsData[id];
+        if (thread) {
+            document.getElementById('thread-title').innerHTML = `Discussion: ${thread.section || 'General'}`;
+            
+            // Setup thread controls & assignment values
+            document.getElementById('thread-controls').style.opacity = '1';
+            document.getElementById('thread-controls').style.pointerEvents = 'auto';
+            document.getElementById('reply-parent-id').value = id;
+            document.getElementById('assign-comment-id').value = id;
+            document.getElementById('assignee-select').value = thread.assignedToId;
+            
+            // Build thread replies
+            const repliesDiv = document.getElementById('thread-messages');
+            repliesDiv.innerHTML = '';
+            
+            // Root comment bubble
+            const rootBubble = document.createElement('div');
+            rootBubble.className = 'message-bubble';
+            rootBubble.innerHTML = `
+                <div style="font-weight:600;font-size:11px;color:var(--accent);margin-bottom:2px;text-align:left;">${thread.author}</div>
+                <div style="font-size:12px;color:var(--text-primary);text-align:left;">${thread.content}</div>
+            `;
+            repliesDiv.appendChild(rootBubble);
+            
+            // Replies list
+            thread.replies.forEach(function(rep) {
+                const bubble = document.createElement('div');
+                bubble.className = 'message-bubble' + (rep.mine ? ' mine' : '');
+                bubble.style.marginTop = '6px';
+                bubble.innerHTML = `
+                    <div style="font-weight:600;font-size:11px;color:${rep.mine ? 'var(--text-primary)' : 'var(--accent)'};margin-bottom:2px;text-align:left;">
+                        ${rep.author} <span style="font-size:9px;color:var(--text-muted);font-weight:normal;margin-left:4px;">${rep.createdAt}</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-primary);text-align:left;">${rep.content}</div>
+                `;
+                repliesDiv.appendChild(bubble);
+            });
+            
+            repliesDiv.scrollTop = repliesDiv.scrollHeight;
+            
+            // Expand bottom drawer
+            const bp = document.getElementById('bottom-panel');
+            if (bp.classList.contains('collapsed')) {
+                bp.classList.remove('collapsed');
+            }
+        }
+    }
+    
+    function showAnnotationOnPDF(pageNumber, commentId) {
+        if (!pageNumber) return;
+        const pageWrapper = document.getElementById('page-wrapper-' + pageNumber);
+        if (pageWrapper) {
+            pageWrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Pulsing highlight
+            document.querySelectorAll('.highlight-ann-' + commentId).forEach(el => {
+                el.style.transition = 'transform 0.2s';
+                el.style.transform = 'scale(1.05)';
+                setTimeout(() => el.style.transform = 'scale(1)', 300);
+            });
+        }
+        selectComment(commentId);
+    }
+    
+    // TAB NAVIGATION FOR RIGHT SIDE PANEL
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(cont => cont.classList.remove('active'));
+        
+        if (tab === 'comments') {
+            document.getElementById('tab-comments-btn').classList.add('active');
+            document.getElementById('tab-comments').classList.add('active');
+        } else {
+            document.getElementById('tab-versions-btn').classList.add('active');
+            document.getElementById('tab-versions').classList.add('active');
+        }
+    }
+    
+    // RIGHT SIDEBAR TOGGLE
+    function toggleRightSidebar() {
+        const sidebar = document.getElementById('right-sidebar');
+        const icon = document.getElementById('sidebar-toggle-icon');
+        sidebar.classList.toggle('collapsed');
+        
+        if (sidebar.classList.contains('collapsed')) {
+            icon.className = 'fas fa-chevron-left';
+        } else {
+            icon.className = 'fas fa-chevron-right';
+        }
+    }
+    
+    // BOTTOM PANEL TOGGLE
+    function toggleBottomPanel() {
+        const bp = document.getElementById('bottom-panel');
+        bp.classList.toggle('collapsed');
+    }
+    
+    // Close dropdowns
+    document.addEventListener('click', function(e) {
+        const userDropdown = document.getElementById('topbarUserDropdown');
+        if (userDropdown && !e.target.closest('.topbar-user-menu')) {
+            userDropdown.classList.remove('show');
+        }
+        
+        const dlDropdown = document.getElementById('downloadOptions');
+        if (dlDropdown && !e.target.closest('.btn-group')) {
+            dlDropdown.classList.remove('show');
+        }
+    });
+
+    // FETCH-BASED FORM SUBMISSION (PREVENTS RESET)
+    function setupAjaxForm(formId, successCallback) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const origText = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            }
+            
+            const formData = new FormData(form);
+            fetch(form.action || window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.text())
+            .then(html => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = origText;
+                }
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Parse script updates
+                const scripts = doc.querySelectorAll('script');
+                let foundScript = '';
+                for (const s of scripts) {
+                    if (s.textContent.includes('const commentsData =')) {
+                        foundScript = s.textContent;
+                        break;
+                    }
+                }
+                
+                if (foundScript) {
+                    const cdMatch = foundScript.match(/const commentsData = ({[\s\S]*?});/);
+                    if (cdMatch) {
+                        try {
+                            const parsedData = (new Function('return ' + cdMatch[1]))();
+                            for (const key in commentsData) delete commentsData[key];
+                            Object.assign(commentsData, parsedData);
+                        } catch (err) { console.error(err); }
+                    }
+                    
+                    const annMatch = foundScript.match(/const annotations = (\[[\s\S]*?\]);/);
+                    if (annMatch) {
+                        try {
+                            const parsedAnn = (new Function('return ' + annMatch[1]))();
+                            annotations.length = 0;
+                            annotations.push(...parsedAnn);
+                        } catch (err) { console.error(err); }
+                    }
+                }
+                
+                // Update DOM outline list
+                const newOutline = doc.getElementById('comments-outline-list');
+                if (newOutline) {
+                    document.getElementById('comments-outline-list').innerHTML = newOutline.innerHTML;
+                }
+                
+                // Redraw highlights
+                {% if file and file.is_pdf %}
+                redrawAllAnnotations();
+                {% endif %}
+                
+                if (successCallback) successCallback(doc);
+            })
+            .catch(err => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = origText;
+                }
+                console.error(err);
+                alert('Action failed. Please try again.');
+            });
+        });
+    }
+
+    // Bind AJAX forms
+    setupAjaxForm('comment-add-form', function() {
+        cancelNewAnnotation();
+    });
+    setupAjaxForm('assignment-form', function() {
+        if (activeCommentId) selectComment(activeCommentId);
+    });
+    setupAjaxForm('reply-form', function() {
+        document.getElementById('reply-content-box').value = '';
+        if (activeCommentId) selectComment(activeCommentId);
+    });
+
+    // Auto-open comments via URL hash parameter
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const commentId = urlParams.get('comment_id');
+        if (commentId && commentsData[commentId]) {
+            setTimeout(() => {
+                const comment = commentsData[commentId];
+                {% if file and file.is_pdf %}
+                showAnnotationOnPDF(comment.page, comment.id);
+                {% else %}
+                selectComment(comment.id);
+                {% endif %}
+            }, 800);
+        }
+    });
+
+    function confirmDeleteDocument(e) {
+        if (!confirm("Are you sure you want to delete this document? This will move it to the trash/bin.")) {
+            e.preventDefault();
+            return false;
+        }
+        return true;
+    }
+
+    function confirmDeleteFolder(e) {
+        if (!confirm("Are you sure you want to delete this folder? This will move it and all its subfolders and files to the trash/bin.")) {
+            e.preventDefault();
+            return false;
+        }
+        return true;
+    }
+</script>
+{% endblock %}

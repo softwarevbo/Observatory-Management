@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}Bug Reports — IIAP PM{% endblock %}
+{% block page_title %}Bug Reports{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'tasks:bug_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Report Bug</a>
+{% endblock %}
+{% block content %}
+
+<!-- Toggle Tabs -->
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+    <a href="{% url 'tasks:bug_list' %}" class="btn {% if not assigned_only %}btn-primary{% else %}btn-secondary{% endif %}">All Bugs</a>
+    <a href="{% url 'tasks:bug_list' %}?assigned_to_me=1" class="btn {% if assigned_only %}btn-primary{% else %}btn-secondary{% endif %}"><i class="fas fa-user-check"></i> Assigned to Me</a>
+</div>
+
+<form method="get" class="filter-bar">
+    {% if assigned_only %}<input type="hidden" name="assigned_to_me" value="1">{% endif %}
+    <select name="severity" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Severities</option>
+        {% for val, label in severity_choices %}<option value="{{ val }}" {% if severity_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="project" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Projects</option>
+        {% for p in projects %}<option value="{{ p.pk }}" {% if project_filter == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+    </select>
+    {% if severity_filter or status_filter or project_filter %}
+    <a href="{% url 'tasks:bug_list' %}{% if assigned_only %}?assigned_to_me=1{% endif %}" class="btn btn-secondary"><i class="fas fa-times"></i> Clear</a>
+    {% endif %}
+</form>
+
+<div class="card" style="padding:0;">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Bug</th>
+                    <th>Project</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Reported By</th>
+                    {% if is_pm or is_incharge %}
+                    <th>Assigned To</th>
+                    {% endif %}
+                    <th>Linked Task</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bug in bugs %}
+                <tr>
+                    <td>
+                        <a href="{% url 'tasks:bug_detail' bug.pk %}" style="color:var(--text-primary);text-decoration:none;font-weight:500;font-size:13px;">{{ bug.title }}</a>
+                    </td>
+                    <td>
+                        {% if bug.project %}
+                        <a href="{% url 'tasks:project_detail' bug.project.pk %}" style="color:var(--accent);font-size:12px;text-decoration:none;">{{ bug.project.name }}</a>
+                        {% else %}
+                        <span style="font-size:12px;color:var(--text-muted);">— Global —</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if bug.severity == 'critical' %}badge-red{% elif bug.severity == 'high' %}badge-yellow{% elif bug.severity == 'medium' %}badge-blue{% else %}badge-gray{% endif %}">
+                            {{ bug.get_severity_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if bug.status == 'open' %}badge-red{% elif bug.status == 'in_progress' %}badge-blue{% elif bug.status == 'resolved' %}badge-green{% else %}badge-gray{% endif %}">
+                            {{ bug.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            {% include 'partials/user_avatar.html' with avatar_user=bug.reported_by size="24" radius="50%" font_size="9" %}
+                            <span style="font-size:12px;">{{ bug.reported_by.display_name }}</span>
+                        </div>
+                    </td>
+                    {% if is_pm or is_incharge %}
+                    <td>
+                        {% if bug.assignees.all %}
+                            {% for assignee in bug.assignees.all|slice:":3" %}
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                {% include 'partials/user_avatar.html' with avatar_user=assignee size="24" radius="50%" font_size="9" title=assignee.display_name %}
+                                <span style="font-size:12px;">{{ assignee.display_name }}</span>
+                            </div>
+                            {% endfor %}
+                            {% if bug.assignees.count > 3 %}<span style="font-size:10px;color:var(--text-muted);">+{{ bug.assignees.count|add:"-3" }} more</span>{% endif %}
+                        {% else %}
+                        <span style="font-size:12px;color:var(--text-muted);">— Unassigned —</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>
+                        {% if bug.linked_task %}
+                        <a href="{% url 'tasks:task_detail' bug.linked_task.pk %}" style="color:var(--accent);font-size:12px;text-decoration:none;">
+                            <i class="fas fa-tasks" style="margin-right:4px;font-size:10px;"></i>{{ bug.linked_task.title|truncatewords:4 }}
+                        </a>
+                        {% else %}
+                        <span style="font-size:12px;color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:12px;color:var(--text-muted);">{{ bug.created_at|date:"d M Y" }}</td>
+                    <td>
+                        <div style="display:flex;gap:4px;">
+                            <a href="{% url 'tasks:bug_detail' bug.pk %}" class="btn btn-secondary btn-icon btn-sm" title="View"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'tasks:bug_edit' bug.pk %}" class="btn btn-secondary btn-icon btn-sm" title="Edit"><i class="fas fa-edit"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if is_pm or is_incharge %}9{% else %}8{% endif %}">
+                        <div class="empty-state">
+                            <i class="fas fa-bug"></i>
+                            <h3>No bugs found</h3>
+                            <p>{% if severity_filter or status_filter or project_filter %}Try adjusting your filters.{% elif assigned_only %}No bugs are currently assigned to you.{% else %}Great! No bugs have been reported yet.{% endif %}</p>
+                            {% if not severity_filter and not status_filter and not project_filter and not assigned_only %}
+                            <a href="{% url 'tasks:bug_create' %}" class="btn btn-primary btn-sm" style="margin-top:12px;"><i class="fas fa-plus"></i> Report First Bug</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

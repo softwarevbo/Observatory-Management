@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+{% load task_tags %}
+
+{% block title %}Verification Report: {{ test_case.test_id }} — IIAP PM{% endblock %}
+{% block page_title %}Test Verification Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-bottom: 60px;
+    }
+
+    .traceability-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--bg-card);
+        padding: 10px 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        margin-bottom: 24px;
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .traceability-breadcrumb a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .traceability-breadcrumb i {
+        font-size: 10px;
+        opacity: 0.4;
+    }
+
+    .status-banner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 24px;
+        border-radius: var(--radius);
+        margin-bottom: 24px;
+        border: 1px solid var(--border);
+    }
+
+    .status-banner.passed { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+    .status-banner.failed { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+    .status-banner.pending { background: var(--bg-secondary); border-color: var(--border); color: var(--text-muted); }
+
+    .status-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        background: rgba(255,255,255,0.1);
+    }
+
+    .detail-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 30px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow);
+    }
+
+    .section-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .section-label i {
+        color: var(--accent);
+        font-size: 14px;
+    }
+
+    .result-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .result-box {
+        padding: 20px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        height: 100%;
+    }
+
+    .result-box.expected { background: var(--bg-primary); border-left: 4px solid var(--green); }
+    .result-box.actual { background: var(--bg-primary); border-left: 4px solid var(--accent); }
+
+    .result-box.actual.passed { border-left-color: var(--green); }
+    .result-box.actual.failed { border-left-color: var(--red); }
+
+    .instruction-block {
+        background: var(--bg-secondary);
+        border-radius: var(--radius-sm);
+        padding: 20px;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        line-height: 1.8;
+        color: var(--text-primary);
+        white-space: pre-line;
+        border: 1px solid var(--border);
+    }
+
+    .meta-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-light);
+        font-size: 13px;
+    }
+
+    .meta-item:last-child { border-bottom: none; }
+
+    .evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+        margin-top: 15px;
+    }
+
+    .evidence-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: var(--transition);
+    }
+
+    .evidence-card:hover {
+        border-color: var(--accent);
+        background: var(--bg-card);
+        transform: translateY(-2px);
+    }
+
+    .sidebar-widget {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 24px;
+        padding-bottom: 20px;
+        border-left: 1px solid var(--border);
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -5px;
+        top: 0;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--border);
+        border: 2px solid var(--bg-card);
+    }
+
+    .timeline-item.active::before {
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .markdown-rendered {
+        font-size: inherit;
+        line-height: 1.6;
+    }
+    .markdown-rendered p { margin-bottom: 12px; }
+    .markdown-rendered p:last-child { margin-bottom: 0; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    
+    <div class="traceability-breadcrumb">
+        <i class="fas fa-project-diagram"></i>
+        <a href="{% url 'tasks:project_detail' test_case.project.pk %}">{{ test_case.project.name }}</a>
+        <i class="fas fa-chevron-right"></i>
+        {% if test_case.task.requirement %}
+        <a href="{% url 'tasks:project_detail' test_case.project.pk %}?view=requirements">{{ test_case.task.requirement.req_id }}</a>
+        <i class="fas fa-chevron-right"></i>
+        {% endif %}
+        <a href="{% url 'tasks:task_detail' test_case.task.pk %}">{{ test_case.task.task_id }}</a>
+        <i class="fas fa-chevron-right"></i>
+        <span style="color: var(--text-primary); font-weight: 700;">{{ test_case.test_id }}</span>
+    </div>
+
+    <div class="status-banner {% if test_case.status == 'passed' %}passed{% elif test_case.status == 'failed' %}failed{% else %}pending{% endif %}">
+        <div class="status-icon">
+            <i class="fas {% if test_case.status == 'passed' %}fa-check-circle{% elif test_case.status == 'failed' %}fa-times-circle{% else %}fa-clock{% endif %}"></i>
+        </div>
+        <div style="flex: 1;">
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Verification Status</div>
+            <div style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;">{{ test_case.get_status_display }}</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            {% if user.is_admin or user in test_case.project.managers.all %}
+            <a href="{% url 'tasks:test_case_edit' test_case.pk %}" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+            {% endif %}
+            <a href="{% url 'tasks:test_case_verify' test_case.pk %}" class="btn btn-primary"><i class="fas fa-play"></i> Execute Test</a>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+        <div class="main-report">
+            <div class="detail-card">
+                <div style="margin-bottom: 30px;">
+                    <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; margin-bottom: 12px;">{{ test_case.title }}</h1>
+                    <div class="render-markdown" style="font-size: 15px; color: var(--text-secondary); line-height: 1.6;" data-content="{{ test_case.scenario|default:'' }}">
+                        {{ test_case.scenario|default:"No testing scenario defined." }}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <div class="section-label"><i class="fas fa-clipboard-check"></i> Pre-Verification Conditions</div>
+                    <div class="render-markdown instruction-block" style="background: var(--bg-primary);" data-content="{{ test_case.preconditions|default:'' }}">
+                        {{ test_case.preconditions|default:"Standard operating environment. No special prerequisites." }}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <div class="section-label"><i class="fas fa-list-ol"></i> Step-by-Step Execution</div>
+                    <div class="render-markdown instruction-block" data-content="{{ test_case.steps|default:'' }}">
+                        {{ test_case.steps }}
+                    </div>
+                </div>
+
+                <div class="section-label"><i class="fas fa-vial"></i> Results Analysis</div>
+                <div class="result-grid">
+                    <div class="result-box expected">
+                        <div class="render-markdown" style="font-size: 14px; font-weight: 500; color: var(--text-primary);" data-content="{{ test_case.expected_result|default:'' }}">
+                            {{ test_case.expected_result }}
+                        </div>
+                    </div>
+                    <div class="result-box actual {% if test_case.status == 'passed' %}passed{% elif test_case.status == 'failed' %}failed{% endif %}">
+                        <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase;">Actual Observation</div>
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">{{ test_case.actual_result|default:"Awaiting test execution..." }}</div>
+                    </div>
+                </div>
+
+                {% if test_case.attachments.exists %}
+                <div style="margin-top: 40px;">
+                    <div class="section-label"><i class="fas fa-paperclip"></i> Verification Evidence</div>
+                    <div class="evidence-grid">
+                        {% for att in test_case.attachments.all %}
+                        <a href="{{ att.file.url }}" target="_blank" class="evidence-card">
+                            <i class="fas fa-file-image" style="color: var(--accent); font-size: 18px;"></i>
+                            <div style="min-width: 0;">
+                                <div style="font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ att.file.name|split:"/"|last }}</div>
+                                <div style="font-size: 10px; color: var(--text-muted);">{{ att.file.size|filesizeformat }}</div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="sidebar-report">
+            <div class="sidebar-widget">
+                <div class="section-label"><i class="fas fa-info-circle"></i> Meta Information</div>
+                <div class="meta-item">
+                    <span style="color: var(--text-muted);">Unique ID</span>
+                    <span style="font-weight: 700; color: var(--accent);">{{ test_case.test_id }}</span>
+                </div>
+                <div class="meta-item">
+                    <span style="color: var(--text-muted);">Priority</span>
+                    <span class="badge {% if test_case.priority == 'critical' %}badge-red{% elif test_case.priority == 'high' %}badge-yellow{% else %}badge-green{% endif %}">{{ test_case.get_priority_display }}</span>
+                </div>
+                <div class="meta-item">
+                    <span style="color: var(--text-muted);">Assigned To</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        {% for m in test_case.assigned_members.all %}
+                        <div class="avatar" style="background: {{ m.avatar_color }}; width: 20px; height: 20px; font-size: 8px;">{{ m.initials }}</div>
+                        {% empty %}
+                        <span style="color: var(--text-muted);">Unassigned</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <span style="color: var(--text-muted);">Created By</span>
+                    <span>{{ test_case.created_by.display_name }}</span>
+                </div>
+            </div>
+
+            {% if test_case.task.active_bugs.exists %}
+            <div class="sidebar-widget">
+                <div class="section-label" style="color: var(--red);"><i class="fas fa-bug"></i> Related Issues</div>
+                {% for bug in test_case.task.active_bugs %}
+                <a href="{% url 'tasks:bug_detail' bug.pk %}" style="display: block; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; text-decoration: none; transition: var(--transition);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span class="badge badge-red" style="font-size: 8px;">{{ bug.severity|upper }}</span>
+                        <span style="font-size: 10px; color: var(--text-muted);">{{ bug.get_status_display }}</span>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; color: var(--text-primary);">{{ bug.title }}</div>
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="sidebar-widget">
+                <div class="section-label"><i class="fas fa-history"></i> Execution History</div>
+                <div style="margin-top: 15px;">
+                    {% for log in test_case.history.all %}
+                    <div class="timeline-item {% if forloop.first %}active{% endif %}">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-primary);">{{ log.action }}</div>
+                        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px;">{{ log.user.display_name }} • {{ log.timestamp|date:"M d, H:i" }}</div>
+                        {% if log.details %}
+                        <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4; background: var(--bg-secondary); padding: 8px; border-radius: 6px;">{{ log.details|truncatechars:100 }}</div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p style="font-size: 12px; color: var(--text-muted); text-align: center;">No history logs recorded.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

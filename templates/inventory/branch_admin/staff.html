@@ -1,0 +1,157 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Manage Staff - {{ branch.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1 fw-bold">Staff Management</h1>
+            <p class="text-muted mb-0">{{ branch.name }} Branch Staff</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStaffModal">
+            <i class="fas fa-user-plus me-2"></i>Add Staff Member
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm" style="border-radius: 16px;">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">User</th>
+                            <th>Status</th>
+                            <th>Inventory Permissions</th>
+                            <th>Created</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in staff %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; font-weight: bold;">
+                                        {{ user.initials }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ user.username }}</div>
+                                        <div class="small text-muted">{{ user.role|title }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                <span class="badge bg-success-subtle text-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-danger-subtle text-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    {% if user.can_add_inventory %}<span class="badge bg-info-subtle text-info">Add</span>{% endif %}
+                                    {% if user.can_edit_inventory %}<span class="badge bg-info-subtle text-info">Edit</span>{% endif %}
+                                    {% if user.can_delete_inventory %}<span class="badge bg-info-subtle text-info">Delete</span>{% endif %}
+                                </div>
+                            </td>
+                            <td class="text-muted small">{{ user.created_at|date:"M d, Y" }}</td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#permsModal{{ user.id }}">
+                                        Permissions
+                                    </button>
+                                    <form method="POST" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="toggle_status">
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <button type="submit" class="btn btn-sm {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                                            {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <!-- Permissions Modal -->
+                                <div class="modal fade" id="permsModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <form method="POST">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="update_permissions">
+                                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Staff Permissions: {{ user.username }}</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body text-start">
+                                                    <div class="form-check form-switch mb-3">
+                                                        <input class="form-check-input" type="checkbox" name="can_add" id="add{{ user.id }}" {% if user.can_add_inventory %}checked{% endif %}>
+                                                        <label class="form-check-label" for="add{{ user.id }}">Can Add Inventory Items</label>
+                                                    </div>
+                                                    <div class="form-check form-switch mb-3">
+                                                        <input class="form-check-input" type="checkbox" name="can_edit" id="edit{{ user.id }}" {% if user.can_edit_inventory %}checked{% endif %}>
+                                                        <label class="form-check-label" for="edit{{ user.id }}">Can Edit Existing Inventory</label>
+                                                    </div>
+                                                    <div class="form-check form-switch mb-3">
+                                                        <input class="form-check-input" type="checkbox" name="can_delete" id="del{{ user.id }}" {% if user.can_delete_inventory %}checked{% endif %}>
+                                                        <label class="form-check-label" for="del{{ user.id }}">Can Delete Inventory Items</label>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="fas fa-users fa-3x mb-3 opacity-25"></i>
+                                <div>No staff members found in this branch.</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Staff Modal -->
+<div class="modal fade" id="addStaffModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Staff Member</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Temporary Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="alert alert-info py-2 small">
+                        <i class="fas fa-info-circle me-2"></i>This user will be assigned to <strong>{{ branch.name }}</strong> automatically.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — {{ project.name }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'finance:project_expenses' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Cancel</a>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:500px; margin:0 auto;">
+    <div class="card-header">
+        <div class="card-title">{{ title }} for <span style="color:var(--accent);">{{ project.name }}</span></div>
+    </div>
+    
+    <form method="post" class="form-container">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        
+        <div class="form-group">
+            <label>Total Budget ($)</label>
+            {{ form.total_amount }}
+            {{ form.total_amount.errors }}
+            <small style="color:var(--text-muted); font-size:11px;">Set the maximum allocated budget for this project.</small>
+        </div>
+
+        <div style="text-align:right; margin-top:20px;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Budget</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

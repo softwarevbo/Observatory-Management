@@ -1,0 +1,166 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Product List - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+    <h1 class="page-title mb-0">Product Inventory</h1>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'add-product' %}{% if current_branch %}?branch={{ current_branch }}{% endif %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Add Product
+        </a>
+        <a href="{% url 'add-product' %}#bulk" class="btn btn-success">
+            Bulk Upload
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4 p-3">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h2 class="section-title mb-0">All Products ({{ products.paginator.count }})</h2>
+        </div>
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'categories' %}" class="btn btn-outline-secondary btn-sm">Categories</a>
+            <a href="/" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3 mb-4">
+    <!-- Search and Filters -->
+    <form method="get" class="row g-3">
+        <div class="col-md-3">
+            <input type="text" class="form-control" name="search" placeholder="Search products..." value="{{ search_query }}">
+        </div>
+        <div class="col-md-3">
+            <select name="category" class="form-select">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if current_category == cat.id|stringformat:"i" %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if branches %}
+        <div class="col-md-2">
+            <select name="branch" class="form-select">
+                <option value="">All Branches</option>
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if current_branch == b.id|stringformat:"i" %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="col-md-2">
+            <select name="status" class="form-select">
+                <option value="">All Status</option>
+                <option value="in_stock" {% if current_status == 'in_stock' %}selected{% endif %}>In Stock</option>
+                <option value="low_stock" {% if current_status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                <option value="out_of_stock" {% if current_status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-primary w-100">Filter</button>
+            {% if search_query or current_category or current_status %}
+            <a href="{% url 'products' %}" class="btn btn-secondary">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    {% if products %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Image</th>
+                    <th>Product Details</th>
+                    <th class="d-none d-xl-table-cell">SKU/Serial</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Quantity</th>
+                    <th>Value</th>
+                    <th class="d-none d-lg-table-cell">Branch Info</th>
+                    <th>Rack/Shelf</th>
+                    <th style="width: 100px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>
+                        {% if product.image %}
+                        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-thumbnail" style="width: 48px; height: 48px; object-fit: cover;">
+                        {% else %}
+                        <div style="width: 48px; height: 48px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-box text-muted"></i>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'product-detail' product.pk %}?branch={{ product.branch_id }}" class="text-decoration-none">
+                            <div class="fw-bold">{{ product.name }}</div>
+                            <div class="small text-muted">{{ product.brand|default:"" }}</div>
+                        </a>
+                    </td>
+                    <td class="d-none d-xl-table-cell">
+                        <div class="small">SKU: {{ product.local_sku|default:product.sku|default:"-" }}</div>
+                        <div class="small text-muted">SN: {{ product.serial_number|default:"-" }}</div>
+                    </td>
+                    <td><div class="small">{{ product.category.name|default:"-" }}</div></td>
+                    <td>
+                        {% if product.status == 'in_stock' %}
+                            <span class="badge bg-success">In Stock</span>
+                        {% elif product.status == 'low_stock' %}
+                            <span class="badge bg-warning text-dark">Low Stock</span>
+                        {% elif product.status == 'out_of_stock' %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ product.status|title }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if product.current_quantity > 0 %}bg-info{% else %}bg-danger{% endif %} rounded-pill">
+                            {{ product.current_quantity|default:"0" }} {{ product.unit }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="fw-bold">₹{{ product.inventory_value|floatformat:2 }}</div>
+                        <div class="small text-muted">@₹{{ product.price|floatformat:2 }}</div>
+                    </td>
+                    <td class="d-none d-lg-table-cell">
+                        <div class="small fw-bold">{{ product.display_branch }}</div>
+                        <div class="small text-muted">By: {{ product.created_by.username|default:"System" }}</div>
+                    </td>
+                    <td>
+                        <div class="small">R: {{ product.rack_number|default:"-" }}</div>
+                        <div class="small">S: {{ product.shelf_number|default:"-" }}</div>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'edit-product' product.pk %}" class="btn btn-outline-primary"><i class="fas fa-edit"></i></a>
+                            <form method="post" action="{% url 'delete-product' product.pk %}" onsubmit="return confirm('Delete this product?');" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white">
+        {% include 'pagination.html' %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <h3>No Products Found</h3>
+        <p>Try adjusting your search or filters.</p>
+        <a href="{% url 'add-product' %}" class="btn btn-primary">Add Product</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

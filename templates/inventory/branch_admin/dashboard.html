@@ -1,0 +1,160 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Branch Dashboard - IIAP IM{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1 fw-bold">{{ branch.name }} Dashboard</h1>
+            <p class="text-muted mb-0">Branch Admin Control Panel</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'products' %}" class="btn btn-primary">
+                <i class="fas fa-boxes me-2"></i>Manage Inventory
+            </a>
+            <a href="{% url 'branch-users' %}" class="btn btn-outline-primary">
+                <i class="fas fa-users me-2"></i>Staff Management
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm" style="border-radius: 16px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="p-3 bg-white bg-opacity-25 rounded-3">
+                            <i class="fas fa-users fa-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ total_staff }}</h3>
+                    <p class="mb-0 opacity-75">Staff Members</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm" style="border-radius: 16px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="p-3 bg-white bg-opacity-25 rounded-3">
+                            <i class="fas fa-box-open fa-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ total_products }}</h3>
+                    <p class="mb-0 opacity-75">Stocked Products</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm" style="border-radius: 16px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="p-3 bg-white bg-opacity-25 rounded-3">
+                            <i class="fas fa-layer-group fa-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ total_quantity }}</h3>
+                    <p class="mb-0 opacity-75">Total Units</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm" style="border-radius: 16px; background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="p-3 bg-white bg-opacity-25 rounded-3">
+                            <i class="fas fa-exchange-alt fa-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ recent_stock.count|add:recent_adjustments.count }}</h3>
+                    <p class="mb-0 opacity-75">Recent Activities</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recent Stock Entries -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm" style="border-radius: 16px;">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="fw-bold mb-0">Recent Stock Movements</h5>
+                </div>
+                <div class="card-body px-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Type</th>
+                                    <th>Qty</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in recent_stock %}
+                                <tr>
+                                    <td>{{ entry.product.name }}</td>
+                                    <td>
+                                        <span class="badge {% if entry.entry_type == 'in' %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %}">
+                                            {{ entry.get_entry_type_display }}
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold">{{ entry.quantity }}</td>
+                                    <td class="text-muted small">{{ entry.timestamp|date:"M d, H:i" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No recent stock movements</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Adjustments -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm" style="border-radius: 16px;">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="fw-bold mb-0">Inventory Adjustments</h5>
+                </div>
+                <div class="card-body px-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Adjustment</th>
+                                    <th>Reason</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for adj in recent_adjustments %}
+                                <tr>
+                                    <td>{{ adj.product.name }}</td>
+                                    <td class="fw-bold {% if adj.adjustment_type == 'increase' %}text-success{% else %}text-danger{% endif %}">
+                                        {% if adj.adjustment_type == 'increase' %}+{% else %}-{% endif %}{{ adj.quantity }}
+                                    </td>
+                                    <td class="small">{{ adj.reason|truncatechars:20 }}</td>
+                                    <td class="text-muted small">{{ adj.timestamp|date:"M d, H:i" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No adjustments recorded</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

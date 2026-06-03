@@ -1,0 +1,182 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Add Product - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title mb-0">Add New Product</h1>
+    <a href="{% url 'products' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i> Back to List
+    </a>
+</div>
+
+<!-- Tab Navigation -->
+<div class="row justify-content-center mb-4">
+    <div class="col-lg-10">
+        <div class="card shadow-sm">
+            <ul class="nav nav-tabs nav-fill" id="productTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+                        <i class="fas fa-box me-2"></i> Single Product
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab">
+                        <i class="fas fa-file-excel me-2"></i> Bulk Upload
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="tab-content" id="productTabsContent">
+    <!-- Single Product Tab -->
+    <div class="tab-pane fade show active" id="single" role="tabpanel">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow-sm p-4">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="single">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{{ form.name.label }}</label>
+                                {{ form.name }}
+                                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{{ form.category.label }}</label>
+                                {{ form.category }}
+                                {% if form.category.errors %}<div class="text-danger small">{{ form.category.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">{{ form.brand.label }}</label>
+                                {{ form.brand }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">{{ form.sku.label }}</label>
+                                {{ form.sku }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">{{ form.serial_number.label }}</label>
+                                {{ form.serial_number }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">{{ form.price.label }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    {{ form.price }}
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">{{ form.unit.label }}</label>
+                                {{ form.unit }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">{{ form.status.label }}</label>
+                                {{ form.status }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{{ form.supplier.label }}</label>
+                                {{ form.supplier }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Branch (Super Admin Only)</label>
+                                {{ form.branch }}
+                                {% if not user.is_super_admin %}
+                                <input type="text" class="form-control" value="{{ user.branch.name }}" disabled>
+                                <small class="text-muted">Automatically assigned to your branch.</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Rack Number</label>
+                                {{ form.rack_number }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Shelf Number</label>
+                                {{ form.shelf_number }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ form.description.label }}</label>
+                            {{ form.description }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ form.purchase_details.label }}</label>
+                            {{ form.purchase_details }}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{{ form.image.label }}</label>
+                                {{ form.image }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">{{ form.datasheet.label }}</label>
+                                {{ form.datasheet }}
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-end">
+                            <button type="submit" class="btn btn-primary px-5 btn-lg">Save Product</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Tab -->
+    <div class="tab-pane fade" id="bulk" role="tabpanel">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow-sm p-4">
+                    <div class="alert alert-info d-flex align-items-center mb-4">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <strong>Bulk Upload Instructions:</strong> Download the template, fill in the details, and upload the file.
+                            <a href="{% url 'download-excel-template' %}" class="btn btn-sm btn-primary ms-3">Download Template</a>
+                        </div>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="bulk">
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Select Excel File (.xlsx or .xls)</label>
+                            <input type="file" name="excel_file" class="form-control" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Datasheets ZIP (Optional)</label>
+                            <input type="file" name="datasheet_zip" class="form-control" accept=".zip">
+                        </div>
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" name="skip_duplicates" id="skip_duplicates">
+                            <label class="form-check-label" for="skip_duplicates">Skip products with duplicate SKUs</label>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-success px-5 btn-lg">Upload Bulk Data</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

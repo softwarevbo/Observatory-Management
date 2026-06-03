@@ -1,0 +1,1829 @@
+{% extends 'base.html' %}
+{% load task_tags %}
+{% block title %}{{ project.name }} — IIAP PM{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'tasks:module_list' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-cubes"></i>
+    Modules</a>
+<a href="{% url 'tasks:project_report_center' project.pk %}" class="btn btn-secondary btn-sm"><i
+        class="fas fa-file-invoice"></i>
+    Report Center</a>
+<a href="{% url 'tasks:rtm_view' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-project-diagram"></i>
+    RTM Matrix</a>
+<a href="{% url 'finance:project_expenses' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-wallet"></i>
+    Finance</a>
+<a href="{% url 'tasks:project_settings' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i>
+    Settings</a>
+<a href="{% url 'files:file_audit_logs' %}" class="btn btn-secondary btn-sm"><i class="fas fa-history"></i> Logs</a>
+
+{% if user.is_admin or user in project.managers.all %}
+
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    {% if project.background_color %}
+    [data-theme="light"] {
+        --bg-primary: {{ project.background_color }};
+        --bg-card: {{ project.background_color }};
+    }
+    {% endif %}
+
+    {% if project.button_color %}
+    :root {
+        --accent: {{ project.button_color }};
+        --accent-hover: {{ project.button_color }}cc;
+        --accent-glow: {{ project.button_color }}26;
+    }
+    {% endif %}
+
+    /* Tabs */
+    .view-tabs {
+        display: flex;
+        gap: 2px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 20px;
+    }
+
+    .view-tab {
+        padding: 9px 18px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-decoration: none;
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-bottom: 2px solid transparent;
+        transition: var(--transition);
+        margin-bottom: -1px;
+    }
+
+    .view-tab:hover {
+        color: var(--text-primary);
+        background: var(--bg-card);
+    }
+
+    .view-tab.active {
+        color: var(--accent);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-bottom: 2px solid var(--accent);
+    }
+
+    /* VS Code Tree Styling */
+
+    /* Kanban */
+    .kanban-board {
+        display: flex;
+        gap: 14px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        min-height: 400px;
+    }
+
+    .kanban-col {
+        min-width: 250px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .kanban-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        border-bottom: none;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+    }
+
+    .kanban-body {
+        flex: 1;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+        min-height: 200px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .k-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        display: block;
+    }
+
+    .k-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+    }
+
+    .k-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+        line-height: 1.4;
+        margin-bottom: 8px;
+    }
+
+    .k-card-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+    .k-empty {
+        text-align: center;
+        padding: 24px 10px;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    /* Priority dot */
+    .p-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    /* Table Sorting */
+    th.sortable {
+        cursor: pointer;
+        position: relative;
+        transition: background 0.2s;
+    }
+
+    th.sortable:hover {
+        background: var(--bg-secondary);
+    }
+
+    th.sortable i {
+        font-size: 10px;
+        margin-left: 6px;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+    }
+
+    th.sortable:hover i {
+        opacity: 1;
+    }
+
+    th.sort-asc i,
+    th.sort-desc i {
+        opacity: 1;
+        color: var(--accent);
+    }
+
+    .markdown-rendered {
+        font-size: inherit;
+        line-height: 1.6;
+    }
+
+    .markdown-rendered p {
+        margin-bottom: 12px;
+    }
+
+    .markdown-rendered p:last-child {
+        margin-bottom: 0;
+    }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- PROJECT HEADER CARD -->
+<div class="card" style="margin-bottom:12px; border-radius: var(--radius);">
+    <div style="display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap;">
+        {% if project.image %}
+        <div
+            style="width:160px; height:160px; flex-shrink:0; border-radius: var(--radius-sm); overflow:hidden; border:1px solid var(--border)">
+            <img src="{{ project.image.url }}" alt="{{ project.name }}" style="width:100%;height:100%;object-fit:cover">
+        </div>
+        {% endif %}
+        <div style="flex:1; min-width:200px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                <span class="badge badge-gray" style="font-weight:700;">ID: {{ project.project_id|default:project.pk }}</span>
+                <span
+                    class="badge {% if project.module == 'electronics' %}badge-blue{% elif project.module == 'software' %}badge-green{% elif project.module == 'mechanical' %}badge-yellow{% elif project.module == 'optics' %}badge-cyan{% else %}badge-purple{% endif %}">
+                    {{ project.get_module_display }}
+                </span>
+                {% if user.is_admin or user in project.managers.all %}
+                <span
+                    class="badge {% if project.status == 'active' %}badge-green{% elif project.status == 'planning' %}badge-blue{% elif project.status == 'on_hold' %}badge-yellow{% elif project.status == 'completed' %}badge-gray{% else %}badge-red{% endif %}">
+                    {{ project.get_status_display }}
+                </span>
+                {% endif %}
+            </div>
+            <h1
+                style="font-size: 28px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5px;">
+                {{ project.name }}
+            </h1>
+            <div
+                style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:14px;">
+                <div class="render-markdown" style="font-size:13px; color:var(--text-muted); line-height:1.6; margin:0;"
+                    data-content="{{ project.description|default:'No description provided.' }}">
+                    {{ project.description|default:"No description provided." }}
+                </div>
+                {% if user.is_admin %}
+                <a href="{% url 'tasks:project_edit' project.pk %}" class="btn btn-secondary btn-sm"><i
+                        class="fas fa-pen"></i> Edit Description</a>
+                {% endif %}
+            </div>
+            <div style="display:flex; gap:20px; flex-wrap:wrap; font-size:12px; color:var(--text-muted);">
+                <span><i class="fas fa-calendar-plus" style="margin-right:5px; opacity:.6;"></i>{{ project.start_date }}</span>
+
+                {% if project.managers.all %}
+                <span><i class="fas fa-user-tie" style="margin-right:5px; opacity:.6;"></i>
+                    {% for pm in project.managers.all %}
+                    <a href="{% url 'accounts:user_detail' pm.pk %}"
+                        style="color:var(--accent); text-decoration:none;">{{ pm.display_name }}</a>{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </span>
+                {% endif %}
+
+                {% if project.project_incharge %}
+                <span><i class="fas fa-user-shield" style="margin-right:5px; opacity:.6;"></i>
+                    Incharge: <a href="{% url 'accounts:user_detail' project.project_incharge.pk %}"
+                        style="color:var(--accent); text-decoration:none;">{{ project.project_incharge.display_name }}</a>
+                </span>
+                {% endif %}
+
+                <span><i class="fas fa-tasks" style="margin-right:5px; opacity:.6;"></i>{{ project.task_count }}
+                    tasks</span>
+                <span><i class="fas fa-users" style="margin-right:5px; opacity:.6;"></i>{{ members.count }}
+                    members</span>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div style="min-width:160px; text-align:center;">
+            <div
+                style="font-family:'Space Grotesk',sans-serif; font-size:36px; font-weight:700; color:var(--accent); line-height:1;">
+                {{ project.progress }}%</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Complete</div>
+            <div class="progress-bar" style="height:6px;">
+                <div class="progress-fill" style="width:{{ project.progress }}%;"></div>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">{{ project.completed_task_count }} of
+                {{ project.task_count }} tasks fully completed</div>
+        </div>
+
+        <!-- Member Avatars -->
+        <div style="min-width:120px;">
+            <div
+                style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;">
+                Team</div>
+            <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
+                {% for m in members|slice:":8" %}
+                <a href="{% url 'accounts:user_detail' m.pk %}" title="{{ m.display_name }} — {{ m.get_team_display }}">
+                    {% include 'partials/user_avatar.html' with avatar_user=m size="30" radius="7px" font_size="11" extra_style="border:2px solid var(--bg-card);" %}
+                </a>
+                {% endfor %}
+                {% if members.count > 8 %}
+                <div
+                    style="width:30px; height:30px; border-radius:7px; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-muted);">
+                    +{{ members.count|add:"-8" }}</div>
+                {% endif %}
+            </div>
+            {% if user.is_admin or user.is_project_manager %}
+            <a href="{% url 'tasks:project_members' project.pk %}" class="btn btn-secondary btn-sm"
+                style="font-size:11px;"><i class="fas fa-user-plus"></i> Manage</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<!-- SECTION: METRICS -->
+<div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+    <div style="width:4px; height:16px; background:var(--accent); border-radius:2px;"></div>
+    <h2 style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-primary); margin:0;">Project Metrics</h2>
+</div>
+<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px;">
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--text-muted); line-height:1;">{{ kanban.todo.count }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">To Do</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--accent); line-height:1;">{{ kanban.in_progress.count }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">In Progress</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--yellow); line-height:1;">{{ kanban.review.count }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">In Review</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--green); line-height:1;">{{ kanban.done.count }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Done</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--red); line-height:1;">{{ kanban.blocked.count }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Blocked</div>
+    </div>
+</div>
+
+<!-- TABS -->
+<div class="view-tabs" style="margin-bottom:12px;">
+    <a href="?view=requirements" class="view-tab {% if view_mode == 'requirements' %}active{% endif %}">
+        <i class="fas fa-list-ul"></i> Requirements
+    </a>
+    <a href="?view=list{% if status_filter %}&status={{ status_filter }}{% endif %}"
+        class="view-tab {% if view_mode == 'list' or view_mode == '' %}active{% endif %}">
+        <i class="fas fa-list"></i> Tasks
+    </a>
+    <a href="?view=test_cases" class="view-tab {% if view_mode == 'test_cases' %}active{% endif %}">
+        <i class="fas fa-vial"></i> Test Cases
+    </a>
+    <a href="?view=bugs" class="view-tab {% if view_mode == 'bugs' %}active{% endif %}">
+        <i class="fas fa-bug"></i> Bug Reports
+    </a>
+    <a href="?view=kanban" class="view-tab {% if view_mode == 'kanban' %}active{% endif %}">
+        <i class="fas fa-columns"></i> Kanban Board
+    </a>
+    <a href="?view=members" class="view-tab {% if view_mode == 'members' %}active{% endif %}">
+        <i class="fas fa-users"></i> Members
+    </a>
+    <a href="?view=notes" class="view-tab {% if view_mode == 'notes' %}active{% endif %}">
+        <i class="fas fa-sticky-note"></i> Notes
+    </a>
+    {% if project.files.exists or project.file_categories.exists %}
+    <a href="?view=resources" class="view-tab {% if view_mode == 'resources' %}active{% endif %}">
+        <i class="fas fa-folder-tree"></i> Resources
+    </a>
+    {% endif %}
+    {% if user.is_admin %}
+    <a href="?view=admin" class="view-tab {% if view_mode == 'admin' %}active{% endif %}">
+        <i class="fas fa-database"></i> Admin
+    </a>
+    {% endif %}
+</div>
+
+{% if view_mode == 'requirements' %}
+<div class="card" style="padding:0;">
+    <div class="card-header"
+        style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div class="card-title"><i class="fas fa-list-ul"
+                style="color:var(--accent); margin-right:8px;"></i>Requirements</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <!-- Search Bar -->
+            <div class="search-wrap" style="position:relative;">
+                <i class="fas fa-search"
+                    style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:12px; pointer-events:none;"></i>
+                <input type="text" id="req-search-input" placeholder="Search by ID, name, or description…"
+                    style="padding:7px 12px 7px 32px; font-size:12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); outline:none; width:260px; transition:border-color .2s;"
+                    oninput="filterRequirements(this.value)" onfocus="this.style.borderColor='var(--accent)'"
+                    onblur="this.style.borderColor='var(--border)'">
+            </div>
+            <!-- Result count -->
+            <span id="req-result-count" style="font-size:11px; color:var(--text-muted); white-space:nowrap;"></span>
+            <!-- Generate Report Button -->
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openReportModal()" id="btn-generate-report">
+                <i class="fas fa-file-alt"></i> Generate Report
+            </button>
+            {% if user.is_admin or user.is_project_manager or user in project.managers.all or user == project.project_incharge %}
+            <a href="{% url 'tasks:requirement_bulk_create' project.pk %}" class="btn btn-secondary btn-sm"><i
+                    class="fas fa-layer-group"></i> Bulk Add</a>
+            <a href="{% url 'tasks:requirement_create' project.pk %}" class="btn btn-primary btn-sm"><i
+                    class="fas fa-plus"></i> Add Requirement</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table id="req-table">
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortTable(this, 0)">Requirement <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 1)">Type / Priority <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 2)">Status <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 3)">Progress <i class="fas fa-sort"></i></th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="req-tbody">
+                {% for req in requirements %}
+                <tr class="req-row" data-req-id="{{ req.req_id|default:req.pk|lower }}"
+                    data-req-name="{{ req.name|lower }}" data-req-desc="{{ req.description|lower }}">
+                    <td style="font-weight:600;">
+                        <div style="font-size:10px; color:var(--text-muted); font-weight:700;">ID: {{ req.req_id|default:req.pk }}</div>
+                        {{ req.name }}
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">v{{ req.version }}</div>
+                    </td>
+                    <td>
+                        <span style="font-size:11px; display:block; margin-bottom:4px;">{{ req.get_requirement_type_display }}</span>
+                        <span
+                            class="badge {% if req.priority == 'critical' %}badge-red{% elif req.priority == 'high' %}badge-yellow{% elif req.priority == 'medium' %}badge-blue{% else %}badge-gray{% endif %}"
+                            style="font-size:10px;">
+                            {{ req.get_priority_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if req.status == 'verified' %}badge-green{% elif req.status == 'deferred' or req.status == 'obsolete' %}badge-red{% elif req.status == 'draft' %}badge-gray{% else %}badge-yellow{% endif %}"
+                            style="font-size:10px;">
+                            {{ req.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="vertical-align:middle; width:150px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="progress-bar" style="height:6px; flex:1; background:var(--bg-secondary);">
+                                <div class="progress-fill"
+                                    style="width:{{ req.progress }}%; background:{% if req.progress == 100 %}var(--green){% else %}var(--accent){% endif %};">
+                                </div>
+                            </div>
+                            <span style="font-size:11px; font-weight:700; color:var(--text-primary); min-width:30px;">{{ req.progress }}%</span>
+                        </div>
+                        <div style="font-size:9px; color:var(--text-muted); margin-top:4px;">{{ req.tasks.count }} tasks
+                            linked</div>
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:4px; justify-content:flex-end;">
+                            <a href="{% url 'tasks:requirement_detail' req.pk %}"
+                                class="btn btn-secondary btn-icon btn-sm" title="View"><i class="fas fa-eye"></i></a>
+                            {% if user.is_admin or user in project.managers.all or user == project.project_incharge %}
+                                {% if not req.is_approved and user.is_project_manager %}
+                                <a href="{% url 'tasks:requirement_approve' req.pk %}"
+                                    class="btn btn-success btn-icon btn-sm" title="Approve"><i
+                                        class="fas fa-check-circle"></i></a>
+                                {% endif %}
+                                <a href="{% url 'tasks:requirement_edit' req.pk %}"
+                                    class="btn btn-secondary btn-icon btn-sm" title="Edit"><i class="fas fa-edit"></i></a>
+                                {% if user.is_admin or user in project.managers.all %}
+                                <a href="{% url 'tasks:requirement_delete' req.pk %}" class="btn btn-danger btn-icon btn-sm"
+                                    title="Delete" onclick="return confirm('Delete this requirement?')"><i
+                                        class="fas fa-trash"></i></a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr id="req-empty-db">
+                    <td colspan="3">
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-list"></i>
+                            <h3>No requirements found</h3>
+                            <p>No requirements have been added to this project yet.</p>
+                            {% if user.is_admin or user in project.managers.all %}
+                            <a href="{% url 'tasks:requirement_create' project.pk %}" class="btn btn-primary btn-sm"><i
+                                    class="fas fa-plus"></i> New Requirement</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                <!-- Shown when search yields 0 results -->
+                <tr id="req-no-match" style="display:none;">
+                    <td colspan="3" style="text-align:center; padding:28px; color:var(--text-muted);">
+                        <i class="fas fa-search"
+                            style="font-size:22px; opacity:.25; display:block; margin-bottom:8px;"></i>
+                        No requirements match your search.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Generate Report Modal ── -->
+<div id="report-modal-overlay"
+    style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; backdrop-filter:blur(3px); align-items:center; justify-content:center;">
+    <div id="report-modal"
+        style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:32px; width:460px; max-width:calc(100vw - 32px); box-shadow:0 24px 60px rgba(0,0,0,.45); animation:modalPop .22s ease;"
+        role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+            <div>
+                <h2 id="modal-title" style="font-size:16px; font-weight:700; margin:0; color:var(--text-primary);">
+                    <i class="fas fa-file-alt" style="color:var(--accent); margin-right:8px;"></i>Generate Requirements
+                    Report
+                </h2>
+                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0;">Choose a format to download the
+                    report.</p>
+            </div>
+            <button onclick="closeReportModal()"
+                style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:18px; line-height:1; padding:4px;"
+                aria-label="Close">&times;</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
+            <!-- DOCX Option -->
+            <label for="fmt-docx" style="cursor:pointer;">
+                <input type="radio" name="report-format" id="fmt-docx" value="docx" checked style="display:none;">
+                <div class="report-format-card" id="card-docx"
+                    style="border:2px solid var(--accent); border-radius:12px; padding:18px 14px; text-align:center; transition:.2s; background:var(--bg-secondary);">
+                    <i class="fas fa-file-word"
+                        style="font-size:28px; color:#2563eb; margin-bottom:8px; display:block;"></i>
+                    <div style="font-weight:700; font-size:13px; color:var(--text-primary);">Word Document</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">.docx format</div>
+                </div>
+            </label>
+            <!-- Markdown Option -->
+            <label for="fmt-md" style="cursor:pointer;">
+                <input type="radio" name="report-format" id="fmt-md" value="md" style="display:none;">
+                <div class="report-format-card" id="card-md"
+                    style="border:2px solid var(--border); border-radius:12px; padding:18px 14px; text-align:center; transition:.2s; background:var(--bg-secondary);">
+                    <i class="fas fa-markdown"
+                        style="font-size:28px; color:#7c3aed; margin-bottom:8px; display:block;"></i>
+                    <div style="font-weight:700; font-size:13px; color:var(--text-primary);">Markdown File</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">requirement_doc.md</div>
+                </div>
+            </label>
+        </div>
+
+        <!-- Report Content Info -->
+        <div
+            style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px; font-size:12px; color:var(--text-muted);">
+            <div style="font-weight:600; color:var(--text-primary); margin-bottom:6px;"><i class="fas fa-info-circle"
+                    style="color:var(--accent); margin-right:5px;"></i>Report Includes</div>
+            <ul style="margin:0; padding-left:16px; line-height:1.9;">
+                <li>Project information & metadata</li>
+                <li>Full requirements overview table</li>
+                <li>Requirements with linked tasks mapping</li>
+            </ul>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeReportModal()">Cancel</button>
+            <a id="report-download-link" href="{% url 'tasks:requirement_report' project.pk %}?format=docx"
+                class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+                <i class="fas fa-download"></i> Download Report
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        from {
+            opacity: 0;
+            transform: scale(.93) translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .report-format-card:hover {
+        border-color: var(--accent) !important;
+    }
+
+    #report-modal-overlay.active {
+        display: flex !important;
+    }
+</style>
+
+{% elif not view_mode or view_mode == 'list' %}
+
+<!-- ── TASK LIST VIEW ── -->
+<!-- Filters -->
+<form method="get" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
+    <input type="hidden" name="view" value="list">
+    <div class="search-wrap" style="position:relative; display:flex; align-items:center;">
+        <i class="fas fa-search"
+            style="position:absolute; left:10px; color:var(--text-muted); font-size:12px; pointer-events:none;"></i>
+        <input type="text" id="task-search-input" placeholder="Search tasks..."
+            style="padding:6px 12px 6px 30px; font-size:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); width:180px;"
+            oninput="filterTasks(this.value)">
+    </div>
+    <div class="search-wrap">
+        <i class="fas fa-filter"></i>
+        <select name="status" class="filter-select" onchange="this.form.submit()" style="padding-left:14px;">
+            <option value="">All Statuses</option>
+            {% for val,label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </div>
+    <select name="priority" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Priorities</option>
+        {% for val,label in priority_choices %}<option value="{{ val }}" {% if priority_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="type" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Types</option>
+        {% for val,label in type_choices %}<option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="assignee" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Members</option>
+        {% for m in members %}<option value="{{ m.pk }}" {% if assignee_filter == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+    </select>
+    {% if status_filter or priority_filter or type_filter or assignee_filter %}
+    <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i>
+        Clear</a>
+    {% endif %}
+    <div style="margin-left:auto; display:flex; gap:8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openTaskReportModal()">
+            <i class="fas fa-file-export"></i> Generate Report
+        </button>
+        {% if user.is_admin or user.is_project_manager %}
+        <a href="{% url 'tasks:task_bulk_create' project.pk %}" class="btn btn-secondary btn-sm"><i
+                class="fas fa-layer-group"></i> Bulk Add</a>
+        <a href="{% url 'tasks:task_create' %}?project={{ project.pk }}" class="btn btn-primary btn-sm"><i
+                class="fas fa-plus"></i> New Task</a>
+        {% endif %}
+    </div>
+</form>
+
+<div class="card" style="padding:0;">
+    <div class="table-wrap">
+        <table id="task-table">
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortTable(this, 0)">Task <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 1)">Type <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 2)">Priority <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 3)">Status <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 4)">Deadline <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 5)">Assigned To <i class="fas fa-sort"></i></th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="task-tbody">
+                {% for task in tasks %}
+                <tr class="task-row" data-task-id="{{ task.task_id|default:task.pk|lower }}"
+                    data-task-name="{{ task.title|lower }}" data-task-desc="{{ task.description|default:''|lower }}">
+                    <td>
+                        <div style="font-size:10px; color:var(--text-muted); font-weight:700; margin-bottom:2px;">ID: {{ task.task_id|default:task.pk }}</div>
+                        <a href="{% url 'tasks:task_detail' task.pk %}"
+                            style="color:var(--text-primary); text-decoration:none; font-weight:600; font-size:13px;">{{ task.title }}</a>
+                        {% if task.subtasks.count %}
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;"><i
+                                class="fas fa-sitemap"></i> {{ task.subtasks.count }} subtask{{ task.subtasks.count|pluralize }}</div>
+                        {% endif %}
+                        {% if task.tag_list %}
+                        <div style="display:flex; gap:3px; flex-wrap:wrap; margin-top:4px;">
+                            {% for tag in task.tag_list|slice:":3" %}<span
+                                style="background:var(--border); color:var(--text-muted); padding:1px 6px; border-radius:3px; font-size:9px;">#{{ tag }}</span>{% endfor %}
+                        </div>
+                        {% endif %}
+                        <!-- Test Case Progress Bar for Task -->
+                        {% with tc_task_stats=task.test_case_stats %}
+                        {% if tc_task_stats.total > 0 %}
+                        <div style="margin-top: 8px;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-size: 9px; color: var(--text-muted); font-weight: 600;">
+                                    TEST COVERAGE: {{ tc_task_stats.passed }}/{{ tc_task_stats.total }} PASSED
+                                </span>
+                                <span
+                                    style="font-size: 10px; font-weight: 700; color: {% if tc_task_stats.percentage == 100 %}var(--green){% else %}var(--accent){% endif %};">
+                                    {{ tc_task_stats.percentage }}%
+                                </span>
+                            </div>
+                            <div
+                                style="height: 4px; background: var(--bg-secondary); border-radius: 2px; overflow: hidden;">
+                                <div
+                                    style="height: 100%; width: {{ tc_task_stats.percentage }}%; background: {% if tc_task_stats.percentage == 100 %}var(--green){% else %}var(--accent){% endif %}; transition: width 0.3s ease;">
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        <span class="badge {% if task.task_type == 'bug' %}badge-red{% elif task.task_type == 'feature' %}badge-purple{% elif task.task_type == 'improvement' %}badge-cyan{% elif task.task_type == 'research' %}badge-yellow{% else %}badge-gray{% endif %}" style="font-size:10px;">
+                            {% if task.task_type == 'bug' %}<i class="fas fa-bug"></i>{% elif task.task_type == 'feature' %}<i class="fas fa-star"></i>{% elif task.task_type == 'research' %}<i class="fas fa-flask"></i>{% else %}<i class="fas fa-check"></i>{% endif %}
+                            {{ task.get_task_type_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span
+                            style="font-size:12px; font-weight:700; {% if task.priority == 'critical' %}color:#ef4444{% elif task.priority == 'high' %}color:#f97316{% elif task.priority == 'medium' %}color:#f59e0b{% else %}color:#22c55e{% endif %}">
+                            ● {{ task.get_priority_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if user.is_admin or user in project.managers.all %}
+                        <select class="filter-select status-changer" data-task="{{ task.pk }}"
+                            style="font-size:11px; padding:4px 8px;">
+                            {% for val,label in status_choices %}
+                            <option value="{{ val }}" {% if task.status == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <span
+                            class="badge {% if task.status == 'done' %}badge-green{% elif task.status == 'in_progress' %}badge-blue{% elif task.status == 'review' %}badge-yellow{% elif task.status == 'blocked' %}badge-red{% else %}badge-gray{% endif %}"
+                            style="font-size:10px;">
+                            {{ task.get_status_display }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if task.deadline %}
+                        <span
+                            style="font-size:11px; color:{% if task.deadline < today %}var(--red){% else %}var(--text-muted){% endif %}; font-weight:600;">
+                            <i class="fas fa-calendar-times"></i> {{ task.deadline|date:"M d" }}
+                        </span>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:11px;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if task.assignees.all %}
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                            {% for assignee in task.assignees.all %}
+                            <a href="{% url 'accounts:user_detail' assignee.pk %}"
+                                style="display:flex; align-items:center; gap:4px; text-decoration:none;">
+                                {% include 'partials/user_avatar.html' with avatar_user=assignee size="24" radius="50%" font_size="9" title=assignee.display_name %}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:12px;">— Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:4px; justify-content:flex-end;">
+                            {% if not task.is_approved and user.is_project_manager %}
+                            <a href="{% url 'tasks:task_approve' task.pk %}" class="btn btn-success btn-icon btn-sm"
+                                title="Approve"><i class="fas fa-check-circle"></i></a>
+                            {% endif %}
+                            <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="View"><i class="fas fa-eye"></i></a>
+                            {% if user.is_admin or user == task.created_by or is_pm or is_incharge %}
+                            <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="Edit"><i class="fas fa-edit"></i></a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="fas fa-tasks"></i>
+                            <h3>No tasks found</h3>
+                            <p>{% if status_filter or priority_filter or type_filter %}Adjust your filters{% else %}Add the first task to this project{% endif %}</p>
+                            {% if user.is_admin or user.is_project_manager %}
+                            <a href="{% url 'tasks:task_create' %}?project={{ project.pk }}" class="btn btn-primary btn-sm"><i
+                                    class="fas fa-plus"></i> New Task</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr id="task-no-match" style="display:none;">
+                    <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">
+                        <i class="fas fa-search"
+                            style="font-size:24px; opacity:.3; display:block; margin-bottom:10px;"></i>
+                        No tasks match your search criteria.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif view_mode == 'notes' %}
+<!-- ── NOTES VIEW ── -->
+<div class="card" style="padding:0;">
+    <div class="card-header"
+        style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div class="card-title"><i class="fas fa-sticky-note" style="color:var(--accent); margin-right:8px;"></i>KB Notes</div>
+        <div style="display:flex; gap:8px;">
+            <a href="{% url 'tasks:kb_create' project.pk %}" class="btn btn-primary btn-sm"><i
+                    class="fas fa-plus"></i> New Note</a>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Module</th>
+                    <th>Last Updated</th>
+                    <th>Created</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for note in notes %}
+                <tr>
+                    <td>
+                        <a href="{% url 'tasks:kb_detail' note.pk %}"
+                            style="color:var(--text-primary); text-decoration:none; font-weight:600;"><i class="fas fa-file-alt" style="color:var(--text-muted); margin-right:6px;"></i> {{ note.title }}</a>
+                    </td>
+                    <td>
+                        {% if note.author %}
+                        <div style="display:flex;align-items:center;gap:6px">
+                            {% include 'partials/user_avatar.html' with avatar_user=note.author size="24" radius="50%" font_size="9" %}
+                            <span style="font-size:12px">{{ note.author.display_name }}</span>
+                        </div>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-size:12px">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if note.module %}
+                        <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                            <i class="fas fa-cube" style="font-size:9px;"></i> {{ note.module.name }}
+                        </span>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-size:12px">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size:12px;color:var(--text-muted);">
+                            {{ note.updated_at|date:"M d, Y H:i" }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-size:12px;color:var(--text-muted);">
+                            {{ note.created_at|date:"M d, Y" }}
+                        </span>
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:4px; justify-content:flex-end;">
+                            <a href="{% url 'tasks:kb_detail' note.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="View"><i class="fas fa-eye"></i></a>
+                            {% if request.user == note.author or request.user in project.managers.all or request.user == project.project_incharge or request.user.is_admin %}
+                            <a href="{% url 'tasks:kb_edit' note.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="Edit"><i class="fas fa-edit"></i></a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">
+                        No notes found for this project.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif view_mode == 'test_cases' %}
+<!-- ── TEST CASES VIEW ── -->
+<!-- SECTION: TEST METRICS -->
+<div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+    <div style="width:4px; height:16px; background:var(--accent); border-radius:2px;"></div>
+    <h2 style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-primary); margin:0;">QA Performance</h2>
+</div>
+<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px;">
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--text-muted); line-height:1;">{{ tc_stats.total }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Total Tests</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--green); line-height:1;">{{ tc_stats.passed }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Passed</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--red); line-height:1;">{{ tc_stats.failed }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Failed</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--yellow); line-height:1;">{{ tc_stats.pending }}</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Pending</div>
+    </div>
+    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; transition:var(--transition); cursor:default; box-shadow:var(--shadow-sm);">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--accent); line-height:1;">{{ tc_stats.percentage }}%</div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-top:8px; letter-spacing:0.5px;">Success Rate</div>
+    </div>
+</div>
+
+<div class="card" style="padding:0;">
+    <div class="card-header"
+        style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title"><i class="fas fa-vial" style="color:var(--accent); margin-right:8px;"></i>Test Case
+            Management</div>
+        <div style="display:flex; gap:8px;">
+            {% if user.is_admin or user in project.managers.all %}
+            <a href="{% url 'tasks:test_case_create' project.pk %}" class="btn btn-primary btn-sm"><i
+                    class="fas fa-plus"></i> Add Test Case</a>
+            <a href="{% url 'tasks:project_test_case_bulk_create' project.pk %}" class="btn btn-secondary btn-sm"><i
+                    class="fas fa-layer-group"></i> Bulk Add</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortTable(this, 0)">Test Case <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 1)">Linked Task <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 2)">Priority <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 3)">Status <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 4)">Assigned Members <i class="fas fa-sort"></i></th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tc in test_cases %}
+                <tr>
+                    <td>
+                        <div style="font-size:10px; color:var(--text-muted); font-weight:700;">{{ tc.test_id }}</div>
+                        <a href="{% url 'tasks:test_case_detail' tc.pk %}"
+                            style="color:var(--text-primary); text-decoration:none; font-weight:600;">{{ tc.title }}</a>
+                    </td>
+                    <td>
+                        <a href="{% url 'tasks:task_detail' tc.task.pk %}"
+                            style="color:var(--accent); text-decoration:none; font-size:12px;">
+                            {{ tc.task.task_id }}
+                        </a>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if tc.priority == 'critical' %}badge-red{% elif tc.priority == 'high' %}badge-yellow{% else %}badge-blue{% endif %}"
+                            style="font-size:10px;">
+                            {{ tc.get_priority_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if tc.status == 'passed' %}badge-green{% elif tc.status == 'failed' %}badge-red{% elif tc.status == 'pending' %}badge-gray{% else %}badge-yellow{% endif %}"
+                            style="font-size:10px;">
+                            {{ tc.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:4px;">
+                            {% for m in tc.assigned_members.all %}
+                            {% include 'partials/user_avatar.html' with avatar_user=m size="24" radius="50%" font_size="9" title=m.display_name %}
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:4px; justify-content:flex-end;">
+                            <a href="{% url 'tasks:test_case_verify' tc.pk %}" class="btn btn-primary btn-icon btn-sm"
+                                title="Verify"><i class="fas fa-check-circle"></i></a>
+                            <a href="{% url 'tasks:test_case_detail' tc.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="Details"><i class="fas fa-eye"></i></a>
+                            {% if user.is_admin or user in project.managers.all or user == project.project_incharge %}
+                            <a href="{% url 'tasks:test_case_edit' tc.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="Edit"><i class="fas fa-edit"></i></a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fas fa-vial"
+                            style="font-size:32px; opacity:.2; display:block; margin-bottom:12px;"></i>
+                        No test cases found for this project.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif view_mode == 'bugs' %}
+<!-- ── BUG REPORTS VIEW ── -->
+<div class="card" style="padding:0;">
+    <div class="card-header"
+        style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title"><i class="fas fa-bug" style="color:var(--accent); margin-right:8px;"></i>Bug Reports</div>
+        <div style="display:flex; gap:8px;">
+            <a href="{% url 'tasks:bug_create' %}?project={{ project.pk }}" class="btn btn-primary btn-sm"><i
+                    class="fas fa-plus"></i> Report Bug</a>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Bug Title</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Reporter</th>
+                    <th>Assignees</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bug in bugs %}
+                <tr>
+                    <td>
+                        <a href="{% url 'tasks:bug_detail' bug.pk %}"
+                            style="color:var(--text-primary); text-decoration:none; font-weight:600;">{{ bug.title }}</a>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if bug.severity == 'critical' %}badge-red{% elif bug.severity == 'high' %}badge-yellow{% elif bug.severity == 'medium' %}badge-blue{% else %}badge-gray{% endif %}"
+                            style="font-size:10px;">
+                            {{ bug.get_severity_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if bug.status == 'open' %}badge-red{% elif bug.status == 'in_progress' %}badge-blue{% elif bug.status == 'resolved' %}badge-green{% else %}badge-gray{% endif %}"
+                            style="font-size:10px;">
+                            {{ bug.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="font-size:12px;">{{ bug.reported_by.display_name }}</td>
+                    <td>
+                        <div style="display:flex; gap:4px;">
+                            {% for m in bug.assignees.all %}
+                            {% include 'partials/user_avatar.html' with avatar_user=m size="24" radius="50%" font_size="9" title=m.display_name %}
+                            {% empty %}
+                            <span style="font-size:11px; color:var(--text-muted);">Unassigned</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:4px; justify-content:flex-end;">
+                            <a href="{% url 'tasks:bug_detail' bug.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="View"><i class="fas fa-eye"></i></a>
+                            {% if user == bug.reported_by or user.is_admin or user in project.managers.all %}
+                            <a href="{% url 'tasks:bug_edit' bug.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                                title="Edit"><i class="fas fa-edit"></i></a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="fas fa-bug"></i>
+                            <h3>No bug reports found</h3>
+                            <p>No bugs have been reported for this project yet.</p>
+                            <a href="{% url 'tasks:bug_create' %}?project={{ project.pk }}" class="btn btn-primary btn-sm"><i
+                                    class="fas fa-plus"></i> Report Bug</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif view_mode == 'kanban' %}
+
+<!-- ── KANBAN VIEW ── -->
+<div class="kanban-board">
+    {% for col_key, col_tasks in kanban.items %}
+    <div class="kanban-col">
+        <div class="kanban-header"
+            style="color:{% if col_key == 'done' %}var(--green){% elif col_key == 'in_progress' %}var(--accent){% elif col_key == 'blocked' %}var(--red){% elif col_key == 'review' %}var(--yellow){% else %}var(--text-muted){% endif %};">
+            <span>
+                <i class="fas {% if col_key == 'todo' %}fa-circle{% elif col_key == 'in_progress' %}fa-spinner{% elif col_key == 'review' %}fa-eye{% elif col_key == 'done' %}fa-check-circle{% else %}fa-ban{% endif %}"
+                    style="margin-right:5px;"></i>
+                {% if col_key == 'todo' %}To Do{% elif col_key == 'in_progress' %}In Progress{% elif col_key == 'review' %}In Review{% elif col_key == 'done' %}Done{% else %}Blocked{% endif %}
+            </span>
+            <span
+                style="background:var(--border); padding:2px 8px; border-radius:10px; font-size:11px; color:var(--text-muted);">{{ col_tasks.count }}</span>
+        </div>
+        <div class="kanban-body">
+            {% for task in col_tasks %}
+            <a href="{% url 'tasks:task_detail' task.pk %}" class="k-card">
+                <div style="display:flex; align-items:flex-start; gap:7px; margin-bottom:7px;">
+                    <div class="p-dot"
+                        style="margin-top:4px; background:{% if task.priority == 'critical' %}#ef4444{% elif task.priority == 'high' %}#f97316{% elif task.priority == 'medium' %}#f59e0b{% else %}#22c55e{% endif %};">
+                    </div>
+                    <div class="k-card-title">{{ task.title }}</div>
+                </div>
+                <div class="k-card-meta">
+                    <span
+                        class="badge {% if task.task_type == 'bug' %}badge-red{% elif task.task_type == 'feature' %}badge-purple{% else %}badge-gray{% endif %}"
+                        style="font-size:9px;">{{ task.get_task_type_display }}</span>
+                    {% if task.assignees.all %}
+                    <div style="display:flex; align-items:center; gap:2px; flex-wrap:wrap;">
+                        {% for assignee in task.assignees.all|slice:":3" %}
+                        {% include 'partials/user_avatar.html' with avatar_user=assignee size="20" radius="50%" font_size="8" title=assignee.display_name %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <span style="font-size:10px; color:var(--text-muted);">Unassigned</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% empty %}
+            <div class="k-empty"><i class="fas fa-inbox"
+                    style="font-size:24px; margin-bottom:6px; display:block; opacity:.3;"></i>No tasks</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% elif view_mode == 'members' %}
+<div class="card" style="padding:0;">
+    <div class="card-header"
+        style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title"><i class="fas fa-users" style="color:var(--accent); margin-right:8px;"></i>Project
+            Members</div>
+        {% if user.is_admin or user in project.managers.all %}
+        <a href="{% url 'tasks:project_members' project.pk %}" class="btn btn-primary btn-sm"><i
+                class="fas fa-user-plus"></i> Manage Members</a>
+        {% endif %}
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortTable(this, 0)">Member <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 1)">Role/Team <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable(this, 2)">Email <i class="fas fa-sort"></i></th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                <tr>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            {% include 'partials/user_avatar.html' with avatar_user=member size="36" radius="10px" font_size="14" %}
+                            <div>
+                                <div style="font-weight:600; color:var(--text-primary);">{{ member.display_name }}</div>
+                                <div style="font-size:11px; color:var(--text-muted);">@{{ member.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-gray" style="text-transform: capitalize;">{{ member.get_team_display }}</span>
+                        {% if member in project.managers.all %}
+                        <span class="badge badge-blue" style="margin-left:4px;">Manager</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:13px; color:var(--text-secondary);">{{ member.email }}</td>
+                    <td style="text-align:right;">
+                        <a href="{% url 'accounts:user_detail' member.pk %}" class="btn btn-secondary btn-icon btn-sm"
+                            title="View Profile"><i class="fas fa-eye"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif view_mode == 'resources' %}
+<div class="card" style="padding:16px;">
+    <div
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap: wrap; gap: 12px;">
+        <h3
+            style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:1px; margin:0;">
+            <i class="fas fa-folder-tree" style="color:var(--accent); margin-right:8px;"></i> Project Resources
+        </h3>
+
+        <div style="display:flex; gap:8px; align-items:center;">
+            <!-- Upload Button -->
+            {% if user.is_admin or user in project.managers.all or user in project.members.all %}
+            <a href="{% url 'files:file_upload' %}?project={{ project.pk }}"
+               class="btn btn-primary btn-sm"
+               title="Upload Files">
+                <i class="fas fa-cloud-upload-alt"></i> Upload
+            </a>
+            {% endif %}
+            <!-- View Switcher (Tree and Repository only) -->
+            <div class="btn-group btn-group-sm"
+                style="background: var(--bg-secondary); border-radius: 6px; padding: 2px;">
+                <a href="?view=resources&resource_view=tree"
+                    class="btn btn-icon {% if resource_view == 'tree' or not resource_view %}btn-primary{% else %}btn-ghost{% endif %}"
+                    title="Tree View"><i class="fas fa-folder-tree"></i></a>
+                <a href="?view=resources&resource_view=repository"
+                    class="btn btn-icon {% if resource_view == 'repository' %}btn-primary{% else %}btn-ghost{% endif %}"
+                    title="Repository View"><i class="fas fa-folder-open"></i></a>
+            </div>
+        </div>
+    </div>
+
+    {% if resource_view == 'tree' or not resource_view %}
+    <div class="vscode-tree">
+        {% include 'files/category_tree.html' with categories=project.file_categories.all %}
+        {% for f in project.latest_files %}
+        {% if not f.category and not f.task %}
+        <div class="tree-item">
+            <div class="tree-row file-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
+                <i class="fas fa-fw" style="width:14px;display:inline-block;"></i>
+                <i class="fas {{ f.icon_class }} file-icon" style="color:{{ f.icon_color }};"></i>
+                <span class="tree-label">{{ f.display_name }}</span>
+                <div class="actions-group" onclick="event.stopPropagation();">
+                </div>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:auto;">{{ f.file_size_display }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    {% elif resource_view == 'repository' %}
+    <div class="github-repo-style" style="border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+        <!-- Repo Header -->
+        <div
+            style="background:var(--bg-secondary); padding:10px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                {% if current_repo_cat %}
+                <a href="?view=resources&resource_view=repository{% if current_repo_cat.parent %}&repo_cat_id={{ current_repo_cat.parent.pk }}{% endif %}"
+                    class="btn btn-ghost btn-sm" style="padding:4px 8px;"><i class="fas fa-arrow-left"></i></a>
+                <span style="font-size:13px; font-weight:600; color:var(--accent);">{{ current_repo_cat.name }}</span>
+                {% else %}
+                {% include 'partials/user_avatar.html' with avatar_user=project.managers.first size="24" radius="50%" font_size="10" %}
+                <span style="font-size:13px; font-weight:600;">{{ project.managers.first.display_name|default:"Manager" }}</span>
+                <span style="color:var(--text-muted); font-size:13px;">Latest update to resources</span>
+                {% endif %}
+            </div>
+            <span style="font-size:12px; color:var(--text-muted);">{{ project.files.first.created_at|timesince }}
+                ago</span>
+        </div>
+
+        <div class="repo-file-list">
+            <!-- Subcategories -->
+            {% if current_repo_cat %}
+            {% for cat in current_repo_cat.children.all|dictsort:"name" %}
+            {% if not cat.is_in_trash %}
+            <div class="repo-row"
+                onclick="window.location='?view=resources&resource_view=repository&repo_cat_id={{ cat.pk }}'">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-folder" style="color:var(--accent); opacity:0.8;"></i>
+                    <span style="font-size:13px; font-weight:600;">{{ cat.name }}</span>
+                </div>
+                <span style="font-size:12px; color:var(--text-muted);">Directory</span>
+                <span style="font-size:12px; color:var(--text-muted); text-align:right;">{{ cat.created_at|date:"M d, Y" }}</span>
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                    <a href="{% url 'files:download_folder' cat.pk %}"
+                        class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Download ZIP"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fas fa-download"></i>
+                    </a>
+                    <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}&next={{ request.get_full_path|urlencode }}"
+                        class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {% for f in current_repo_cat.latest_files %}
+            {% if not f.task and not f.is_in_trash %}
+            <div class="repo-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }}; opacity:0.8;"></i>
+                    <span style="font-size:13px;">{{ f.display_name }}</span>
+                </div>
+                <span style="font-size:12px; color:var(--text-muted);">{{ f.description|truncatechars:40|default:"Initial upload" }}</span>
+                <span style="font-size:12px; color:var(--text-muted); text-align:right;">{{ f.created_at|date:"M d, Y" }}</span>
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                    <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}&next={{ request.get_full_path|urlencode }}"
+                        class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% else %}
+            <!-- Root Level -->
+            {% for cat in root_categories|dictsort:"name" %}
+            <div class="repo-row"
+                onclick="window.location='?view=resources&resource_view=repository&repo_cat_id={{ cat.pk }}'">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-folder" style="color:var(--accent); opacity:0.8;"></i>
+                    <span style="font-size:13px; font-weight:600;">{{ cat.name }}</span>
+                </div>
+                <span style="font-size:12px; color:var(--text-muted);">Directory</span>
+                <span style="font-size:12px; color:var(--text-muted); text-align:right;">{{ cat.created_at|date:"M d, Y" }}</span>
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                    <a href="{% url 'files:download_folder' cat.pk %}"
+                        class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Download ZIP"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fas fa-download"></i>
+                    </a>
+                    <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}&next={{ request.get_full_path|urlencode }}"
+                        class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% for f in project.latest_files %}
+            {% if not f.category and not f.task %}
+            <div class="repo-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }}; opacity:0.8;"></i>
+                    <span style="font-size:13px;">{{ f.display_name }}</span>
+                </div>
+                <span style="font-size:12px; color:var(--text-muted);">{{ f.description|truncatechars:40|default:"Initial upload" }}</span>
+                <span style="font-size:12px; color:var(--text-muted); text-align:right;">{{ f.created_at|date:"M d, Y" }}</span>
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                    <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}&next={{ request.get_full_path|urlencode }}"
+                        class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% elif view_mode == 'admin' %}
+<!-- ── DATABASE METADATA VIEW (Admin Only) ── -->
+<div class="card" style="padding:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; color:var(--text-primary);">
+            <i class="fas fa-database" style="color:var(--accent); margin-right:10px;"></i>Database Metadata
+        </h2>
+        <span class="badge badge-purple" style="font-size:12px;">Internal Records</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:20px;">
+        <!-- Project Core Fields -->
+        <div
+            style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <h3
+                style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:15px; letter-spacing:1px;">
+                Core Model Data</h3>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Primary Key (ID)</span>
+                    <code
+                        style="background:var(--bg-card); padding:2px 6px; border-radius:4px; font-size:12px; color:var(--accent);">{{ project.pk }}</code>
+                </div>
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Custom Project ID</span>
+                    <span style="font-size:13px; font-weight:600; color:var(--text-primary);">{{ project.project_id|default:"N/A" }}</span>
+                </div>
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Created At</span>
+                    <span style="font-size:13px; color:var(--text-primary);">{{ project.created_at|date:"Y-m-d H:i:s" }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Last Updated</span>
+                    <span style="font-size:13px; color:var(--text-primary);">{{ project.updated_at|date:"Y-m-d H:i:s" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ownership Metadata -->
+        <div
+            style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <h3
+                style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:15px; letter-spacing:1px;">
+                Ownership & Access</h3>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Creator</span>
+                    <span style="font-size:13px; color:var(--text-primary);">{{ project.created_by.display_name|default:"System" }}</span>
+                </div>
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Visibility Mode</span>
+                    <span class="badge badge-gray" style="font-size:11px;">{{ project.get_visibility_display }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Incharge ID</span>
+                    <span style="font-size:13px; color:var(--text-primary);">{{ project.project_incharge.pk|default:"None" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deletion Flags -->
+        <div
+            style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <h3
+                style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:15px; letter-spacing:1px;">
+                Life-cycle Status</h3>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Archived</span>
+                    <span class="badge {% if project.is_archived %}badge-red{% else %}badge-green{% endif %}"
+                        style="font-size:11px;">{{ project.is_archived|yesno:"YES,NO" }}</span>
+                </div>
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Deletion Requested (Admin)</span>
+                    <span style="font-size:13px; color:var(--text-primary);">{{ project.deletion_requested_by_admin|yesno:"YES,NO" }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; color:var(--text-secondary);">Deletion Requested (PM)</span>
+                    <span style="font-size:13px; color:var(--text-primary);">{{ project.deletion_requested_by_pm|yesno:"YES,NO" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Counts -->
+    <div style="margin-top:24px;">
+        <h3
+            style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:15px; letter-spacing:1px;">
+            Relational Counts</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">
+            <div
+                style="background:var(--bg-card); border:1px solid var(--border); padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:20px; font-weight:700; color:var(--text-primary);">{{ project.tasks.count }}</div>
+                <div style="font-size:11px; color:var(--text-muted);">Tasks</div>
+            </div>
+            <div
+                style="background:var(--bg-card); border:1px solid var(--border); padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:20px; font-weight:700; color:var(--text-primary);">{{ requirements.count }}</div>
+                <div style="font-size:11px; color:var(--text-muted);">Requirements</div>
+            </div>
+            <div
+                style="background:var(--bg-card); border:1px solid var(--border); padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:20px; font-weight:700; color:var(--text-primary);">{{ project.files.count }}</div>
+                <div style="font-size:11px; color:var(--text-muted);">Files</div>
+            </div>
+            <div
+                style="background:var(--bg-card); border:1px solid var(--border); padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:20px; font-weight:700; color:var(--text-primary);">{{ notes.count }}</div>
+                <div style="font-size:11px; color:var(--text-muted);">Notes</div>
+            </div>
+            <div
+                style="background:var(--bg-card); border:1px solid var(--border); padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:20px; font-weight:700; color:var(--text-primary);">{{ project.releases.count }}
+                </div>
+                <div style="font-size:11px; color:var(--text-muted);">Releases</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ── Table Sorting Logic ──────────────────────────────────────────────────
+    function sortTable(header, columnIndex) {
+        const table = header.closest('table');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.id !== 'req-no-match' && row.id !== 'task-no-match' && !row.querySelector('.empty-state'));
+
+        const isAscending = header.classList.contains('sort-asc');
+        const direction = isAscending ? -1 : 1;
+
+        // Reset other headers
+        table.querySelectorAll('th').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+            const icon = th.querySelector('i.fas');
+            if (icon) icon.className = 'fas fa-sort';
+        });
+
+        // Set current header
+        header.classList.toggle('sort-asc', !isAscending);
+        header.classList.toggle('sort-desc', isAscending);
+        header.querySelector('i.fas').className = isAscending ? 'fas fa-sort-down' : 'fas fa-sort-up';
+
+        rows.sort((a, b) => {
+            let valA = a.cells[columnIndex].innerText.toLowerCase().trim();
+            let valB = b.cells[columnIndex].innerText.toLowerCase().trim();
+
+            // Handle numeric values
+            if (!isNaN(parseFloat(valA)) && isFinite(valA)) {
+                valA = parseFloat(valA);
+                valB = parseFloat(valB);
+            }
+
+            if (valA < valB) return -1 * direction;
+            if (valA > valB) return 1 * direction;
+            return 0;
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    document.querySelectorAll('.status-changer').forEach(sel => {
+        sel.addEventListener('change', async function () {
+            const taskId = this.dataset.task;
+            const newStatus = this.value;
+            const resp = await fetch(`/tasks/${taskId}/status/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                // Update progress bar if present
+                const fill = document.querySelector('.progress-fill');
+                if (fill) fill.style.width = data.progress + '%';
+            } else {
+                alert('Failed to update status. Please refresh.');
+            }
+        });
+    });
+    function toggleFolder(el) {
+        const li = el.closest('.folder-item');
+        const children = li.querySelector('.tree-children');
+        if (children.style.display === 'none') {
+            children.style.display = 'block';
+            li.classList.add('open');
+            el.querySelector('.folder-icon').classList.replace('fa-folder', 'fa-folder-open');
+        } else {
+            children.style.display = 'none';
+            li.classList.remove('open');
+            el.querySelector('.folder-icon').classList.replace('fa-folder-open', 'fa-folder');
+        }
+    }
+    function filterTasks(query) {
+        const q = (query || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('.task-row');
+        const noMatch = document.getElementById('task-no-match');
+
+        if (!rows.length) return;
+
+        let visible = 0;
+        rows.forEach(row => {
+            const id = row.dataset.taskId || '';
+            const name = row.dataset.taskName || '';
+            const desc = row.dataset.taskDesc || '';
+            const matches = !q || id.includes(q) || name.includes(q) || desc.includes(q);
+            row.style.display = matches ? '' : 'none';
+            if (matches) visible++;
+        });
+
+        if (noMatch) noMatch.style.display = (visible === 0 && q) ? '' : 'none';
+    }
+
+    // ── Task Report Modal ───────────────────────────────────────────────────────
+    const _taskReportBaseUrl = "{% url 'tasks:task_report' project.pk %}";
+
+    function openTaskReportModal() {
+        const overlay = document.getElementById('task-report-modal-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.classList.add('active');
+        }
+    }
+
+    function closeTaskReportModal() {
+        const overlay = document.getElementById('task-report-modal-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.classList.remove('active');
+        }
+    }
+
+    // ── Requirements Search ────────────────────────────────────────────────────
+    function filterRequirements(query) {
+        const q = (query || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('.req-row');
+        const noMatch = document.getElementById('req-no-match');
+        const countEl = document.getElementById('req-result-count');
+
+        if (!rows.length) return;
+
+        let visible = 0;
+        rows.forEach(row => {
+            const id = row.dataset.reqId || '';
+            const name = row.dataset.reqName || '';
+            const desc = row.dataset.reqDesc || '';
+            const matches = !q || id.includes(q) || name.includes(q) || desc.includes(q);
+            row.style.display = matches ? '' : 'none';
+            if (matches) visible++;
+        });
+
+        if (noMatch) noMatch.style.display = (visible === 0 && q) ? '' : 'none';
+
+        if (countEl) {
+            if (q) {
+                countEl.textContent = `${visible} of ${rows.length} shown`;
+            } else {
+                countEl.textContent = '';
+            }
+        }
+    }
+
+    // ── Report Modal ───────────────────────────────────────────────────────────
+    const _reportBaseUrl = "{% url 'tasks:requirement_report' project.pk %}";
+
+    function openReportModal() {
+        const overlay = document.getElementById('report-modal-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.classList.add('active');
+        }
+    }
+
+    function closeReportModal() {
+        const overlay = document.getElementById('report-modal-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.classList.remove('active');
+        }
+    }
+
+    // Close on overlay click
+    document.addEventListener('DOMContentLoaded', function () {
+        // Task format logic
+        document.querySelectorAll('input[name="task-report-format"]').forEach(radio => {
+            radio.addEventListener('change', function () {
+                document.querySelectorAll('.task-format-card').forEach(card => card.style.borderColor = 'var(--border)');
+                const selectedCard = document.getElementById('task-card-' + this.value);
+                if (selectedCard) selectedCard.style.borderColor = 'var(--accent)';
+                const link = document.getElementById('task-report-download-link');
+                if (link) link.href = _taskReportBaseUrl + '?format=' + this.value;
+            });
+        });
+
+        const reqOverlay = document.getElementById('report-modal-overlay');
+        if (reqOverlay) {
+            reqOverlay.addEventListener('click', function (e) {
+                if (e.target === reqOverlay) closeReportModal();
+            });
+        }
+
+        const taskOverlay = document.getElementById('task-report-modal-overlay');
+        if (taskOverlay) {
+            taskOverlay.addEventListener('click', function (e) {
+                if (e.target === taskOverlay) closeTaskReportModal();
+            });
+        }
+
+        // Format card toggle logic for requirements
+        document.querySelectorAll('input[name="report-format"]').forEach(radio => {
+            radio.addEventListener('change', function () {
+                // Reset all cards
+                document.querySelectorAll('.report-format-card').forEach(card => {
+                    card.style.borderColor = 'var(--border)';
+                });
+                // Highlight selected
+                const selectedCard = document.getElementById('card-' + this.value);
+                if (selectedCard) selectedCard.style.borderColor = 'var(--accent)';
+
+                // Update download link
+                const link = document.getElementById('report-download-link');
+                if (link) {
+                    link.href = _reportBaseUrl + '?format=' + this.value;
+                }
+            });
+        });
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeReportModal();
+            closeTaskReportModal();
+        }
+    });
+
+    // ── Markdown & KaTeX Rendering ──
+    function renderAllMarkdown() {
+        if (typeof marked === 'undefined') return;
+
+        document.querySelectorAll('.render-markdown').forEach(el => {
+            const rawContent = el.getAttribute('data-content') || el.textContent;
+            if (!rawContent || rawContent === 'No description provided.') return;
+
+            var mathBlocks = [];
+            var placeholderPrefix = "KTXPH";
+            var mathRegex = /(\$\$[\s\S]+?\$\$|\$[\s\S]+?\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
+
+            var preservedContent = rawContent.replace(mathRegex, function (match) {
+                var placeholder = placeholderPrefix + mathBlocks.length + "X";
+                mathBlocks.push(match);
+                return placeholder;
+            });
+
+            var renderedHtml = marked.parse(preservedContent);
+
+            for (var i = 0; i < mathBlocks.length; i++) {
+                var placeholder = placeholderPrefix + i + "X";
+                renderedHtml = renderedHtml.split(placeholder).join(mathBlocks[i]);
+            }
+
+            el.innerHTML = renderedHtml;
+            el.classList.remove('render-markdown');
+            el.classList.add('markdown-rendered');
+        });
+
+        if (typeof renderMathInElement === 'function') {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '\\begin{equation}', right: '\\end{equation}', display: true },
+                    { left: '\\begin{align}', right: '\\end{align}', display: true },
+                    { left: '\\begin{alignat}', right: '\\end{alignat}', display: true },
+                    { left: '\\begin{gather}', right: '\\end{gather}', display: true },
+                    { left: '\\begin{CD}', right: '\\end{CD}', display: true }
+                ],
+                throwOnError: false
+            });
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initial render
+        renderAllMarkdown();
+
+        // Handle view switches (if content is dynamically loaded or just for safety)
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.addedNodes.length) {
+                    renderAllMarkdown();
+                }
+            });
+        });
+
+        const mainContent = document.querySelector('.page-body');
+        if (mainContent) {
+            observer.observe(mainContent, { childList: true, subtree: true });
+        }
+    });
+
+</script>
+
+<!-- ── Task Report Modal HTML ── -->
+<div id="task-report-modal-overlay"
+    style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; backdrop-filter:blur(3px); align-items:center; justify-content:center;">
+    <div
+        style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:32px; width:460px; max-width:calc(100vw - 32px); box-shadow:0 24px 60px rgba(0,0,0,.45); animation:modalPop .22s ease;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+            <div>
+                <h2 style="font-size:16px; font-weight:700; margin:0; color:var(--text-primary);">
+                    <i class="fas fa-file-export" style="color:var(--accent); margin-right:8px;"></i>Generate Task
+                    Report
+                </h2>
+                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0;">Select format for project task
+                    documentation.</p>
+            </div>
+            <button onclick="closeTaskReportModal()"
+                style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:18px; line-height:1;">&times;</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
+            <label for="task-fmt-docx" style="cursor:pointer;">
+                <input type="radio" name="task-report-format" id="task-fmt-docx" value="docx" checked
+                    style="display:none;">
+                <div class="task-format-card" id="task-card-docx"
+                    style="border:2px solid var(--accent); border-radius:12px; padding:18px 14px; text-align:center; transition:.2s; background:var(--bg-secondary);">
+                    <i class="fas fa-file-word"
+                        style="font-size:28px; color:#2563eb; margin-bottom:8px; display:block;"></i>
+                    <div style="font-weight:700; font-size:13px; color:var(--text-primary);">Word Doc</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">.docx format</div>
+                </div>
+            </label>
+            <label for="task-fmt-md" style="cursor:pointer;">
+                <input type="radio" name="task-report-format" id="task-fmt-md" value="md" style="display:none;">
+                <div class="task-format-card" id="task-card-md"
+                    style="border:2px solid var(--border); border-radius:12px; padding:18px 14px; text-align:center; transition:.2s; background:var(--bg-secondary);">
+                    <i class="fas fa-markdown"
+                        style="font-size:28px; color:#7c3aed; margin-bottom:8px; display:block;"></i>
+                    <div style="font-weight:700; font-size:13px; color:var(--text-primary);">Markdown</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">task_report.md</div>
+                </div>
+            </label>
+        </div>
+
+        <div
+            style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px; font-size:12px; color:var(--text-muted);">
+            <div style="font-weight:600; color:var(--text-primary); margin-bottom:6px;"><i class="fas fa-info-circle"
+                    style="color:var(--accent); margin-right:5px;"></i>What's included:</div>
+            <ul style="margin:0; padding-left:16px; line-height:1.9;">
+                <li>Project metadata & descriptions</li>
+                <li>Detailed tasks overview table</li>
+                <li>Task-to-Requirement traceability mapping</li>
+            </ul>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeTaskReportModal()">Cancel</button>
+            <a id="task-report-download-link" href="{% url 'tasks:task_report' project.pk %}?format=docx"
+                class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+                <i class="fas fa-download"></i> Download
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

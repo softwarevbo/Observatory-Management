@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% block title %}Modules — {{ project.name }}{% endblock %}
+{% block page_title %}{{ project.name }} / Modules{% endblock %}
+
+{% block topbar_actions %}
+    {% if is_editor %}
+    <a href="{% url 'tasks:module_create' project.pk %}" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus"></i> New Module
+    </a>
+    {% endif %}
+    <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Back to Project
+    </a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .modules-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 24px;
+        padding: 10px 0;
+    }
+
+    .module-card {
+        background: linear-gradient(145deg, var(--bg-card), rgba(99, 102, 241, 0.03));
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-color 0.3s ease;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        backdrop-filter: blur(12px);
+    }
+
+    .module-card:hover {
+        border-color: rgba(99, 102, 241, 0.3);
+        transform: translateY(-6px);
+        box-shadow: 0 16px 48px rgba(99, 102, 241, 0.2);
+    }
+
+    .module-card-accent {
+        height: 5px;
+        background: linear-gradient(90deg, var(--accent), #7c3aed, #ec4899);
+        background-size: 200% auto;
+        flex-shrink: 0;
+        transition: background-position 0.5s ease;
+    }
+    
+    .module-card:hover .module-card-accent {
+        background-position: right center;
+    }
+
+    .module-card-body {
+        padding: 24px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .module-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(124, 58, 237, 0.15));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(99, 102, 241, 0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .module-card:hover .module-icon-wrapper {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .module-card-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: block;
+        margin-bottom: 4px;
+        transition: color 0.2s ease;
+        letter-spacing: -0.3px;
+    }
+    
+    .module-card-title:hover { color: var(--accent); }
+
+    .module-card-desc {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.6;
+        margin-top: 16px;
+        margin-bottom: 20px;
+        flex-grow: 1;
+    }
+
+    .module-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 16px 0;
+        border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        margin-top: auto;
+    }
+
+    .module-stat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: rgba(0, 0, 0, 0.15);
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+    
+    .module-stat:hover {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--text-primary);
+    }
+    
+    .module-stat i { font-size: 11px; }
+
+    .module-card-footer {
+        padding: 16px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.2);
+    }
+    
+    .module-card-footer .btn {
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 12px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-secondary);
+        transition: all 0.2s ease;
+    }
+    
+    .module-card-footer .btn:hover {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+        transform: translateY(-2px);
+    }
+
+    /* Progress mini bar */
+    .mini-progress {
+        height: 6px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        overflow: hidden;
+        margin: 12px 0 16px;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .mini-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), #ec4899);
+        border-radius: 3px;
+        transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+    }
+    .mini-progress-fill.done { background: linear-gradient(90deg, #10b981, #34d399); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+    
+    .empty-state {
+        background: linear-gradient(145deg, var(--bg-card), rgba(0,0,0,0.2));
+        border: 1px dashed rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 60px 40px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+    }
+    .empty-state i {
+        font-size: 64px;
+        background: -webkit-linear-gradient(45deg, var(--accent), #ec4899);
+        background: linear-gradient(45deg, var(--accent), #ec4899);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+        margin-bottom: 24px;
+    }
+    .empty-state h3 {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 24px;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+    }
+    .empty-state p {
+        color: var(--text-muted);
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if modules %}
+<div class="modules-grid">
+    {% for module in modules %}
+    {% with task_total=module.tasks.count task_done=module.tasks.filter.status %}
+    <div class="module-card">
+        <div class="module-card-accent"></div>
+
+        <div class="module-card-body">
+            <!-- Icon + Title -->
+            <div style="display:flex;align-items:flex-start;gap:16px;">
+                <div class="module-icon-wrapper">
+                    <i class="fas fa-cube" style="color:var(--accent);font-size:20px;"></i>
+                </div>
+                <div style="flex:1;min-width:0;padding-top:2px;">
+                    <a href="{% url 'tasks:module_detail' module.pk %}" class="module-card-title">{{ module.name }}</a>
+                    <div style="font-size:11px;color:var(--text-muted);font-weight:500;">Created {{ module.created_at|date:"M d, Y" }}</div>
+                </div>
+            </div>
+
+            <p class="module-card-desc">{{ module.description|truncatewords:20|default:"No description provided." }}</p>
+
+            <!-- Progress bar based on tasks -->
+            {% with total=module.tasks.count done=module.tasks.all %}
+            {% if total > 0 %}
+            {% with done_count=module.tasks.filter.done %}
+            <div class="mini-progress">
+                <div class="mini-progress-fill" style="width:{% widthratio module.tasks.filter.done|default:0 total 100 %}%;"></div>
+            </div>
+            {% endwith %}
+            {% endif %}
+            {% endwith %}
+
+            <!-- Stats row -->
+            <div class="module-stats">
+                <div class="module-stat">
+                    <i class="fas fa-users" style="color:#60a5fa;"></i>
+                    {{ module.members.count }} Member{{ module.members.count|pluralize }}
+                </div>
+                <div class="module-stat">
+                    <i class="fas fa-tasks" style="color:#34d399;"></i>
+                    {{ module.tasks.count }} Task{{ module.tasks.count|pluralize }}
+                </div>
+                <div class="module-stat">
+                    <i class="fas fa-clipboard-list" style="color:#a78bfa;"></i>
+                    {{ module.requirements.count }} Req{{ module.requirements.count|pluralize }}
+                </div>
+                <div class="module-stat">
+                    <i class="fas fa-sticky-note" style="color:#fbbf24;"></i>
+                    {{ module.kb_notes.count }} Note{{ module.kb_notes.count|pluralize }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer actions -->
+        <div class="module-card-footer">
+            <a href="{% url 'tasks:module_detail' module.pk %}" class="btn" style="flex:1;justify-content:center;">
+                <i class="fas fa-eye"></i> View
+            </a>
+            {% if is_editor %}
+            <a href="{% url 'tasks:module_members' module.pk %}" class="btn" style="flex:1;justify-content:center;">
+                <i class="fas fa-users"></i> Members
+            </a>
+            <a href="{% url 'tasks:module_edit' module.pk %}" class="btn" style="justify-content:center;padding:8px 14px;">
+                <i class="fas fa-edit" style="margin:0;"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div style="max-width:540px;margin:80px auto;">
+    <div class="empty-state">
+        <i class="fas fa-layer-group"></i>
+        <h3>No modules yet</h3>
+        <p>Modules help you organize tasks and requirements into logical, manageable groups within your project.</p>
+        {% if is_editor %}
+        <a href="{% url 'tasks:module_create' project.pk %}" class="btn btn-primary" style="padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;box-shadow:0 8px 20px rgba(99,102,241,0.3);transition:all 0.2s;">
+            <i class="fas fa-plus" style="margin-right:8px;"></i> Create First Module
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

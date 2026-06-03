@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Delete File — {{ file.display_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-card {
+        max-width: 500px;
+        margin: 60px auto;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    .delete-header {
+        background: rgba(239, 68, 68, 0.1);
+        padding: 24px;
+        text-align: center;
+        border-bottom: 1px solid var(--border);
+    }
+    .delete-icon {
+        width: 64px;
+        height: 64px;
+        background: #ef4444;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin: 0 auto 16px;
+        box-shadow: 0 8px 16px rgba(239, 68, 68, 0.3);
+    }
+    .delete-body {
+        padding: 32px;
+        text-align: center;
+    }
+    .delete-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+    .delete-subtitle {
+        font-size: 14px;
+        color: var(--text-muted);
+        line-height: 1.6;
+        margin-bottom: 24px;
+    }
+    .warning-box {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        padding: 16px;
+        border-radius: 12px;
+        display: flex;
+        gap: 12px;
+        text-align: left;
+        margin-bottom: 32px;
+    }
+    .warning-box i { color: #f59e0b; margin-top: 3px; }
+    .warning-text { font-size: 13px; color: #d97706; }
+    .delete-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-card">
+    <div class="delete-header">
+        <div class="delete-icon">
+            <i class="fas fa-trash-alt"></i>
+        </div>
+        <h2 class="delete-title">Delete File Permanently?</h2>
+        <div class="delete-subtitle">This action cannot be undone.</div>
+    </div>
+    <div class="delete-body">
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 24px; text-align: left; display: flex; align-items: center; gap: 14px;">
+            <div style="width: 48px; height: 48px; background: {{ file.icon_color }}20; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: {{ file.icon_color }};">
+                <i class="fas {{ file.icon_class }}"></i>
+            </div>
+            <div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600;">File to Delete</div>
+                <div style="font-size: 15px; font-weight: 700; color: var(--text-primary);">{{ file.display_name }}</div>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ file.file_size_display }}</div>
+            </div>
+        </div>
+        
+        <div class="warning-box">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div class="warning-text">
+                <strong>Permanent Removal:</strong> This file will be deleted from the server immediately. All metadata and comments associated with it will be lost.
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {% if request.GET.next %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
+            <div class="delete-actions">
+                <a href="{{ request.GET.next|default:'' }}{% if not request.GET.next %}{% url 'files:file_detail' file.pk %}{% endif %}" class="btn btn-secondary py-2" style="border-radius: 10px; font-weight: 600; height: 44px; display: flex; align-items: center; justify-content: center;">Cancel</a>
+                <button type="submit" class="btn btn-danger py-2" style="border-radius: 10px; font-weight: 600; background: #ef4444; border: none; height: 44px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">Delete Permanently</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

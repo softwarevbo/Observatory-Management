@@ -1,0 +1,950 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Release {{ release.version|default:release.name }} · {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .release-layout {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 24px;
+        align-items: start;
+    }
+
+    .rel-gov-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow);
+    }
+
+    .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .badge-locked { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.2); }
+    .badge-draft { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245, 158, 11, 0.2); }
+
+
+    /* Modern Table design */
+    .table-container {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 16px;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+    .table th {
+        background: var(--bg-primary);
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-secondary);
+        vertical-align: middle;
+    }
+
+    .asset-row {
+        transition: var(--transition);
+    }
+    .asset-row:hover {
+        background: var(--bg-card-hover);
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 20px;
+        border-left: 2px solid var(--border);
+        margin-left: 10px;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 18px;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -27px;
+        top: 4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--bg-card);
+        border: 2px solid var(--border);
+    }
+
+    .timeline-item.active::before {
+        border-color: var(--accent);
+        background: var(--accent);
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+    }
+
+    .info-box {
+        padding: 14px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        text-align: center;
+    }
+    .info-box .value {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-top: 4px;
+    }
+
+
+</style>
+{% endblock %}
+
+{% block page_title %}Release Details{% endblock %}
+
+{% block topbar_actions %}
+    {% if not is_public_view %}
+    <div style="display: flex; gap: 10px;">
+        <a href="{% url 'tasks:release_compare' release.pk %}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-exchange-alt"></i> Compare Releases
+        </a>
+        <a href="{% url 'tasks:release_restore' release.pk %}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-undo"></i> Restore Project
+        </a>
+        <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm">Back to Project</a>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if is_public_view %}
+<div style="background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; max-width: 1100px; margin: 0 auto; box-shadow: var(--shadow);">
+    <!-- Repo Header Bar -->
+    <div style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-cubes" style="font-size: 20px; color: var(--text-primary);"></i>
+            <span style="font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: 'Space Grotesk', sans-serif;">
+                {{ project.name }} <span style="color: var(--text-muted); font-weight: 400; margin: 0 4px;">/</span> Releases
+            </span>
+        </div>
+        <a href="{% url 'tasks:project_detail' project.pk %}" style="font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-arrow-left"></i> Project Dashboard
+        </a>
+    </div>
+
+    <!-- Main Content Area: Split style (75% wide left column for notes and assets, 25% right column for metadata sidebar) -->
+    <div style="display: flex; flex-wrap: wrap;">
+        <!-- Left Column -->
+        <div style="flex: 3; min-width: 320px; padding: 32px; border-right: 1px solid var(--border);">
+            <!-- Release Title Header -->
+            <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #e84393); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+                    {{ release.author.username|slice:":2"|upper }}
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <h1 style="font-size: 24px; font-weight: 800; margin: 0; color: var(--text-primary); font-family: 'Space Grotesk', sans-serif;">
+                            {{ release.name }}
+                        </h1>
+                        <span style="font-size: 12px; color: #2ea043; background: rgba(46,160,67,0.15); border: 1px solid rgba(46,160,67,0.25); padding: 2px 8px; border-radius: 20px; font-weight: 700;">
+                            <i class="fas fa-tag" style="font-size: 10px; margin-right: 2px;"></i> {{ release.tag_name|default:release.version }}
+                        </span>
+                        <span style="font-size: 11px; color: #a371f7; background: rgba(163,113,247,0.15); border: 1px solid rgba(163,113,247,0.25); padding: 2px 8px; border-radius: 20px; font-weight: 700;">
+                            Latest
+                        </span>
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
+                        <strong>{{ release.author.first_name|default:release.author.username }}</strong> released this tag 
+
+                        on {{ release.release_date|date:"F d, Y" }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div style="border-bottom: 1px solid var(--border); margin: 24px 0;"></div>
+
+            <!-- Description / Release Notes -->
+            <div style="font-size: 15px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 40px;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 14px 0; font-family: 'Space Grotesk', sans-serif;">
+                    <i class="fas fa-file-alt" style="margin-right: 6px; color: var(--text-muted);"></i> Release Notes
+                </h3>
+                <div class="markdown-body" style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border: 1px solid var(--border); white-space: pre-wrap; font-family: inherit;">{{ release.description }}</div>
+            </div>
+
+            <!-- Assets Section: GitHub-style folder tree -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif;">
+                        <i class="fas fa-box-open" style="color: var(--text-muted);"></i> Assets
+                        <span style="font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border); padding: 2px 8px; border-radius: 12px; color: var(--text-muted);">{{ release_files.count }}</span>
+                    </h3>
+                    <a href="{% url 'tasks:release_download' release.pk %}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 8px 16px; border-radius: 8px; text-decoration: none; background: #2ea043; border: none; color: #fff; font-size: 13px; box-shadow: 0 2px 6px rgba(46,160,67,0.3); transition: all 0.2s;" onmouseover="this.style.background='#238636'" onmouseout="this.style.background='#2ea043'">
+                        <i class="fas fa-file-archive"></i> Download ZIP
+                    </a>
+                </div>
+
+                <!-- Breadcrumb nav -->
+                <div id="publicBreadcrumbs" style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; padding: 10px 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;"></div>
+                
+                <div style="border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-secondary);">
+                    <!-- Table header -->
+                    <div style="background: var(--bg-primary); padding: 10px 20px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: flex; justify-content: space-between;">
+                        <span>Name</span>
+                        <span>Size</span>
+                    </div>
+                    <!-- Items (rendered by JS) -->
+                    <div id="publicTreeBody" style="display: flex; flex-direction: column;"></div>
+                </div>
+            </div>
+
+            <!-- Supplemental Assets -->
+            <div style="margin-top: 32px;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif;">
+                    <i class="fas fa-paperclip" style="color: var(--text-muted);"></i> Supplemental Assets
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+                    {% for rf in release.release_files.all %}
+                    {% if rf.is_extra_asset %}
+                    <div style="padding: 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+                        <i class="fas {{ rf.icon_class }}" style="font-size: 24px; color: {{ rf.icon_color }}; margin-bottom: 12px; display: block;"></i>
+                        <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px; word-break: break-all; color: var(--text-primary);">{{ rf.original_name }}</div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">{{ rf.file_size_display }}</div>
+                        <a href="{{ rf.file.url }}" download style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 8px 12px; background: var(--accent); color: #fff; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                    </div>
+                    {% endif %}
+                    {% empty %}
+                    <div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">No supplemental assets uploaded.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column (Sidebar) -->
+        <div style="flex: 1; min-width: 250px; padding: 32px; background: var(--bg-secondary); display: flex; flex-direction: column; gap: 24px;">
+            <!-- Governance Status -->
+            <div>
+                <h4 style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.5px;">Verification &amp; Security</h4>
+                <div style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center;">
+                    <i class="fas fa-shield-alt" style="font-size: 28px; color: var(--green); margin-bottom: 10px; display: block;"></i>
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-primary); display: block;">Cryptographically Locked</span>
+                    <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block; line-height: 1.4;">
+                        This release artifact is immutable and verified for production deployment.
+                    </span>
+                </div>
+            </div>
+
+
+
+            <!-- Release Details -->
+            <div>
+                <h4 style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.5px;">Details</h4>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--text-secondary);">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Type</span>
+                        <strong style="color: var(--text-primary);">{{ release.get_release_type_display }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Date</span>
+                        <strong style="color: var(--text-primary);">{{ release.release_date|date:"M d, Y" }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Snapshots</span>
+                        <strong style="color: var(--text-primary);">{{ release_files.count }} files</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="release-layout">
+    <div class="release-main-col">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <h1 style="font-size: 26px; font-weight: 800; margin: 0 0 8px 0; font-family: 'Space Grotesk', sans-serif;">{{ release.name }}</h1>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <span style="color: var(--text-muted); font-size: 13px;">
+                            <i class="fas fa-tag"></i> {{ release.tag_name|default:release.version }}
+                        </span>
+                        {% if release.is_locked %}
+                            <span class="badge badge-locked"><i class="fas fa-lock"></i> Immutable Release</span>
+                        {% else %}
+                            <span class="badge badge-draft"><i class="fas fa-edit"></i> Draft Mode</span>
+                        {% endif %}
+
+
+                    </div>
+                </div>
+                {% if not release.is_locked %}
+                <form id="publishReleaseForm" action="{% url 'tasks:release_publish' release.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="button" class="btn btn-primary" onclick="showPublishWarningModal()">
+                        <i class="fas fa-rocket"></i> Publish Release
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <div class="markdown-body" style="padding: 20px; background: var(--bg-primary); border-radius: 10px; border: 1px solid var(--border); font-size: 14px; color: var(--text-secondary);">
+                {{ release.description|linebreaks }}
+            </div>
+
+            <div class="info-grid">
+                <div class="info-box">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Version</div>
+                    <div class="value">{{ release.version|default:"v1.0" }}</div>
+                </div>
+                <div class="info-box">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Type</div>
+                    <div class="value">{{ release.get_release_type_display }}</div>
+                </div>
+                <div class="info-box">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Snapshots</div>
+                    <div class="value">{{ release.release_files.count }}</div>
+                </div>
+                <div class="info-box">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Released</div>
+                    <div class="value">{{ release.release_date|date:"M d, Y" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 style="font-size: 18px; font-weight: 700; margin: 0; font-family: 'Space Grotesk', sans-serif;">Project Snapshots</h2>
+                <button onclick="downloadSelected()" class="btn btn-secondary btn-sm" id="download-btn" style="display: none;">
+                    <i class="fas fa-download"></i> Download Selected
+                </button>
+            </div>
+            
+            <div id="repoBreadcrumbs" style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; padding: 10px 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;">
+                <!-- Filled dynamically -->
+            </div>
+
+            <div class="table-container">
+                <table class="table" id="repoTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="masterCheckbox" onchange="toggleAll(this)"></th>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>SHA-256 Checksum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="repoBody">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="font-size: 18px; font-weight: 700; margin: 0; font-family: 'Space Grotesk', sans-serif;">Supplemental Assets</h2>
+                {% if not release.is_locked %}
+                <a href="{% url 'tasks:release_asset_upload' release.pk %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-upload"></i> Upload Asset
+                </a>
+                {% endif %}
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+                {% for rf in release.release_files.all %}
+                {% if rf.is_extra_asset %}
+                <div style="padding: 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 12px; position: relative; transition: var(--transition);">
+                    <i class="fas {{ rf.icon_class }}" style="font-size: 24px; color: {{ rf.icon_color }}; margin-bottom: 12px; display: block;"></i>
+                    <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px; word-break: break-all; color: var(--text-primary);">{{ rf.original_name }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">{{ rf.file_size_display }}</div>
+                    <a href="{{ rf.file.url }}" download class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                        <i class="fas fa-download"></i> Download
+                    </a>
+                </div>
+                {% endif %}
+                {% empty %}
+                <div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">No supplemental assets uploaded.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="rel-gov-sidebar">
+        <div class="card" style="padding: 20px;">
+            <h3 style="font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0 16px 0; letter-spacing: 0.5px;">Governance</h3>
+            <div style="padding: 16px; background: var(--bg-primary); border-radius: 8px; text-align: center; border: 1px dashed var(--border);">
+                {% if release.is_locked %}
+                    <i class="fas fa-shield-alt" style="font-size: 32px; color: var(--green); margin-bottom: 12px;"></i>
+                    <div style="font-weight: 700; font-size: 14px; color: var(--text-primary);">Immutable State</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">Published by {{ release.published_by.username }}<br>{{ release.published_at|date:"M d, Y" }}</div>
+                {% else %}
+                    <i class="fas fa-edit" style="font-size: 32px; color: var(--yellow); margin-bottom: 12px;"></i>
+                    <div style="font-weight: 700; font-size: 14px; color: var(--text-primary);">Draft State</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">Modifications allowed until publication.</div>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+                {% if not release.is_locked %}
+                <a href="{% url 'tasks:release_edit' release.pk %}" class="btn btn-secondary btn-sm" style="justify-content: flex-start; gap: 8px;">
+                    <i class="fas fa-pen"></i> Edit Release Info
+                </a>
+                {% endif %}
+                
+                {% if request.user.is_admin %}
+                    {% if pending_delete_request %}
+                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin: 0 0 4px 0; padding: 10px; border-radius: 6px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #d97706;">
+                            <span style="font-weight: 700;"><i class="fas fa-exclamation-circle"></i> Deletion Request Pending</span>
+                            <a href="{% url 'tasks:admin_deletion_requests' %}" class="btn btn-warning btn-sm" style="font-size: 11px; padding: 4px 8px; color: #fff; background: #f59e0b; border: none; justify-content: center; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-shield-alt"></i> Review Request
+                            </a>
+                        </div>
+                    {% endif %}
+                    <a href="{% url 'tasks:release_delete' release.pk %}" class="btn btn-danger btn-sm" style="justify-content: flex-start; gap: 8px;">
+                        <i class="fas fa-trash"></i> Delete Release (Admin)
+                    </a>
+                {% elif request.user in project.managers.all %}
+                    {% if pending_delete_request %}
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 0; padding: 10px; border-radius: 6px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #d97706; font-weight: 600;">
+                            <i class="fas fa-hourglass-half"></i> Deletion Request Pending
+                        </div>
+                    {% else %}
+                        <a href="{% url 'tasks:release_deletion_request' release.pk %}" class="btn btn-danger btn-sm" style="justify-content: flex-start; gap: 8px;">
+                            <i class="fas fa-paper-plane"></i> Request Deletion
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+
+
+        <div class="card" style="padding: 20px;">
+            <h3 style="font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0 16px 0; letter-spacing: 0.5px;">Audit History</h3>
+            <div class="timeline">
+                {% for log in release.logs.all|slice:":8" %}
+                <div class="timeline-item">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-primary);">{{ log.get_action_display }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">{{ log.timestamp|date:"M d, H:i" }} by {{ log.user.username }}</div>
+                </div>
+                {% empty %}
+                <div style="font-size: 12px; color: var(--text-muted); text-align: center;">No history yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not is_public_view %}
+<!-- Modal for Publish Warning -->
+<div id="publishWarningModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 1060; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; max-width: 550px; width: 100%; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; animation: fadeInModal 0.25s ease-out;">
+        <div style="padding: 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(245, 158, 11, 0.1);">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #f59e0b; display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk', sans-serif;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 18px;"></i> Pre-Publication Check
+            </h3>
+            <button onclick="closePublishWarningModal()" style="background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; padding: 4px; line-height: 1;"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="font-size: 14px; color: var(--text-primary); line-height: 1.6; font-weight: 500;">
+                You are about to publish <strong>{{ release.name }}</strong> to public visibility. 
+                Once published, this release is finalized and <strong>locked (immutable)</strong>.
+            </div>
+        </div>
+        <div style="padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; background: var(--bg-secondary); gap: 10px;">
+            <button onclick="closePublishWarningModal()" class="btn btn-secondary btn-sm">Cancel</button>
+            <button onclick="submitPublishRelease()" class="btn btn-primary btn-sm" style="background: #f59e0b; border: none; font-weight: 600;">
+                Confirm &amp; Publish
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+const PROJECT_PK = Number("{{ project.pk }}");
+const RELEASE_PK = Number("{{ release.pk }}");
+const CSRF = '{{ csrf_token }}';
+
+// Parse files list
+const files = [
+  {% for rf in release.release_files.all %}
+  {% if not rf.is_extra_asset and rf.file %}
+  {
+    pk: "{{ rf.pk }}",
+    name: "{{ rf.original_name }}",
+    path: "{{ rf.relative_path|default:rf.original_name|escapejs }}",
+    url: "{{ rf.file.url }}",
+    size: "{{ rf.file_size_display }}",
+    icon: "{{ rf.icon_class }}",
+    color: "{{ rf.icon_color }}",
+    hash: "{{ rf.content_hash|slice:':8' }}"
+  },
+  {% endif %}
+  {% endfor %}
+];
+
+// Active folders for the files in this release (computed dynamically from files & metadata)
+const projectFolders = [];
+files.forEach(f => {
+    if (f.path && f.path.includes('/')) {
+        const parts = f.path.split('/');
+        let accumulated = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+            accumulated += (i > 0 ? '/' : '') + parts[i];
+            if (!projectFolders.includes(accumulated)) {
+                projectFolders.push(accumulated);
+            }
+        }
+    }
+});
+
+// Explicitly selected folders from release metadata (to show empty selected folders)
+const selectedEmptyFolders = [
+  {% for folder_path in release.metadata.selected_folders %}
+  "{{ folder_path|escapejs }}",
+  {% endfor %}
+];
+selectedEmptyFolders.forEach(fp => {
+    if (fp) {
+        const parts = fp.split('/');
+        let accumulated = '';
+        for (let i = 0; i < parts.length; i++) {
+            accumulated += (i > 0 ? '/' : '') + parts[i];
+            if (!projectFolders.includes(accumulated)) {
+                projectFolders.push(accumulated);
+            }
+        }
+    }
+});
+
+let currentPath = "";
+const selectedFiles = new Set();
+const selectedFolders = new Set();
+
+function getFolderContents(path) {
+    const folders = new Set();
+    const filesInFolder = [];
+    const prefix = path ? path + '/' : '';
+    
+    // Gather folders from files in the release snapshot
+    files.forEach(f => {
+        if (f.path.startsWith(prefix)) {
+            const relative = f.path.substring(prefix.length);
+            const slashIdx = relative.indexOf('/');
+            if (slashIdx === -1) {
+                filesInFolder.push(f);
+            } else {
+                const folderName = relative.substring(0, slashIdx);
+                folders.add(folderName);
+            }
+        }
+    });
+
+    // Also include project categories so empty folders are visible
+    projectFolders.forEach(folderPath => {
+        if (folderPath && folderPath.startsWith(prefix)) {
+            const relative = folderPath.substring(prefix.length);
+            if (relative) {
+                const slashIdx = relative.indexOf('/');
+                const folderName = slashIdx === -1 ? relative : relative.substring(0, slashIdx);
+                if (folderName) {
+                    folders.add(folderName);
+                }
+            }
+        }
+    });
+    
+    return {
+        directories: Array.from(folders).sort(),
+        files: filesInFolder.sort((a, b) => a.name.localeCompare(b.name))
+    };
+}
+
+// Recursively get ALL files that live under a given path prefix (any depth)
+function getAllFilesUnder(path) {
+    const prefix = path ? path + '/' : '';
+    if (!prefix) return [...files];
+    return files.filter(f => f.path.startsWith(prefix));
+}
+
+// Toggle all files and folders under a folder path on/off
+function toggleFolderSelection(folderPath, checked) {
+    if (checked) {
+        selectedFolders.add(folderPath);
+        projectFolders.forEach(fp => {
+            if (fp.startsWith(folderPath + '/')) {
+                selectedFolders.add(fp);
+            }
+        });
+    } else {
+        selectedFolders.delete(folderPath);
+        projectFolders.forEach(fp => {
+            if (fp === folderPath || fp.startsWith(folderPath + '/')) {
+                selectedFolders.delete(fp);
+            }
+        });
+    }
+    const underFolder = getAllFilesUnder(folderPath);
+    underFolder.forEach(f => {
+        if (checked) {
+            selectedFiles.add(f.pk);
+        } else {
+            selectedFiles.delete(f.pk);
+        }
+    });
+    renderRepo();
+    updateUI();
+}
+
+// Check if all files under a folder are selected (or check folder presence if empty)
+function isFolderFullySelected(folderPath) {
+    const under = getAllFilesUnder(folderPath);
+    if (under.length === 0) {
+        return selectedFolders.has(folderPath);
+    }
+    return under.every(f => selectedFiles.has(f.pk));
+}
+
+function navigateToFolder(path) {
+    currentPath = path;
+    renderRepo();
+}
+
+function goUp() {
+    if (!currentPath) return;
+    const parts = currentPath.split('/');
+    parts.pop();
+    currentPath = parts.join('/');
+    renderRepo();
+}
+
+function toggleFileSelection(pk, checkbox) {
+    if (checkbox.checked) {
+        selectedFiles.add(pk);
+    } else {
+        selectedFiles.delete(pk);
+    }
+    updateUI();
+}
+
+function toggleAll(master) {
+    const checked = master.checked;
+    // Toggle files
+    const under = getAllFilesUnder(currentPath);
+    under.forEach(f => {
+        if (checked) selectedFiles.add(f.pk);
+        else selectedFiles.delete(f.pk);
+    });
+    
+    // Toggle folders
+    projectFolders.forEach(fp => {
+        if (!currentPath || fp === currentPath || fp.startsWith(currentPath + '/')) {
+            if (checked) selectedFolders.add(fp);
+            else selectedFolders.delete(fp);
+        }
+    });
+    
+    renderRepo();
+    updateUI();
+}
+
+function updateUI() {
+    const fileCount = selectedFiles.size;
+    const folderCount = selectedFolders.size;
+    const dlBtn = document.getElementById('download-btn');
+    if (dlBtn) {
+        dlBtn.style.display = fileCount > 0 ? 'inline-flex' : 'none';
+        dlBtn.innerHTML = `<i class="fas fa-download"></i> Download Selected (${fileCount})`;
+    }
+
+}
+
+function getSelectedFileIds() {
+    return Array.from(selectedFiles);
+}
+
+function renderBreadcrumbs() {
+    const container = document.getElementById('repoBreadcrumbs');
+    if (!container) return;
+    
+    let html = `<span style="color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-folder-open" style="font-size: 15px;"></i> Explorer: </span>`;
+    
+    // Root link
+    html += `<span style="cursor: pointer; color: var(--accent); margin-left: 6px;" onclick="navigateToFolder('')">root</span>`;
+    
+    if (currentPath) {
+        const parts = currentPath.split('/');
+        let accum = '';
+        parts.forEach((p, idx) => {
+            accum = accum ? accum + '/' + p : p;
+            html += ` <span style="color: var(--text-muted); margin: 0 4px;">/</span> `;
+            if (idx === parts.length - 1) {
+                html += `<span style="color: var(--text-primary); font-weight: 700;">${p}</span>`;
+            } else {
+                const target = accum;
+                html += `<span style="cursor: pointer; color: var(--accent);" onclick="navigateToFolder('${target.replace(/'/g, "\\'")}')">${p}</span>`;
+            }
+        });
+    }
+    
+    container.innerHTML = html;
+}
+
+function renderRepo() {
+    renderBreadcrumbs();
+    const body = document.getElementById('repoBody');
+    if (!body) return;
+    
+    const contents = getFolderContents(currentPath);
+    let html = '';
+    
+    // 1. Parent folder link
+    if (currentPath) {
+        html += `
+        <tr class="asset-row">
+            <td></td>
+            <td colspan="3">
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 0;" onclick="goUp()">
+                    <i class="fas fa-level-up-alt" style="color: var(--text-muted); font-size: 14px; transform: scaleX(-1); margin-right: 4px;"></i>
+                    <span style="font-weight: 600; color: var(--text-secondary);">..</span>
+                </div>
+            </td>
+        </tr>
+        `;
+    }
+    
+    // 2. Render Directories (with selectable checkboxes for recursive selection)
+    contents.directories.forEach(dirName => {
+        const fullDir = currentPath ? currentPath + '/' + dirName : dirName;
+        const folderSelected = isFolderFullySelected(fullDir);
+        const safeDir = fullDir.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const fileCount = getAllFilesUnder(fullDir).length;
+        html += `
+        <tr class="asset-row">
+            <td style="text-align: center;">
+                <input type="checkbox" class="folder-cb-item" title="Select all files in this folder"
+                    ${folderSelected ? 'checked' : ''}
+                    onchange="toggleFolderSelection('${safeDir}', this.checked); event.stopPropagation();">
+            </td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 0;" onclick="navigateToFolder('${safeDir}')">
+                    <i class="fas fa-folder" style="color: #f59e0b; font-size: 16px;"></i>
+                    <span style="font-weight: 600; color: var(--accent);">${dirName}</span>
+                    <span style="font-size: 11px; color: var(--text-muted); margin-left: 4px;">${fileCount} file${fileCount !== 1 ? 's' : ''}</span>
+                </div>
+            </td>
+            <td style="color: var(--text-muted); font-size: 12px;">Folder</td>
+            <td>—</td>
+        </tr>
+        `;
+    });
+    
+    // 3. Render Files
+    contents.files.forEach(f => {
+        const isChecked = selectedFiles.has(f.pk);
+        html += `
+        <tr class="asset-row">
+            <td style="text-align: center;">
+                <input type="checkbox" class="file-cb-item" value="${f.pk}" ${isChecked ? 'checked' : ''} onchange="toggleFileSelection('${f.pk}', this)">
+            </td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0;">
+                    <i class="fas ${f.icon}" style="color: ${f.color}; font-size: 15px; width: 16px; text-align: center;"></i>
+                    <a href="${f.url}" target="_blank" style="font-weight: 600; text-decoration: none; color: var(--text-primary);">${f.name}</a>
+                </div>
+            </td>
+            <td style="font-size: 12px; color: var(--text-secondary);">${f.size}</td>
+            <td><code style="font-size: 11px; background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">${f.hash}</code></td>
+        </tr>
+        `;
+    });
+    
+    if (contents.directories.length === 0 && contents.files.length === 0) {
+        html += `<tr><td colspan="4" style="text-align: center; padding: 32px; color: var(--text-muted);">No snapshots available. Publish the release to generate them.</td></tr>`;
+    }
+    
+    body.innerHTML = html;
+    
+    // Update master checkbox — checked only if ALL files at this depth AND below are selected
+    const master = document.getElementById('masterCheckbox');
+    if (master) {
+        const allUnder = getAllFilesUnder(currentPath);
+        const allChecked = allUnder.length > 0 && allUnder.every(f => selectedFiles.has(f.pk));
+        master.checked = allChecked;
+        master.indeterminate = !allChecked && allUnder.some(f => selectedFiles.has(f.pk));
+    }
+}
+
+function downloadSelected() {
+    const ids = getSelectedFileIds();
+    if (!ids.length) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = "{% url 'tasks:release_assets_download' release.pk %}";
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken'; csrf.value = CSRF;
+    form.appendChild(csrf);
+    ids.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'file_ids'; input.value = id;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+
+
+/* ── Public View: GitHub-style folder tree ── */
+let publicCurrentPath = "";
+
+function getPublicFolderContents(path) {
+    const folders = new Set();
+    const filesInDir = [];
+    const prefix = path ? path + '/' : '';
+    files.forEach(f => {
+        if (f.path.startsWith(prefix)) {
+            const relative = f.path.substring(prefix.length);
+            if (relative.includes('/')) {
+                folders.add(relative.split('/')[0]);
+            } else {
+                filesInDir.push(f);
+            }
+        }
+    });
+    // Also check projectFolders for empty dirs
+    if (typeof projectFolders !== 'undefined') {
+        projectFolders.forEach(fp => {
+            if (fp.startsWith(prefix)) {
+                const relative = fp.substring(prefix.length);
+                if (relative && !relative.includes('/')) {
+                    folders.add(relative);
+                } else if (relative && relative.includes('/')) {
+                    folders.add(relative.split('/')[0]);
+                }
+            }
+        });
+    }
+    return { folders: [...folders].sort(), files: filesInDir.sort((a, b) => a.name.localeCompare(b.name)) };
+}
+
+function renderPublicTree() {
+    const body = document.getElementById('publicTreeBody');
+    const bc = document.getElementById('publicBreadcrumbs');
+    if (!body || !bc) return;
+
+    // Breadcrumbs
+    const parts = publicCurrentPath ? publicCurrentPath.split('/') : [];
+    let bcHtml = `<span style="cursor:pointer;color:var(--accent);" onclick="publicCurrentPath='';renderPublicTree()"><i class="fas fa-home" style="margin-right:4px;"></i>root</span>`;
+    let accumulated = '';
+    parts.forEach((p, i) => {
+        accumulated += (i > 0 ? '/' : '') + p;
+        const pathRef = accumulated;
+        bcHtml += `<span style="color:var(--text-muted);margin:0 2px;">/</span>`;
+        if (i === parts.length - 1) {
+            bcHtml += `<span style="color:var(--text-primary);font-weight:700;">${p}</span>`;
+        } else {
+            bcHtml += `<span style="cursor:pointer;color:var(--accent);" onclick="publicCurrentPath='${pathRef}';renderPublicTree()">${p}</span>`;
+        }
+    });
+    bc.innerHTML = bcHtml;
+
+    // Contents
+    const { folders, files: dirFiles } = getPublicFolderContents(publicCurrentPath);
+
+    if (folders.length === 0 && dirFiles.length === 0) {
+        body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No files in this directory.</div>';
+        return;
+    }
+
+    let html = '';
+    // Folders first
+    folders.forEach(folderName => {
+        const fullPath = publicCurrentPath ? publicCurrentPath + '/' + folderName : folderName;
+        html += `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;"
+             onmouseover="this.style.background='var(--bg-primary)'" onmouseout="this.style.background='transparent'"
+             onclick="publicCurrentPath='${fullPath}';renderPublicTree()">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-folder" style="color:#54aeff;font-size:15px;"></i>
+                <span style="font-weight:600;font-size:13px;color:var(--text-primary);">${folderName}</span>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted);">—</span>
+        </div>`;
+    });
+
+    // Files
+    dirFiles.forEach(f => {
+        html += `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);transition:background 0.15s;"
+             onmouseover="this.style.background='var(--bg-primary)'" onmouseout="this.style.background='transparent'">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                <i class="fas ${f.icon || 'fa-file'}" style="color:${f.color || 'var(--text-muted)'};font-size:14px;"></i>
+                <a href="${f.url}" download style="font-weight:600;font-size:13px;color:var(--accent);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px;" title="${f.name}">
+                    ${f.name}
+                </a>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;">
+                <span style="font-size:12px;color:var(--text-muted);font-family:monospace;">${f.size}</span>
+                <a href="${f.url}" download style="color:var(--text-muted);padding:4px;" title="Download"><i class="fas fa-download" style="font-size:12px;"></i></a>
+            </div>
+        </div>`;
+    });
+
+    body.innerHTML = html;
+}
+
+// Initialize on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('repoTable')) {
+        renderRepo();
+        updateUI();
+    }
+    if (document.getElementById('publicTreeBody')) {
+        renderPublicTree();
+    }
+
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1139 @@
+{% extends 'base.html' %}
+{% block title %}User Management — IIAP PM{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block topbar_actions %}
+{% if active_tab == 'inventory' %}
+<button class="btn btn-primary btn-sm" onclick="openInvCreateModal()"><i class="fas fa-user-plus"></i> Create Inventory User</button>
+{% elif active_tab == 'telescope' %}
+<button class="btn btn-primary btn-sm" onclick="openTeleCreateModal()"><i class="fas fa-user-plus"></i> Create Telescope User</button>
+{% else %}
+<a href="{% url 'accounts:user_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-plus"></i> Create User</a>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Toast Notification ───────────────────────────────────── */
+#toast-container {
+  position: fixed; top: 20px; right: 24px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: var(--radius); padding: 14px 18px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5); min-width: 300px; max-width: 420px;
+  pointer-events: all; animation: slideIn .3s ease;
+}
+.toast.toast-success { border-left: 4px solid #22c55e; }
+.toast.toast-error   { border-left: 4px solid #ef4444; }
+.toast.toast-info    { border-left: 4px solid #4f8ef7; }
+.toast-icon { font-size: 18px; flex-shrink: 0; }
+.toast-success .toast-icon { color: #22c55e; }
+.toast-error   .toast-icon { color: #ef4444; }
+.toast-info    .toast-icon { color: #4f8ef7; }
+.toast-msg { font-size: 13px; color: var(--text-primary); line-height: 1.4; flex: 1; }
+.toast-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 0; line-height: 1; }
+.toast-close:hover { color: var(--text-primary); }
+@keyframes slideIn  { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+@keyframes slideOut { from { opacity:1; transform: translateX(0); }    to { opacity:0; transform: translateX(40px); } }
+.toast.removing { animation: slideOut .3s ease forwards; }
+
+/* ── Role-Change Modal ────────────────────────────────────── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 8000;
+  background: rgba(0,0,0,.65); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: 14px; padding: 28px; width: 420px; max-width: 95vw;
+  box-shadow: 0 24px 60px rgba(0,0,0,.6); animation: popIn .25s ease;
+}
+@keyframes popIn { from { opacity:0; transform: scale(.94); } to { opacity:1; transform: scale(1); } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; line-height: 1; }
+.modal-close:hover { color: var(--text-primary); }
+.modal-user-info { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--bg-secondary); border-radius: var(--radius-sm); margin-bottom: 20px; border: 1px solid var(--border); }
+.role-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+.role-option { border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 14px 10px; text-align: center; cursor: pointer; transition: all .2s; }
+.role-option:hover { border-color: var(--border-light); background: var(--bg-secondary); }
+.role-option.selected { border-color: var(--accent); background: rgba(79,142,247,.08); }
+.role-option input[type=radio] { display: none; }
+.role-option .role-icon { font-size: 22px; margin-bottom: 6px; }
+.role-option .role-label { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.role-option .role-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; line-height: 1.3; }
+.role-option[data-role="admin"] .role-icon { color: #ef4444; }
+.role-option[data-role="project_manager"] .role-icon { color: #f59e0b; }
+.role-option[data-role="member"] .role-icon { color: #22c55e; }
+.role-option[data-role="admin"].selected { border-color: #ef4444; background: rgba(239,68,68,.08); }
+.role-option[data-role="project_manager"].selected { border-color: #f59e0b; background: rgba(245,158,11,.08); }
+.role-option[data-role="member"].selected { border-color: #22c55e; background: rgba(34,197,94,.08); }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ── Role badge quick-change button ──────────────────────── */
+.role-change-btn {
+  background: none; border: none; cursor: pointer; padding: 0; margin-left: 5px;
+  opacity: 0; transition: opacity .2s;
+  color: var(--text-muted); font-size: 11px;
+}
+tr:hover .role-change-btn { opacity: 1; }
+.role-change-btn:hover { color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Inventory User Modal -->
+<div class="modal-overlay" id="invUserModal">
+  <div class="modal-box" style="width: 600px; max-width: 95vw;">
+    <div class="modal-header">
+      <span class="modal-title" id="invModalTitle"><i class="fas fa-user-plus" style="color:var(--accent);margin-right:8px"></i>Create Inventory User</span>
+      <button class="modal-close" onclick="closeInvModal()">×</button>
+    </div>
+    <form id="invUserForm" method="post" action="{% url 'accounts:inventory_user_create' %}">
+      {% csrf_token %}
+      <div style="max-height: 65vh; overflow-y: auto; padding-right: 5px;">
+        <!-- Standard Fields -->
+        <div class="grid-2" style="gap: 15px; margin-bottom: 20px;">
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Username *</label>
+            <input type="text" name="username" id="inv_username" class="form-control" placeholder="e.g. inv_john" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Email Address</label>
+            <input type="email" name="email" id="inv_email" class="form-control" placeholder="e.g. john@observatory.res.in">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);" id="inv_password_label">Password *</label>
+            <input type="password" name="password" id="inv_password" class="form-control" placeholder="Min. 6 characters">
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;" id="inv_password_help"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Role *</label>
+            <select name="role" id="inv_role" class="form-control" required onchange="toggleInvRoleBranch()">
+              <option value="super_admin">Super Admin</option>
+              <option value="branch_admin">Branch Admin</option>
+              <option value="staff" selected>Staff</option>
+            </select>
+          </div>
+          <div class="form-group" id="inv_branch_group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Branch Isolation *</label>
+            <select name="branch" id="inv_branch" class="form-control">
+              <option value="">-- Select Branch --</option>
+              {% for b in branches %}
+              <option value="{{ b.id }}">{{ b.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 25px;">
+            <input type="checkbox" name="is_active" id="inv_is_active" class="form-check-input" checked>
+            <label class="form-label" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: var(--text-primary);">Account is active</label>
+          </div>
+        </div>
+
+        <!-- Permission Header -->
+        <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 15px; margin-bottom: 12px;">
+          <h4 style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-key" style="color: var(--accent);"></i> Custom Inventory Permissions
+          </h4>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">Configure granular access control for this user. Super Admins bypass these checks.</p>
+        </div>
+
+        <!-- Permission Categories -->
+        <div style="display: grid; gap: 20px;">
+          <!-- Category 1: Page Access -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+              Page Views &amp; Navigation
+            </div>
+            <div class="grid-2" style="gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_access_adjustments_page" id="can_access_adjustments_page" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Adjustments Page</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_access_serials_page" id="can_access_serials_page" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Serials Page</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_access_limits_page" id="can_access_limits_page" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Limits Page</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_access_alerts_page" id="can_access_alerts_page" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Alerts Page</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_access_rentals_page" id="can_access_rentals_page" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Rentals Page</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_access_shortage_page" id="can_access_shortage_page" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Shortage Page</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Category 2: Management Controls -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+              Management &amp; Write Access
+            </div>
+            <div class="grid-2" style="gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_adjustments" id="can_manage_adjustments" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Manage Adjustments</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_serials" id="can_manage_serials" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Manage Serials</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_limits" id="can_manage_limits" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Manage Limits</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_alerts" id="can_manage_alerts" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Manage Alerts</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_rentals" id="can_manage_rentals" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Manage Rentals</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_shortage_exports" id="can_manage_shortage_exports" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Export Shortage</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Category 3: General Permissions -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+              General Operations
+            </div>
+            <div class="grid-2" style="gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_view_all_branches_inventory" id="can_view_all_branches_inventory" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">View All Branches Inventory</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_add_inventory" id="can_add_inventory" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Add Inventory Items</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_edit_inventory" id="can_edit_inventory" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Edit Inventory Items</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_delete_inventory" id="can_delete_inventory" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Delete Inventory Items</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_approve_transfer" id="can_approve_transfer" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Approve Transfers</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_export_reports" id="can_export_reports" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Export Reports</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="can_manage_users" id="can_manage_users" checked>
+                <span style="font-size: 12px; color: var(--text-primary);">Manage Other Users</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeInvModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="invSubmitBtn">
+          <i class="fas fa-save"></i> Save User
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Telescope User Modal -->
+<div class="modal-overlay" id="teleUserModal">
+  <div class="modal-box" style="width: 550px; max-width: 95vw;">
+    <div class="modal-header">
+      <span class="modal-title" id="teleModalTitle"><i class="fas fa-binoculars" style="color:var(--accent);margin-right:8px"></i>Create Telescope User</span>
+      <button class="modal-close" onclick="closeTeleModal()">×</button>
+    </div>
+    <form id="teleUserForm" method="post" action="{% url 'accounts:telescope_user_create' %}">
+      {% csrf_token %}
+      <div style="max-height: 65vh; overflow-y: auto; padding-right: 5px;">
+        <!-- Standard Fields -->
+        <div class="grid-2" style="gap: 15px; margin-bottom: 20px;">
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Username *</label>
+            <input type="text" name="username" id="tele_username" class="form-control" placeholder="e.g. tele_operator" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">Email Address</label>
+            <input type="email" name="email" id="tele_email" class="form-control" placeholder="e.g. operator@observatory.res.in">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary);" id="tele_password_label">Password *</label>
+            <input type="password" name="password" id="tele_password" class="form-control" placeholder="Min. 6 characters">
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;" id="tele_password_help"></div>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 25px;">
+            <input type="checkbox" name="is_active" id="tele_is_active" class="form-check-input" checked>
+            <label class="form-label" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: var(--text-primary);">Account is active</label>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 25px;">
+            <input type="checkbox" name="is_telescope_admin" id="is_telescope_admin" class="form-check-input">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: var(--text-primary);">Telescope Admin</label>
+          </div>
+        </div>
+
+        <!-- Permission Header -->
+        <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 15px; margin-bottom: 12px;">
+          <h4 style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-key" style="color: var(--accent);"></i> Telescope Operations & Permissions
+          </h4>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">Configure which mounts and commands this user is authorized to interact with.</p>
+        </div>
+
+        <!-- Permissions checkboxes -->
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; display: grid; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="can_operate_vbt" id="can_operate_vbt" checked>
+            <span style="font-size: 12px; color: var(--text-primary);">Operate Vainu Bappu Telescope (VBT 2.34m)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="can_operate_jcbt" id="can_operate_jcbt" checked>
+            <span style="font-size: 12px; color: var(--text-primary);">Operate JCBT (1.3m)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="can_operate_zeiss" id="can_operate_zeiss" checked>
+            <span style="font-size: 12px; color: var(--text-primary);">Operate Carl Zeiss (1.0m)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="can_operate_cassegrain" id="can_operate_cassegrain" checked>
+            <span style="font-size: 12px; color: var(--text-primary);">Operate Cassegrain (75cm)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="can_operate_schmidt" id="can_operate_schmidt" checked>
+            <span style="font-size: 12px; color: var(--text-primary);">Operate Schmidt (45cm)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 5px;">
+            <input type="checkbox" name="can_command_dome" id="can_command_dome" checked>
+            <span style="font-size: 12px; color: var(--text-primary); font-weight:600">Command Dome operations (Open/Close/Slew)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="can_trigger_exposures" id="can_trigger_exposures" checked>
+            <span style="font-size: 12px; color: var(--text-primary); font-weight:600">Trigger CCD Exposures &amp; Readout</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeTeleModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="teleSubmitBtn">
+          <i class="fas fa-save"></i> Save User
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Role-change modal -->
+<div class="modal-overlay" id="roleModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title"><i class="fas fa-user-tag" style="color:var(--accent);margin-right:8px"></i>Change User Role</span>
+      <button class="modal-close" onclick="closeRoleModal()">×</button>
+    </div>
+    <div class="modal-user-info" id="modalUserInfo">
+      <div class="avatar" id="modalAvatar" style="width:40px;height:40px;font-size:15px;border-radius:9px;flex-shrink:0"></div>
+      <div>
+        <div id="modalUserName" style="font-weight:600;font-size:14px;color:var(--text-primary)"></div>
+        <div id="modalUserHandle" style="font-size:12px;color:var(--text-muted);margin-top:2px"></div>
+      </div>
+    </div>
+    <div class="role-options" id="roleOptions">
+      <label class="role-option" data-role="admin" onclick="selectRole('admin')">
+        <input type="radio" name="modal_role" value="admin">
+        <div class="role-icon"><i class="fas fa-shield-alt"></i></div>
+        <div class="role-label">Admin</div>
+        <div class="role-desc">Full system access</div>
+      </label>
+      <label class="role-option" data-role="project_manager" onclick="selectRole('project_manager')">
+        <input type="radio" name="modal_role" value="project_manager">
+        <div class="role-icon"><i class="fas fa-user-tie"></i></div>
+        <div class="role-label">Project Manager</div>
+        <div class="role-desc">Manage projects & teams</div>
+      </label>
+      <label class="role-option" data-role="member" onclick="selectRole('member')">
+        <input type="radio" name="modal_role" value="member">
+        <div class="role-icon"><i class="fas fa-user"></i></div>
+        <div class="role-label">Member</div>
+        <div class="role-desc">Work on assigned tasks</div>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeRoleModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="confirmRoleBtn" onclick="confirmRoleChange()">
+        <i class="fas fa-check"></i> Confirm Change
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Page header -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>User Management</h1>
+    <p>
+      {% if active_tab == 'inventory' %}
+      Superadmin can create, manage, and configure branch isolation and permissions of inventory users
+      {% else %}
+      Superadmin &amp; admins can create, manage, and change roles of all project management users
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div style="display:flex;gap:5px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
+  <a href="?tab=pm" style="display:flex;align-items:center;gap:8px;padding:12px 20px;font-size:13px;font-weight:600;color:{% if active_tab == 'pm' %}var(--accent){% else %}var(--text-muted){% endif %};border-bottom:2px solid {% if active_tab == 'pm' %}var(--accent){% else %}transparent{% endif %};text-decoration:none;transition:all .2s;margin-bottom:-1px">
+    <i class="fas fa-project-diagram"></i> Project Management Users
+  </a>
+  <a href="?tab=inventory" style="display:flex;align-items:center;gap:8px;padding:12px 20px;font-size:13px;font-weight:600;color:{% if active_tab == 'inventory' %}var(--accent){% else %}var(--text-muted){% endif %};border-bottom:2px solid {% if active_tab == 'inventory' %}var(--accent){% else %}transparent{% endif %};text-decoration:none;transition:all .2s;margin-bottom:-1px">
+    <i class="fas fa-cubes"></i> Inventory Users
+  </a>
+  <a href="?tab=telescope" style="display:flex;align-items:center;gap:8px;padding:12px 20px;font-size:13px;font-weight:600;color:{% if active_tab == 'telescope' %}var(--accent){% else %}var(--text-muted){% endif %};border-bottom:2px solid {% if active_tab == 'telescope' %}var(--accent){% else %}transparent{% endif %};text-decoration:none;transition:all .2s;margin-bottom:-1px">
+    <i class="fas fa-binoculars"></i> Telescope Users
+  </a>
+</div>
+
+{% if active_tab == 'inventory' %}
+<!-- Inventory Stats -->
+<div class="grid-4" style="margin-bottom:24px">
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7"><i class="fas fa-users"></i></div><div><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Inventory Users</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,0.12);color:#22c55e"><i class="fas fa-user-check"></i></div><div><div class="stat-value">{{ stats.active }}</div><div class="stat-label">Active</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(239,68,68,0.12);color:#ef4444"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value">{{ stats.super_admins }}</div><div class="stat-label">Super Admins</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(168,85,247,0.12);color:#a855f7"><i class="fas fa-hotel"></i></div><div><div class="stat-value">{{ stats.branch_admins }}</div><div class="stat-label">Branch Admins</div></div></div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="filter-bar">
+  <input type="hidden" name="tab" value="inventory">
+  <div class="search-wrap"><i class="fas fa-search"></i><input type="text" name="q" class="search-input" placeholder="Search username, email..." value="{{ search }}"></div>
+  <select name="role" class="filter-select" onchange="this.form.submit()">
+    <option value="">All Roles</option>
+    {% for val,label in role_choices %}<option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="status" class="filter-select" onchange="this.form.submit()">
+    <option value="">All Statuses</option>
+    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-search"></i></button>
+  {% if search or role_filter or status_filter %}<a href="?tab=inventory" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Clear</a>{% endif %}
+</form>
+
+<!-- Inventory Users table -->
+<div class="card" style="padding:0;margin-bottom:20px">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Branch Assignment</th>
+          <th>Email Address</th>
+          <th>Status</th>
+          <th style="text-align:right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="avatar" style="background:#4f8ef7;width:36px;height:36px;font-size:13px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600">
+                {{ u.username|slice:":2"|upper }}
+              </div>
+              <div>
+                <span style="font-weight:600;color:var(--text-primary);font-size:13px">{{ u.username }}</span>
+                <div style="font-size:11px;color:var(--text-muted)">Inventory Account</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge {% if u.role == 'super_admin' %}badge-red{% elif u.role == 'branch_admin' %}badge-blue{% else %}badge-gray{% endif %}">
+              {{ u.get_role_display }}
+            </span>
+          </td>
+          <td>
+            <span style="font-size:12px;color:var(--text-muted)">
+              {% if u.role == 'super_admin' %}
+              <i class="fas fa-globe" style="margin-right:4px;color:var(--accent)"></i>Global (All Branches)
+              {% else %}
+              {{ u.branch.name|default:"None (Assign in Edit)" }}
+              {% endif %}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted)">
+            {{ u.email|default:"—" }}
+          </td>
+          <td>
+            <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+              <i class="fas fa-circle" style="font-size:6px"></i>
+              {% if u.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap">
+              <button class="btn btn-secondary btn-icon btn-sm" title="Edit Permissions" onclick="openInvEditModal({
+                id: '{{ u.pk }}',
+                username: '{{ u.username|escapejs }}',
+                email: '{{ u.email|default:""|escapejs }}',
+                role: '{{ u.role }}',
+                branch: '{{ u.branch.id|default:"" }}',
+                is_active: {% if u.is_active %}true{% else %}false{% endif %},
+                can_access_adjustments_page: {% if u.can_access_adjustments_page %}true{% else %}false{% endif %},
+                can_manage_adjustments: {% if u.can_manage_adjustments %}true{% else %}false{% endif %},
+                can_access_serials_page: {% if u.can_access_serials_page %}true{% else %}false{% endif %},
+                can_manage_serials: {% if u.can_manage_serials %}true{% else %}false{% endif %},
+                can_access_limits_page: {% if u.can_access_limits_page %}true{% else %}false{% endif %},
+                can_manage_limits: {% if u.can_manage_limits %}true{% else %}false{% endif %},
+                can_access_alerts_page: {% if u.can_access_alerts_page %}true{% else %}false{% endif %},
+                can_manage_alerts: {% if u.can_manage_alerts %}true{% else %}false{% endif %},
+                can_access_rentals_page: {% if u.can_access_rentals_page %}true{% else %}false{% endif %},
+                can_manage_rentals: {% if u.can_manage_rentals %}true{% else %}false{% endif %},
+                can_access_shortage_page: {% if u.can_access_shortage_page %}true{% else %}false{% endif %},
+                can_manage_shortage_exports: {% if u.can_manage_shortage_exports %}true{% else %}false{% endif %},
+                can_view_all_branches_inventory: {% if u.can_view_all_branches_inventory %}true{% else %}false{% endif %},
+                can_add_inventory: {% if u.can_add_inventory %}true{% else %}false{% endif %},
+                can_edit_inventory: {% if u.can_edit_inventory %}true{% else %}false{% endif %},
+                can_delete_inventory: {% if u.can_delete_inventory %}true{% else %}false{% endif %},
+                can_approve_transfer: {% if u.can_approve_transfer %}true{% else %}false{% endif %},
+                can_export_reports: {% if u.can_export_reports %}true{% else %}false{% endif %},
+                can_manage_users: {% if u.can_manage_users %}true{% else %}false{% endif %}
+              })"><i class="fas fa-edit"></i></button>
+              <a href="{% url 'accounts:inventory_user_toggle' u.pk %}"
+                 class="btn {% if u.is_active %}btn-secondary{% else %}btn-success{% endif %} btn-icon btn-sm"
+                 title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}"
+                 onclick="return confirm('{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}?')">
+                <i class="fas {% if u.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+              </a>
+              <a href="{% url 'accounts:inventory_user_delete' u.pk %}"
+                 class="btn btn-danger btn-icon btn-sm"
+                 title="Delete"
+                 onclick="return confirm('Permanently delete inventory user {{ u.username }}? This cannot be undone.')">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <i class="fas fa-boxes"></i>
+              <h3>No inventory users found</h3>
+              <p>Create the first inventory user.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% elif active_tab == 'telescope' %}
+<!-- Telescope Stats -->
+<div class="grid-4" style="margin-bottom:24px">
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7"><i class="fas fa-users"></i></div><div><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Telescope Users</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,0.12);color:#22c55e"><i class="fas fa-user-check"></i></div><div><div class="stat-value">{{ stats.active }}</div><div class="stat-label">Active</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(239,68,68,0.12);color:#ef4444"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value">{{ stats.vbt_operators }}</div><div class="stat-label">VBT Operators</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(168,85,247,0.12);color:#a855f7"><i class="fas fa-user-tie"></i></div><div><div class="stat-value">{{ stats.jcbt_operators }}</div><div class="stat-label">JCBT Operators</div></div></div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="filter-bar">
+  <input type="hidden" name="tab" value="telescope">
+  <div class="search-wrap"><i class="fas fa-search"></i><input type="text" name="q" class="search-input" placeholder="Search username, email..." value="{{ search }}"></div>
+  <select name="status" class="filter-select" onchange="this.form.submit()">
+    <option value="">All Statuses</option>
+    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-search"></i></button>
+  {% if search or status_filter %}<a href="?tab=telescope" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Clear</a>{% endif %}
+</form>
+
+<!-- Telescope Users table -->
+<div class="card" style="padding:0;margin-bottom:20px">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email Address</th>
+          <th>Telescope Permissions</th>
+          <th>Status</th>
+          <th style="text-align:right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="avatar" style="background:#8b5cf6;width:36px;height:36px;font-size:13px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600">
+                {{ u.username|slice:":2"|upper }}
+              </div>
+              <div>
+                <span style="font-weight:600;color:var(--text-primary);font-size:13px">{{ u.username }}</span>
+                {% if u.is_telescope_admin %}
+                  <span class="badge badge-purple" style="font-size: 9px; padding: 1px 4px; display: inline-block; vertical-align: middle; margin-left: 5px;">Admin</span>
+                {% endif %}
+                <div style="font-size:11px;color:var(--text-muted)">
+                  {% if u.is_telescope_admin %}Telescope System Admin{% else %}Telescope Operator{% endif %}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted)">
+            {{ u.email|default:"—" }}
+          </td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              {% if u.can_operate_vbt %}<span class="badge badge-purple" style="font-size:10px">VBT 2.34m</span>{% endif %}
+              {% if u.can_operate_jcbt %}<span class="badge badge-blue" style="font-size:10px">JCBT 1.3m</span>{% endif %}
+              {% if u.can_operate_zeiss %}<span class="badge badge-green" style="font-size:10px">Zeiss 1.0m</span>{% endif %}
+              {% if u.can_operate_cassegrain %}<span class="badge badge-yellow" style="font-size:10px">75cm Cass</span>{% endif %}
+              {% if u.can_operate_schmidt %}<span class="badge badge-gray" style="font-size:10px">45cm Schm</span>{% endif %}
+              {% if u.can_command_dome %}<span class="badge badge-red" style="font-size:10px">Dome Control</span>{% endif %}
+              {% if u.can_trigger_exposures %}<span class="badge badge-teal" style="font-size:10px;background-color:#0d9488;color:#fff">CCD Exp</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+              <i class="fas fa-circle" style="font-size:6px"></i>
+              {% if u.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap">
+              <button class="btn btn-secondary btn-icon btn-sm" title="Edit Permissions" onclick="openTeleEditModal({
+                id: '{{ u.pk }}',
+                username: '{{ u.username|escapejs }}',
+                email: '{{ u.email|default:""|escapejs }}',
+                is_active: {% if u.is_active %}true{% else %}false{% endif %},
+                is_telescope_admin: {% if u.is_telescope_admin %}true{% else %}false{% endif %},
+                can_operate_vbt: {% if u.can_operate_vbt %}true{% else %}false{% endif %},
+                can_operate_jcbt: {% if u.can_operate_jcbt %}true{% else %}false{% endif %},
+                can_operate_zeiss: {% if u.can_operate_zeiss %}true{% else %}false{% endif %},
+                can_operate_cassegrain: {% if u.can_operate_cassegrain %}true{% else %}false{% endif %},
+                can_operate_schmidt: {% if u.can_operate_schmidt %}true{% else %}false{% endif %},
+                can_command_dome: {% if u.can_command_dome %}true{% else %}false{% endif %},
+                can_trigger_exposures: {% if u.can_trigger_exposures %}true{% else %}false{% endif %}
+              })"><i class="fas fa-edit"></i></button>
+              <a href="{% url 'accounts:telescope_user_toggle' u.pk %}"
+                 class="btn {% if u.is_active %}btn-secondary{% else %}btn-success{% endif %} btn-icon btn-sm"
+                 title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}"
+                 onclick="return confirm('{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}?')">
+                <i class="fas {% if u.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+              </a>
+              <a href="{% url 'accounts:telescope_user_delete' u.pk %}"
+                 class="btn btn-danger btn-icon btn-sm"
+                 title="Delete"
+                 onclick="return confirm('Permanently delete telescope user {{ u.username }}? This cannot be undone.')">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5">
+            <div class="empty-state">
+              <i class="fas fa-binoculars"></i>
+              <h3>No telescope users found</h3>
+              <p>Create the first telescope control system user.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<!-- PM Stats -->
+<div class="grid-4" style="margin-bottom:24px">
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7"><i class="fas fa-users"></i></div><div><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Users</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,0.12);color:#22c55e"><i class="fas fa-user-check"></i></div><div><div class="stat-value">{{ stats.active }}</div><div class="stat-label">Active</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(239,68,68,0.12);color:#ef4444"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value">{{ stats.admins }}</div><div class="stat-label">Admins</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(168,85,247,0.12);color:#a855f7"><i class="fas fa-user-tie"></i></div><div><div class="stat-value">{{ stats.managers }}</div><div class="stat-label">Project Managers</div></div></div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="filter-bar">
+  <div class="search-wrap"><i class="fas fa-search"></i><input type="text" name="q" class="search-input" placeholder="Search name, username, email..." value="{{ search }}"></div>
+  <select name="role" class="filter-select" onchange="this.form.submit()">
+    <option value="">All Roles</option>
+    {% for val,label in role_choices %}<option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="team" class="filter-select" onchange="this.form.submit()">
+    <option value="">All Teams</option>
+    {% for val,label in team_choices %}<option value="{{ val }}" {% if team_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="status" class="filter-select" onchange="this.form.submit()">
+    <option value="">All Statuses</option>
+    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-search"></i></button>
+  {% if search or role_filter or team_filter or status_filter %}<a href="{% url 'accounts:user_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Clear</a>{% endif %}
+</form>
+
+<!-- Users table -->
+<div class="card" style="padding:0;margin-bottom:20px">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>Team</th>
+          <th>Designation</th>
+          <th>Contact</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th style="text-align:right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr id="user-row-{{ u.pk }}">
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              {% include 'partials/user_avatar.html' with avatar_user=u size="36" radius="8px" font_size="13" extra_style="flex-shrink:0;" %}
+              <div>
+                <a href="{% url 'accounts:user_detail' u.pk %}" style="font-weight:600;color:var(--text-primary);text-decoration:none;font-size:13px">{{ u.display_name }}</a>
+                <div style="font-size:11px;color:var(--text-muted)">@{{ u.username }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span class="badge {% if u.role == 'admin' %}badge-red{% elif u.role == 'project_manager' %}badge-blue{% else %}badge-gray{% endif %}" id="role-badge-{{ u.pk }}">
+                {% if u.role == 'admin' %}<i class="fas fa-shield-alt"></i>{% elif u.role == 'project_manager' %}<i class="fas fa-user-tie"></i>{% else %}<i class="fas fa-user"></i>{% endif %}
+                <span id="role-text-{{ u.pk }}">{{ u.get_role_display }}</span>
+              </span>
+              {% if u != request.user %}
+              <button class="role-change-btn" title="Change Role"
+                onclick="openRoleModal({{ u.pk }}, '{{ u.display_name|escapejs }}', '@{{ u.username }}', '{{ u.avatar_color }}', '{{ u.initials }}', '{{ u.role }}')"
+              ><i class="fas fa-pencil-alt"></i></button>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="badge {% if u.team == 'electronics' %}badge-blue{% elif u.team == 'software' %}badge-green{% elif u.team == 'mechanical' %}badge-yellow{% elif u.team == 'optics' %}badge-cyan{% elif u.team == 'simulation' %}badge-purple{% else %}badge-gray{% endif %}">{{ u.get_team_display }}</span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted)">{{ u.designation|default:"—" }}</td>
+          <td style="font-size:12px;color:var(--text-muted)">
+            {% if u.email %}<div><i class="fas fa-envelope" style="width:13px;opacity:.6"></i> {{ u.email }}</div>{% endif %}
+            {% if u.phone %}<div style="margin-top:2px"><i class="fas fa-phone" style="width:13px;opacity:.6"></i> {{ u.phone }}</div>{% endif %}
+            {% if not u.email and not u.phone %}—{% endif %}
+          </td>
+          <td>
+            <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+              <i class="fas fa-circle" style="font-size:6px"></i>
+              {% if u.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </td>
+          <td style="font-size:11px;color:var(--text-muted)">{{ u.date_joined|date:"d M Y" }}</td>
+          <td>
+            <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap">
+              <a href="{% url 'accounts:user_detail' u.pk %}" class="btn btn-secondary btn-icon btn-sm" title="View"><i class="fas fa-eye"></i></a>
+              <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-secondary btn-icon btn-sm" title="Edit"><i class="fas fa-edit"></i></a>
+              <a href="{% url 'accounts:user_reset_password' u.pk %}" class="btn btn-secondary btn-icon btn-sm" title="Reset Password"><i class="fas fa-key"></i></a>
+              <a href="{% url 'accounts:user_toggle' u.pk %}"
+                 class="btn {% if u.is_active %}btn-secondary{% else %}btn-success{% endif %} btn-icon btn-sm"
+                 title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}"
+                 onclick="return confirm('{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}?')">
+                <i class="fas {% if u.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+              </a>
+              {% if u != request.user %}
+              <a href="{% url 'accounts:user_delete' u.pk %}"
+                 class="btn btn-danger btn-icon btn-sm"
+                 title="Delete"
+                 onclick="return confirm('Permanently delete {{ u.username }}? This cannot be undone.')">
+                <i class="fas fa-trash"></i>
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8">
+            <div class="empty-state">
+              <i class="fas fa-users"></i>
+              <h3>No users found</h3>
+              <p>{% if search or role_filter or team_filter %}Adjust your filters.{% else %}Create the first user.{% endif %}</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% include 'pagination.html' %}
+
+<!-- Guide -->
+<div class="card" style="border-color:rgba(79,142,247,0.2)">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <i class="fas fa-book" style="color:var(--accent)"></i>
+    <span style="font-family:'Space Grotesk',sans-serif;font-weight:600;color:var(--text-primary)">Quick Reference — User Management</span>
+  </div>
+  <div class="grid-3" style="gap:12px;font-size:13px">
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
+      <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px"><i class="fas fa-user-tag" style="color:var(--accent);margin-right:6px"></i>Quick Role Change</div>
+      <p style="color:var(--text-muted);line-height:1.6;font-size:12px">Hover over any user's role badge and click the <i class="fas fa-pencil-alt"></i> pencil icon. A modal will open — select the new role and confirm. No page reload needed.</p>
+    </div>
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
+      <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px"><i class="fas fa-key" style="color:var(--yellow);margin-right:6px"></i>Password Reset</div>
+      <p style="color:var(--text-muted);line-height:1.6;font-size:12px">Click the <i class="fas fa-key" style="color:var(--yellow)"></i> icon on any row to set a new password. Users can also change their own password from their profile page.</p>
+    </div>
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
+      <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px"><i class="fas fa-user-slash" style="color:var(--red);margin-right:6px"></i>Deactivate vs Delete</div>
+      <p style="color:var(--text-muted);line-height:1.6;font-size:12px"><strong style="color:var(--yellow)">Deactivate</strong> blocks login but keeps all data intact. <strong style="color:var(--red)">Delete</strong> permanently removes the user and all their records.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── CSRF Helper ──────────────────────────────────────────────
+function getCookie(name) {
+  let v = null;
+  document.cookie.split(';').forEach(c => {
+    c = c.trim();
+    if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+  });
+  return v;
+}
+
+// ── Toast System ─────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+  const tc = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `
+    <i class="fas ${icons[type] || icons.info} toast-icon"></i>
+    <span class="toast-msg">${msg}</span>
+    <button class="toast-close" onclick="dismissToast(this.parentElement)">×</button>
+  `;
+  tc.appendChild(t);
+  setTimeout(() => dismissToast(t), 4500);
+}
+function dismissToast(el) {
+  if (!el || el.classList.contains('removing')) return;
+  el.classList.add('removing');
+  setTimeout(() => el.remove(), 320);
+}
+
+// ── Role Modal State ─────────────────────────────────────────
+let _activeUserId  = null;
+let _selectedRole  = null;
+
+function openRoleModal(userId, displayName, handle, avatarColor, initials, currentRole) {
+  _activeUserId = userId;
+  _selectedRole = currentRole;
+
+  document.getElementById('modalAvatar').style.background = avatarColor;
+  document.getElementById('modalAvatar').textContent = initials;
+  document.getElementById('modalUserName').textContent = displayName;
+  document.getElementById('modalUserHandle').textContent = handle;
+
+  // Reset all options, then select current
+  document.querySelectorAll('.role-option').forEach(opt => {
+    opt.classList.remove('selected');
+    if (opt.dataset.role === currentRole) opt.classList.add('selected');
+  });
+
+  document.getElementById('roleModal').classList.add('open');
+}
+
+function closeRoleModal() {
+  document.getElementById('roleModal').classList.remove('open');
+  _activeUserId = null;
+  _selectedRole = null;
+}
+
+function selectRole(role) {
+  _selectedRole = role;
+  document.querySelectorAll('.role-option').forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.role === role);
+  });
+}
+
+// Close modal on overlay click
+document.getElementById('roleModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRoleModal();
+});
+
+// ── Confirm Role Change ──────────────────────────────────────
+async function confirmRoleChange() {
+  if (!_activeUserId || !_selectedRole) return;
+
+  const btn = document.getElementById('confirmRoleBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+  try {
+    const resp = await fetch(`/accounts/users/${_activeUserId}/change-role/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      body: `role=${encodeURIComponent(_selectedRole)}`,
+    });
+
+    const data = await resp.json();
+
+    if (data.ok) {
+      // Update the badge in the table row without reloading
+      updateRoleBadge(_activeUserId, data.new_role, data.new_role_display);
+      showToast(data.message, 'success');
+      closeRoleModal();
+    } else {
+      showToast(data.error || 'Failed to change role.', 'error');
+    }
+  } catch(err) {
+    showToast('Network error. Please try again.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Confirm Change';
+  }
+}
+
+// ── Update Badge In-Place ────────────────────────────────────
+function updateRoleBadge(userId, newRole, newRoleDisplay) {
+  const badge = document.getElementById(`role-badge-${userId}`);
+  if (!badge) return;
+
+  const roleClasses = { admin: 'badge-red', project_manager: 'badge-blue', member: 'badge-gray' };
+  const roleIcons   = { admin: 'fa-shield-alt', project_manager: 'fa-user-tie', member: 'fa-user' };
+
+  // Remove old color class
+  badge.classList.remove('badge-red', 'badge-blue', 'badge-gray', 'badge-green', 'badge-purple', 'badge-yellow');
+  badge.classList.add(roleClasses[newRole] || 'badge-gray');
+
+  badge.innerHTML = `<i class="fas ${roleIcons[newRole] || 'fa-user'}"></i> <span id="role-text-${userId}">${newRoleDisplay}</span>`;
+
+  // Flash animation to indicate the change
+  badge.style.transition = 'transform .15s ease, opacity .15s ease';
+  badge.style.transform = 'scale(1.15)';
+  badge.style.opacity   = '.7';
+  setTimeout(() => {
+    badge.style.transform = 'scale(1)';
+    badge.style.opacity   = '1';
+  }, 200);
+}
+
+// ── Keyboard: Escape closes modal ────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeRoleModal();
+    closeInvModal();
+  }
+});
+
+// ── Inventory User Modals ────────────────────────────────────
+function openInvCreateModal() {
+  const form = document.getElementById('invUserForm');
+  form.action = "{% url 'accounts:inventory_user_create' %}";
+  document.getElementById('invModalTitle').innerHTML = '<i class="fas fa-user-plus" style="color:var(--accent);margin-right:8px"></i>Create Inventory User';
+  
+  document.getElementById('inv_username').value = '';
+  document.getElementById('inv_username').readOnly = false;
+  document.getElementById('inv_email').value = '';
+  document.getElementById('inv_password').value = '';
+  document.getElementById('inv_password').required = true;
+  document.getElementById('inv_password_label').innerText = 'Password *';
+  document.getElementById('inv_password_help').innerText = '';
+  
+  document.getElementById('inv_role').value = 'staff';
+  document.getElementById('inv_branch').value = '';
+  document.getElementById('inv_is_active').checked = true;
+
+  // Check all permissions by default for new staff users
+  const perms = [
+    'can_access_adjustments_page', 'can_manage_adjustments',
+    'can_access_serials_page', 'can_manage_serials',
+    'can_access_limits_page', 'can_manage_limits',
+    'can_access_alerts_page', 'can_manage_alerts',
+    'can_access_rentals_page', 'can_manage_rentals',
+    'can_access_shortage_page', 'can_manage_shortage_exports',
+    'can_view_all_branches_inventory', 'can_add_inventory',
+    'can_edit_inventory', 'can_delete_inventory',
+    'can_approve_transfer', 'can_export_reports',
+    'can_manage_users'
+  ];
+  perms.forEach(p => {
+    const cb = document.getElementById(p);
+    if (cb) cb.checked = true;
+  });
+
+  toggleInvRoleBranch();
+  document.getElementById('invUserModal').classList.add('open');
+}
+
+function openInvEditModal(user) {
+  const form = document.getElementById('invUserForm');
+  form.action = `/accounts/users/inventory/${user.id}/edit/`;
+  document.getElementById('invModalTitle').innerHTML = '<i class="fas fa-user-edit" style="color:var(--accent);margin-right:8px"></i>Edit Inventory User — ' + user.username;
+  
+  document.getElementById('inv_username').value = user.username;
+  document.getElementById('inv_username').readOnly = true;
+  document.getElementById('inv_email').value = user.email;
+  document.getElementById('inv_password').value = '';
+  document.getElementById('inv_password').required = false;
+  document.getElementById('inv_password_label').innerText = 'Password';
+  document.getElementById('inv_password_help').innerText = 'Leave blank to keep current password.';
+  
+  document.getElementById('inv_role').value = user.role;
+  document.getElementById('inv_branch').value = user.branch;
+  document.getElementById('inv_is_active').checked = user.is_active;
+
+  const perms = [
+    'can_access_adjustments_page', 'can_manage_adjustments',
+    'can_access_serials_page', 'can_manage_serials',
+    'can_access_limits_page', 'can_manage_limits',
+    'can_access_alerts_page', 'can_manage_alerts',
+    'can_access_rentals_page', 'can_manage_rentals',
+    'can_access_shortage_page', 'can_manage_shortage_exports',
+    'can_view_all_branches_inventory', 'can_add_inventory',
+    'can_edit_inventory', 'can_delete_inventory',
+    'can_approve_transfer', 'can_export_reports',
+    'can_manage_users'
+  ];
+  perms.forEach(p => {
+    const cb = document.getElementById(p);
+    if (cb) cb.checked = !!user[p];
+  });
+
+  toggleInvRoleBranch();
+  document.getElementById('invUserModal').classList.add('open');
+}
+
+function closeInvModal() {
+  document.getElementById('invUserModal').classList.remove('open');
+}
+
+function toggleInvRoleBranch() {
+  const role = document.getElementById('inv_role').value;
+  const branchGroup = document.getElementById('inv_branch_group');
+  const branchSelect = document.getElementById('inv_branch');
+  if (role === 'super_admin') {
+    branchGroup.style.opacity = '0.5';
+    branchSelect.disabled = true;
+    branchSelect.required = false;
+    branchSelect.value = '';
+  } else {
+    branchGroup.style.opacity = '1';
+    branchSelect.disabled = false;
+    branchSelect.required = true;
+  }
+}
+
+// Close inv modal on overlay click
+document.getElementById('invUserModal').addEventListener('click', function(e) {
+  if (e.target === this) closeInvModal();
+});
+
+// ── Telescope User Modals ────────────────────────────────────
+function openTeleCreateModal() {
+  const form = document.getElementById('teleUserForm');
+  form.action = "{% url 'accounts:telescope_user_create' %}";
+  document.getElementById('teleModalTitle').innerHTML = '<i class="fas fa-binoculars" style="color:var(--accent);margin-right:8px"></i>Create Telescope User';
+  
+  document.getElementById('tele_username').value = '';
+  document.getElementById('tele_username').readOnly = false;
+  document.getElementById('tele_email').value = '';
+  document.getElementById('tele_password').value = '';
+  document.getElementById('tele_password').required = true;
+  document.getElementById('tele_password_label').innerText = 'Password *';
+  document.getElementById('tele_password_help').innerText = '';
+  document.getElementById('tele_is_active').checked = true;
+  document.getElementById('is_telescope_admin').checked = false;
+
+  // Check all permissions by default for new telescope users
+  const perms = [
+    'can_operate_vbt', 'can_operate_jcbt', 'can_operate_zeiss',
+    'can_operate_cassegrain', 'can_operate_schmidt',
+    'can_command_dome', 'can_trigger_exposures'
+  ];
+  perms.forEach(p => {
+    const cb = document.getElementById(p);
+    if (cb) cb.checked = true;
+  });
+
+  document.getElementById('teleUserModal').classList.add('open');
+}
+
+function openTeleEditModal(user) {
+  const form = document.getElementById('teleUserForm');
+  form.action = `/accounts/users/telescope/${user.id}/edit/`;
+  document.getElementById('teleModalTitle').innerHTML = '<i class="fas fa-edit" style="color:var(--accent);margin-right:8px"></i>Edit Telescope User — ' + user.username;
+  
+  document.getElementById('tele_username').value = user.username;
+  document.getElementById('tele_username').readOnly = true;
+  document.getElementById('tele_email').value = user.email;
+  document.getElementById('tele_password').value = '';
+  document.getElementById('tele_password').required = false;
+  document.getElementById('tele_password_label').innerText = 'Password';
+  document.getElementById('tele_password_help').innerText = 'Leave blank to keep current password.';
+  document.getElementById('tele_is_active').checked = user.is_active;
+  document.getElementById('is_telescope_admin').checked = !!user.is_telescope_admin;
+
+  const perms = [
+    'can_operate_vbt', 'can_operate_jcbt', 'can_operate_zeiss',
+    'can_operate_cassegrain', 'can_operate_schmidt',
+    'can_command_dome', 'can_trigger_exposures'
+  ];
+  perms.forEach(p => {
+    const cb = document.getElementById(p);
+    if (cb) cb.checked = !!user[p];
+  });
+
+  document.getElementById('teleUserModal').classList.add('open');
+}
+
+function closeTeleModal() {
+  document.getElementById('teleUserModal').classList.remove('open');
+}
+
+// Close tele modal on overlay click
+document.getElementById('teleUserModal').addEventListener('click', function(e) {
+  if (e.target === this) closeTeleModal();
+});
+</script>
+{% endblock %}

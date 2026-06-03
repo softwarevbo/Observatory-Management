@@ -1,0 +1,42 @@
+{% comment %}
+Reusable user avatar partial.
+Usage: {% include 'partials/user_avatar.html' with avatar_user=some_user size="32" radius="8" font_size="12" %}
+
+Parameters:
+  avatar_user   – the User object (required)
+  size          – px size for width/height (default: "32")
+  radius        – border-radius in px (default: "50%")  
+  font_size     – font-size in px (default: "12")
+  title         – tooltip text (default: avatar_user.display_name)
+  extra_style   – any additional inline CSS
+{% endcomment %}
+
+{% if avatar_user %}
+{% with final_size=size|default:"32" final_radius=radius|default:"50%" final_fs=font_size|default:"12" final_title=title|default:avatar_user.display_name %}
+<div class="avatar"
+     title="{{ final_title }}"
+     style="
+        width:{{ final_size }}px;
+        height:{{ final_size }}px;
+        border-radius:{{ final_radius }};
+        font-size:{{ final_fs }}px;
+        background:{{ avatar_user.avatar_color }};
+        overflow:hidden;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        flex-shrink:0;
+        font-weight:700;
+        color:#fff;
+        {{ extra_style }}
+     ">
+    {% if avatar_user.profile_picture %}
+        <img src="{{ avatar_user.profile_picture.url }}"
+             alt="{{ avatar_user.display_name }}"
+             style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">
+    {% else %}
+        {{ avatar_user.initials }}
+    {% endif %}
+</div>
+{% endwith %}
+{% endif %}

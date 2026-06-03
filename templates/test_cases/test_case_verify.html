@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}Verify Test Case — {{ test_case.test_id }}{% endblock %}
+{% block page_title %}Verify Test Case: {{ test_case.test_id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .section-title i {
+        color: var(--accent);
+    }
+
+    .data-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+        display: block;
+    }
+
+    /* Font matching side nav */
+    h1, .card-title, .section-title {
+        font-family: 'Space Grotesk', sans-serif !important;
+    }
+    
+    body, p, span, div, .form-control {
+        font-family: 'Inter', sans-serif !important;
+    }
+
+    .text-red { color: var(--red); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <!-- Reference Card -->
+    <div class="card" style="margin-bottom: 24px; border-style: dashed;">
+        <div class="section-title">
+            <i class="fas fa-search"></i> Reference Details
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div>
+                    <span class="data-label">Preconditions</span>
+                    <p style="font-size: 13px; color: var(--text-secondary); background: var(--bg-primary); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">{{ test_case.preconditions|default:"None" }}</p>
+                    
+                    <span class="data-label" style="margin-top: 16px;">Expected Result</span>
+                    <p style="font-size: 13px; font-weight: 600; color: var(--green); border-left: 3px solid var(--green); padding-left: 12px;">{{ test_case.expected_result }}</p>
+                </div>
+                <div>
+                    <span class="data-label">Test Steps</span>
+                    <div style="font-size: 13px; color: var(--text-secondary); white-space: pre-line; background: var(--bg-primary); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); line-height: 1.6;">{{ test_case.steps }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-clipboard-check" style="color: var(--accent); margin-right: 8px;"></i>
+                Execution Results
+            </div>
+            <span class="badge badge-gray">Current: {{ test_case.get_status_display }}</span>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label class="form-label">Actual Result / Execution Notes <span class="text-red">*</span></label>
+                    <textarea name="actual_result" class="form-control" rows="4" placeholder="Enter what actually happened during testing..." required>{{ test_case.actual_result }}</textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div class="form-group">
+                        <label class="form-label">Verdict / Status <span class="text-red">*</span></label>
+                        <select name="status" class="form-control" required>
+                            {% for val, label in status_choices %}
+                            <option value="{{ val }}" {% if test_case.status == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Proof / Screenshots</label>
+                        <input type="file" name="attachments" multiple class="form-control">
+                        <small style="color: var(--text-muted); font-size: 11px;">Upload evidence of the test result.</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Internal Comments / Bug Notes</label>
+                    <textarea name="comment" class="form-control" rows="2" placeholder="Add any additional internal comments..."></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+                    <a href="{% url 'tasks:test_case_detail' test_case.pk %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check-circle"></i> Submit Results
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

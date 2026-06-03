@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% block title %}Calendar — IIAP PM{% endblock %}
+{% block page_title %}Calendar{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.global.min.css">
+<style>
+    .calendar-container {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 24px;
+        align-items: start;
+    }
+    
+    .event-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        position: sticky;
+        top: 80px;
+    }
+
+    .upcoming-card {
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+    .upcoming-header {
+        padding: 20px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .upcoming-header h3 {
+        font-size: 14px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .event-list-item {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        transition: var(--transition);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        position: relative;
+    }
+
+    .event-list-item:last-child {
+        border-bottom: none;
+    }
+
+    .event-list-item:hover {
+        background: var(--bg-secondary);
+    }
+
+    .event-list-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 15%;
+        bottom: 15%;
+        width: 3px;
+        background: var(--accent);
+        border-radius: 0 4px 4px 0;
+        opacity: 0.6;
+    }
+
+    .event-title {
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .event-meta {
+        font-size: 11px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .event-meta i { color: var(--accent); opacity: 0.8; }
+
+    .event-project {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* FullCalendar Customizations */
+    .fc { font-family: 'DM Sans', sans-serif; }
+    .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border); }
+    .fc-scrollgrid { border-radius: 12px; border: 1px solid var(--border) !important; overflow: hidden; }
+    .fc-header-toolbar { margin-bottom: 24px !important; padding: 0 4px; }
+    .fc-toolbar-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.25rem !important; }
+    .fc-button { 
+        background: var(--bg-secondary) !important; 
+        border: 1px solid var(--border) !important; 
+        color: var(--text-secondary) !important; 
+        font-weight: 600 !important;
+        font-size: 12px !important;
+        padding: 6px 14px !important;
+        transition: var(--transition) !important;
+    }
+    .fc-button:hover { background: var(--bg-card) !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+    .fc-button-active { background: var(--accent) !important; border-color: var(--accent) !important; color: white !important; }
+    .fc-daygrid-day { transition: background 0.2s; cursor: pointer; }
+    .fc-daygrid-day:hover { background: var(--bg-secondary); }
+    .fc-daygrid-day-number { font-weight: 600; font-size: 12px; padding: 8px !important; }
+    .fc-col-header-cell-cushion { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 12px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Schedule & Events</h1>
+        <p>Manage project milestones, meetings, and team deadlines in one central view.</p>
+    </div>
+    <div class="page-header-right">
+        <a href="{% url 'tasks:event_create' %}" class="btn btn-primary">
+            <i class="fas fa-calendar-plus"></i> Schedule Meeting
+        </a>
+    </div>
+</div>
+
+<div class="calendar-container">
+    <!-- Main Calendar -->
+    <div class="card" style="padding: 24px;">
+        <div id="calendar"></div>
+    </div>
+
+    <!-- Sidebar: Upcoming Events -->
+    <div class="event-sidebar">
+        <div class="card upcoming-card">
+            <div class="upcoming-header">
+                <h3><i class="fas fa-clock" style="margin-right: 8px; color: var(--accent);"></i> Upcoming</h3>
+                <span class="badge badge-accent">{{ events|length }}</span>
+            </div>
+            
+            <div class="event-list">
+                {% for event in events %}
+                <div class="event-list-item" style="border-left-color: {{ event.color }}">
+                    <div class="event-project">
+                        <i class="fas fa-folder"></i> {{ event.project.name }}
+                    </div>
+                    <div class="event-title">{{ event.title }}</div>
+                    <div class="event-meta">
+                        <span><i class="far fa-calendar"></i> {{ event.start_datetime|date:"D, M d" }}</span>
+                        <span><i class="far fa-clock"></i> {{ event.start_datetime|date:"H:i" }}</span>
+                    </div>
+                    
+                    <div style="margin-top: 4px; display: flex; gap: 8px;">
+                        {% if event.meeting_link %}
+                            <a href="{{ event.meeting_link }}" target="_blank" class="btn btn-secondary btn-xs" style="background: rgba(79, 142, 247, 0.1); color: var(--accent); border: none;">
+                                <i class="fas fa-video"></i> Join
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'tasks:event_detail' event.id %}" class="btn btn-ghost btn-xs">Details</a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state" style="padding: 40px 20px;">
+                    <i class="fas fa-calendar-day"></i>
+                    <p>No upcoming meetings</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Sync Info Card -->
+        <div class="card" style="background: var(--bg-secondary); border-style: dashed;">
+            <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">Calendar Sync</div>
+            <p style="font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;">
+                Meetings created here are automatically pushed to the IIAP PM Radicale server for cross-device access.
+            </p>
+            <a href="{% url 'accounts:settings' %}#calendar" class="btn btn-ghost btn-xs" style="width: 100%;">Configure Sync</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        events: {{ events_json|safe }},
+        height: 'auto',
+        themeSystem: 'standard',
+        eventClick: function(info) {
+            if (info.event.url) {
+                window.location.href = info.event.url;
+                info.jsEvent.preventDefault();
+            }
+        },
+        eventDidMount: function(info) {
+            // Customize event styling if needed
+            info.el.style.borderRadius = '4px';
+            info.el.style.border = 'none';
+            info.el.style.padding = '2px 4px';
+        }
+    });
+    calendar.render();
+});
+</script>
+{% endblock %}

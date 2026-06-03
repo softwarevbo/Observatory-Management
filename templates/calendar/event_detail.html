@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ event.title }} — IIAP PM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .event-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .detail-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+    }
+
+    .event-header {
+        padding: 30px;
+        color: white;
+        position: relative;
+    }
+
+    .event-type-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+    }
+
+    .event-title {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 16px;
+        line-height: 1.2;
+    }
+
+    .event-quick-info {
+        display: flex;
+        gap: 20px;
+        font-size: 14px;
+        opacity: 0.9;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .detail-body {
+        padding: 30px;
+    }
+
+    .section {
+        margin-bottom: 24px;
+    }
+
+    .section-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .section-content {
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--text-primary);
+    }
+
+    .link-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+
+    .link-box:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+    }
+
+    .attendee-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+    }
+
+    .attendee-chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border-radius: 30px;
+        border: 1px solid var(--border);
+    }
+
+    .avatar-sm {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .footer-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+        padding: 20px;
+        border-top: 1px solid var(--border);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="event-detail-container">
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <a href="{% url 'tasks:calendar' %}" class="btn btn-ghost">
+            <i class="fas fa-arrow-left"></i> Back to Calendar
+        </a>
+        {% if can_edit %}
+        <div style="display: flex; gap: 8px;">
+            <a href="{% url 'tasks:event_edit' event.id %}" class="btn btn-secondary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="detail-card">
+        <!-- Header -->
+        <div class="event-header" style="background: {{ event.color }}">
+            <span class="event-type-badge">{{ event.get_event_type_display }}</span>
+            <h1 class="event-title">{{ event.title }}</h1>
+            
+            <div class="event-quick-info">
+                <div class="info-item">
+                    <i class="far fa-calendar-alt"></i>
+                    {{ event.start_datetime|date:"l, F j, Y" }}
+                </div>
+                <div class="info-item">
+                    <i class="far fa-clock"></i>
+                    {{ event.start_datetime|date:"H:i" }} - {{ event.end_datetime|date:"H:i" }}
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-body">
+            <!-- Description -->
+            {% if event.description %}
+            <div class="section">
+                <div class="section-title">Description</div>
+                <div class="section-content">{{ event.description|linebreaks }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Location -->
+            {% if event.location %}
+            <div class="section">
+                <div class="section-title">Location</div>
+                <div class="section-content">
+                    <div class="info-item" style="font-size: 16px; font-weight: 600;">
+                        <i class="fas fa-map-marker-alt" style="color: var(--accent);"></i>
+                        {{ event.location }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Virtual Meeting -->
+            {% if event.meeting_link %}
+            <div class="section">
+                <div class="section-title">Virtual Meeting</div>
+                <a href="{{ event.meeting_link }}" target="_blank" class="link-box">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-video" style="font-size: 20px; color: #10b981;"></i>
+                        <div>
+                            <div style="font-weight: 700;">Join Meeting</div>
+                            {% if event.meeting_password %}
+                            <div style="font-size: 11px; color: var(--text-muted);">Password: {{ event.meeting_password }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Context -->
+            <div class="section">
+                <div class="section-title">Contextual Links</div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    {% if event.project %}
+                    <a href="{% url 'tasks:project_detail' event.project.id %}" class="link-box">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fas fa-project-diagram" style="color: var(--accent);"></i>
+                            <div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Project</div>
+                                <div style="font-weight: 700;">{{ event.project.name }}</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+
+                    {% if event.task %}
+                    <a href="{% url 'tasks:task_detail' event.task.id %}" class="link-box">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fas fa-tasks" style="color: #6366f1;"></i>
+                            <div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Related Task</div>
+                                <div style="font-weight: 700;">{{ event.task.title }}</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Attendees -->
+            {% if event.attendees.exists %}
+            <div class="section">
+                <div class="section-title">Attendees ({{ event.attendees.count }})</div>
+                <div class="attendee-grid">
+                    {% for attendee in event.attendees.all %}
+                    <div class="attendee-chip">
+                        <div class="avatar-sm">
+                            {{ attendee.username|slice:":1"|upper }}
+                        </div>
+                        <span style="font-size: 13px; font-weight: 600;">{{ attendee.display_name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Footer Meta -->
+        <div style="padding: 20px 30px; background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+            <span>Created by {{ event.created_by.display_name }}</span>
+            <span>Ref ID: #EVT-{{ event.id|add:1000 }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

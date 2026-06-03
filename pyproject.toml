@@ -1,0 +1,9 @@
+[tool.ruff]
+exclude = ["venv", ".venv", "migrations", "media"]
+
+[tool.ruff.lint]
+extend-select = ["I", "C90", "B", "S", "N", "UP"]
+ignore = ["E402", "S101"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15

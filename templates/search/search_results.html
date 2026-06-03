@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Results{% endblock %}
+{% block page_title %}Search Results{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Search Results</h1>
+        <p>Showing results for: <strong>{{ query }}</strong></p>
+    </div>
+</div>
+
+{% if not query %}
+    <div class="card">
+        <div style="text-align:center; padding:40px; color:var(--text-muted);">
+            <i class="fas fa-search" style="font-size:40px; margin-bottom:16px; opacity:0.5;"></i>
+            <h3>Enter a search query</h3>
+            <p>Use the search bar in the top navigation to search across projects, tasks, and files.</p>
+        </div>
+    </div>
+{% else %}
+    <div style="display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Projects -->
+        <div class="card">
+            <h3 style="margin-bottom:14px;"><i class="fas fa-folder-open" style="color:var(--accent); margin-right:8px;"></i>Projects ({{ results.projects|length }})</h3>
+            {% if results.projects %}
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
+                {% for project in results.projects %}
+                <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; background:var(--bg-secondary); transition:var(--transition);" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';">
+                    <a href="{% url 'tasks:project_detail' project.pk %}" style="font-size:15px; font-weight:600; color:var(--text-primary); text-decoration:none; display:block; margin-bottom:6px;">{{ project.name }}</a>
+                    <p style="font-size:13px; color:var(--text-secondary); margin-bottom:10px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ project.description|truncatewords:20 }}</p>
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted);">
+                        <span><i class="fas fa-tasks"></i> {{ project.tasks.count }} Tasks</span>
+                        <span><i class="fas fa-users"></i> {{ project.members.count }} Members</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:13px;">No projects found matching your query.</p>
+            {% endif %}
+        </div>
+
+        <!-- Tasks -->
+        <div class="card">
+            <h3 style="margin-bottom:14px;"><i class="fas fa-check-square" style="color:var(--green); margin-right:8px;"></i>Tasks ({{ results.tasks|length }})</h3>
+            {% if results.tasks %}
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                {% for task in results.tasks %}
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                    <div>
+                        <a href="{% url 'tasks:task_detail' task.pk %}" style="font-size:14px; font-weight:600; color:var(--text-primary); text-decoration:none;">{{ task.title }}</a>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Project: {{ task.project.name|default:"None" }}</div>
+                    </div>
+                    <span class="badge badge-blue">{{ task.get_status_display }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:13px;">No tasks found matching your query.</p>
+            {% endif %}
+        </div>
+
+        <!-- Files -->
+        <div class="card">
+            <h3 style="margin-bottom:14px;"><i class="fas fa-file-alt" style="color:var(--orange); margin-right:8px;"></i>Files ({{ results.files|length }})</h3>
+            {% if results.files %}
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                {% for file in results.files %}
+                <div style="display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                    <i class="fas {{ file.icon_class }}" style="color:{{ file.icon_color }}; font-size:18px;"></i>
+                    <div style="flex:1;">
+                        <a href="{% url 'files:file_detail' file.pk %}" style="font-size:14px; font-weight:500; color:var(--text-primary); text-decoration:none;">{{ file.display_name }}</a>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Project: {{ file.project.name|default:"None" }} • Size: {{ file.file_size_display }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:13px;">No files found matching your query.</p>
+            {% endif %}
+        </div>
+
+    </div>
+{% endif %}
+
+{% endblock %}

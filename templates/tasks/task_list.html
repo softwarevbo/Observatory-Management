@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}Tasks — IIAP PM{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+
+{% block topbar_actions %}
+    {% if user.is_admin or user.is_project_manager %}
+    <a href="{% url 'tasks:task_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Task</a>
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .task-table-card {
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .task-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .task-table th {
+        background: var(--bg-secondary);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .task-table td {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg-card);
+    }
+
+    .task-table tr:hover td {
+        background: var(--bg-card-hover);
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+        padding: 16px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+    }
+
+    .task-title-link {
+        font-weight: 600;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .task-title-link:hover {
+        color: var(--accent);
+    }
+
+    .section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Tasks</h1>
+        <p>{{ tasks.count }} task{{ tasks.count|pluralize }} in the list</p>
+    </div>
+    <div style="display:flex;gap:8px">
+        <a href="{% url 'tasks:task_list' %}" class="btn {% if not my_tasks %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">All Tasks</a>
+        <a href="{% url 'tasks:task_list' %}?mine=1" class="btn {% if my_tasks %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">My Tasks</a>
+    </div>
+</div>
+
+<form method="get" class="filter-group">
+    {% if my_tasks %}<input type="hidden" name="mine" value="1">{% endif %}
+    <div class="search-wrap" style="flex: 1; min-width: 250px;">
+        <i class="fas fa-search"></i>
+        <input type="text" name="q" class="search-input" placeholder="Find tasks..." value="{{ search }}">
+    </div>
+    <select name="project" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Projects</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}" {% if project_filter|add:"0" == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+    </select>
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="priority" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Priority</option>
+        {% for val, label in priority_choices %}
+        <option value="{{ val }}" {% if priority_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    {% if search or status_filter or priority_filter %}
+    <a href="{% url 'tasks:task_list' %}{% if my_tasks %}?mine=1{% endif %}" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Clear</a>
+    {% endif %}
+</form>
+
+<div class="card task-table-card">
+    <table class="task-table">
+        <thead>
+            <tr>
+                <th>Task Details</th>
+                <th>Project</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Deadline</th>
+                <th>Assigned To</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td style="border-left: 4px solid hsl({{ task.project.pk|add:80|add:task.project.pk|add:150 }}, 70%, 50%);">
+                    <div style="font-size:10px; color:var(--text-muted); font-weight:700;">#{{ task.task_id|default:task.pk }}</div>
+                    <a href="{% url 'tasks:task_detail' task.pk %}" class="task-title-link">{{ task.title }}</a>
+                    <div style="display:flex; gap:6px;">
+                        <span class="badge {% if task.task_type == 'bug' %}badge-red{% elif task.task_type == 'feature' %}badge-purple{% else %}badge-gray{% endif %}" style="font-size:9px;">{{ task.get_task_type_display }}</span>
+                        {% if task.module %}<span style="font-size:10px; color:var(--text-muted);">{{ task.module.name }}</span>{% endif %}
+                    </div>
+                </td>
+                <td>
+                    <div style="font-weight: 500; font-size: 13px;">{{ task.project.name }}</div>
+                </td>
+                <td>
+                    <span class="{% if task.priority == 'critical' %}priority-critical{% elif task.priority == 'high' %}priority-high{% elif task.priority == 'medium' %}priority-medium{% else %}priority-low{% endif %}" style="font-size:12px;font-weight:600">● {{ task.get_priority_display }}</span>
+                </td>
+                <td>
+                    <span class="badge {% if task.status == 'done' %}badge-green{% elif task.status == 'in_progress' %}badge-blue{% elif task.status == 'blocked' %}badge-red{% elif task.status == 'review' %}badge-yellow{% else %}badge-gray{% endif %}">{{ task.get_status_display }}</span>
+                </td>
+                <td>
+                    {% if task.deadline %}
+                    <span style="font-size:11px; color:{% if task.deadline < today %}var(--red){% else %}var(--text-muted){% endif %}; font-weight:600;">
+                        <i class="fas fa-calendar-times"></i> {{ task.deadline|date:"M d" }}
+                    </span>
+                    {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+                        {% for assignee in task.assignees.all %}
+                        {% include 'partials/user_avatar.html' with avatar_user=assignee size="24" radius="50%" font_size="10" title=assignee.display_name %}
+                        {% empty %}
+                        <span style="color:var(--text-muted); font-size: 12px;">No one</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td style="text-align: right;">
+                    <div style="display:flex;gap:4px; justify-content: flex-end;">
+                        <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-secondary btn-icon btn-sm"><i class="fas fa-eye"></i></a>
+                        {% if user.is_admin or user == task.created_by or is_pm %}
+                        <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-secondary btn-icon btn-sm"><i class="fas fa-edit"></i></a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="padding: 48px; text-align: center; background: var(--bg-secondary); border-radius: var(--radius);">
+                    <i class="fas fa-check-square" style="font-size: 32px; color: var(--text-muted); margin-bottom: 16px; display: block;"></i>
+                    <h3 style="margin-bottom: 8px;">No tasks found</h3>
+                    <p style="color: var(--text-muted);">Try changing your search or filters.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'pagination.html' %}
+{% endblock %}

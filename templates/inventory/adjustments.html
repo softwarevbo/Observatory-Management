@@ -1,0 +1,227 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Inventory Adjustments{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Inventory Adjustments
+</h1>
+
+<div class="row g-4">
+    <div class="col-lg-6 col-md-12">
+        <div class="card">
+            <div class="text-center mb-4">
+                
+                <h2 class="mb-0">Adjust Inventory</h2>
+                <p>Modify stock levels manually</p>
+            </div>
+            
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <div class="mb-4 position-relative">
+                    <label for="product_search" class="form-label">Product</label>
+                    <input type="text" class="form-control" id="product_search" placeholder="Type to search products..." autocomplete="off">
+                    <input type="hidden" name="product" id="product_id">
+                    <div id="productList" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                {% if branches %}
+                <div class="mb-4">
+                    <label for="branch" class="form-label">Branch</label>
+                    <select class="form-select" id="branch" name="branch" required>
+                        <option value="" disabled {% if not current_branch_id %}selected{% endif %}>Select Branch</option>
+                        {% for b in branches %}
+                        <option value="{{ b.id }}" {% if current_branch_id == b.id|stringformat:"i" %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="mb-4">
+                    <label for="adjustment_type" class="form-label">Adjustment Type</label>
+                    <select class="form-select" id="adjustment_type" name="adjustment_type" required>
+                        <option value="">Select Type</option>
+                        <option value="increase">Increase</option>
+                        <option value="decrease">Decrease</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" placeholder="Enter quantity" required>
+                </div>
+                <div class="mb-4">
+                    <label for="reason" class="form-label">Reason</label>
+                    <input type="text" class="form-control" id="reason" name="reason" placeholder="Enter adjustment reason" required>
+                </div>
+                <button type="submit" class="btn btn btn-secondary w-100 py-3">
+                    Add Adjustment
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 col-md-12">
+        <div class="card">
+            <h2 class="section-title">
+                Recent Adjustments
+            </h2>
+            
+            {% if adjustments %}
+                <div class="table-wrap">
+                    <div class="table-responsive" style="overflow-x: auto;">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Serial Number</th>
+                                    <th>Type</th>
+                                    <th>Quantity</th>
+                                    <th class="d-none d-md-table-cell">Date</th>
+                                    <th class="d-none d-lg-table-cell">Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for adj in adjustments %}
+                                <tr>
+                                    <td><strong>{{ adj.product.name }}</strong></td>
+                                    <td><span class="badge bg-info">{{ adj.product.serial_number|default:"-" }}</span></td>
+                                    <td>
+                                        {% if adj.adjustment_type == 'increase' %}
+                                            <span class="badge bg-success">+{{ adj.quantity }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">-{{ adj.quantity }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ adj.quantity }}</td>
+                                    <td class="d-none d-md-table-cell">{{ adj.timestamp|date:'M d, Y H:i' }}</td>
+                                    <td class="d-none d-lg-table-cell">{{ adj.reason|truncatechars:30 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- Pagination Controls -->
+                {% include 'pagination.html' %}
+            {% else %}
+                <div class="text-center py-4">
+                    
+                    <p>No inventory adjustments found.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const products = [
+            {% for product in products %}
+                {id: {{ product.id }}, name: "{{ product.name|escapejs }}", serial: "{{ product.serial_number|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        const input = document.getElementById('product_search');
+        const productList = document.getElementById('productList');
+        const productIdInput = document.getElementById('product_id');
+        
+        input.addEventListener('input', function() {
+            const val = this.value.toLowerCase();
+            productList.innerHTML = '';
+            if (val.length === 0) return;
+            
+            const matches = products.filter(function(p) { 
+                return p.name.toLowerCase().includes(val) || p.serial.toLowerCase().includes(val); 
+            });
+            
+            matches.forEach(function(p) {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.style.background = 'rgba(255, 255, 255, 0.3)';
+                item.style.border = '1px solid rgba(255, 255, 255, 0.4)';
+                item.style.color = 'var(--text-primary)';
+                item.style.backdropFilter = 'blur(16px)';
+                item.style.webkitBackdropFilter = 'blur(16px)';
+                item.innerHTML = '<strong>' + p.name + '</strong>' + (p.serial ? '<br><small>SN: ' + p.serial + '</small>' : '');
+                item.onclick = function() {
+                    input.value = p.name;
+                    productIdInput.value = p.id;
+                    productList.innerHTML = '';
+                };
+                productList.appendChild(item);
+            });
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !productList.contains(e.target)) {
+                productList.innerHTML = '';
+            }
+        });
+    });
+</script>
+
+<style>
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .card, .card {
+        padding: 1.5rem !important;
+    }
+    
+    .fa-3x {
+        font-size: 2.5rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .card, .card {
+        padding: 1rem !important;
+    }
+    
+    .fa-3x {
+        font-size: 2rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    .btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    
+    .table th, .table td {
+        padding: 0.5rem 0.3rem;
+    }
+}
+
+/* Add horizontal scroll bar for .table-responsive always visible */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #b3b3b3 #f5f5f5;
+}
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #b3b3b3;
+    border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+</style>
+{% endblock %}

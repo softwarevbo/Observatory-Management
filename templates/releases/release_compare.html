@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Compare Releases · {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .compare-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .compare-header {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 32px;
+        margin-bottom: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .compare-selector {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: var(--bg-secondary);
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+    }
+    .version-pill {
+        background: var(--accent-glow);
+        color: var(--accent);
+        padding: 4px 12px;
+        border-radius: 100px;
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 14px;
+    }
+    .diff-section {
+        margin-bottom: 40px;
+    }
+    .diff-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
+    .diff-row {
+        display: grid;
+        grid-template-columns: 40px 1fr 120px 80px;
+        align-items: center;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        transition: var(--transition);
+    }
+    .diff-row:last-child { border-bottom: none; }
+    .diff-row.added { background: rgba(34, 197, 94, 0.05); }
+    .diff-row.removed { background: rgba(239, 68, 68, 0.05); }
+    .diff-row.modified { background: rgba(245, 158, 11, 0.05); }
+
+    .status-badge {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+    }
+    .badge-added { background: #22c55e; color: white; }
+    .badge-removed { background: #ef4444; color: white; }
+    .badge-modified { background: #f59e0b; color: white; }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px;
+        color: var(--text-muted);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="compare-container">
+    <div class="compare-header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="font-size: 28px; font-weight: 800;">Compare Releases</h1>
+            <a href="{% url 'tasks:release_detail' release_b.pk %}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Back to Release
+            </a>
+        </div>
+
+        <div class="compare-selector">
+            <div style="flex: 1;">
+                <label class="form-label" style="font-size: 12px; opacity: 0.6;">Base Release</label>
+                <select class="form-control" onchange="window.location='?with=' + this.value">
+                    <option value="">Select release to compare...</option>
+                    {% for rel in other_releases %}
+                    <option value="{{ rel.pk }}" {% if release_a.pk == rel.pk %}selected{% endif %}>
+                        {{ rel.name }} ({{ rel.version|default:rel.tag_name }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="font-size: 24px; opacity: 0.3; margin-top: 20px;">...</div>
+            <div style="flex: 1;">
+                <label class="form-label" style="font-size: 12px; opacity: 0.6;">Target Release (Current)</label>
+                <div class="form-control" style="background: var(--bg-card); display: flex; align-items: center; gap: 8px;">
+                    <span class="version-pill">{{ release_b.version|default:release_b.tag_name }}</span>
+                    <span>{{ release_b.name }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not release_a %}
+    <div class="diff-card empty-state">
+        <i class="fas fa-code-compare" style="font-size: 48px; margin-bottom: 20px; opacity: 0.2;"></i>
+        <h3>Choose a release to compare</h3>
+        <p>Select an older version from the dropdown above to see what changed in this release.</p>
+    </div>
+    {% else %}
+    
+    <div class="diff-section">
+        <h2 style="font-size: 20px; margin-bottom: 16px;">
+            Changes between {{ release_a.version|default:release_a.tag_name }} and {{ release_b.version|default:release_b.tag_name }}
+        </h2>
+        
+        <div class="diff-card">
+            {% if not diff.added and not diff.removed and not diff.modified %}
+            <div class="empty-state">
+                <p>No file changes detected between these two releases.</p>
+            </div>
+            {% else %}
+            
+            <div class="diff-row" style="background: var(--bg-secondary); font-weight: 700; font-size: 11px; text-transform: uppercase; color: var(--text-muted);">
+                <div></div>
+                <div>File Path</div>
+                <div>Size</div>
+                <div>Status</div>
+            </div>
+
+            {% for item in diff.added %}
+            <div class="diff-row added">
+                <i class="fas {{ item.icon_class }}" style="color: {{ item.icon_color }};"></i>
+                <span style="font-weight: 600;">{{ item.original_name }}</span>
+                <span style="font-size: 12px; color: var(--text-muted);">{{ item.file_size_display }}</span>
+                <div><span class="status-badge badge-added">Added</span></div>
+            </div>
+            {% endfor %}
+
+            {% for item in diff.modified %}
+            <div class="diff-row modified">
+                <i class="fas {{ item.new.icon_class }}" style="color: {{ item.new.icon_color }};"></i>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 600;">{{ item.name }}</span>
+                    <span style="font-size: 11px; color: var(--text-muted);">Hash changed from {{ item.old.content_hash|truncatechars:10 }} to {{ item.new.content_hash|truncatechars:10 }}</span>
+                </div>
+                <span style="font-size: 12px; color: var(--text-muted);">{{ item.new.file_size_display }}</span>
+                <div><span class="status-badge badge-modified">Changed</span></div>
+            </div>
+            {% endfor %}
+
+            {% for item in diff.removed %}
+            <div class="diff-row removed">
+                <i class="fas {{ item.icon_class }}" style="color: {{ item.icon_color }};"></i>
+                <span style="font-weight: 600; text-decoration: line-through; opacity: 0.6;">{{ item.original_name }}</span>
+                <span style="font-size: 12px; color: var(--text-muted);">{{ item.file_size_display }}</span>
+                <div><span class="status-badge badge-removed">Removed</span></div>
+            </div>
+            {% endfor %}
+
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="diff-section">
+        <h3 style="font-size: 16px; margin-bottom: 12px; opacity: 0.6;">Unchanged Files ({{ diff.unchanged|length }})</h3>
+        <div class="diff-card" style="opacity: 0.6;">
+            {% for item in diff.unchanged %}
+            <div class="diff-row">
+                <i class="fas {{ item.icon_class }}" style="color: var(--text-muted);"></i>
+                <span style="font-size: 13px;">{{ item.original_name }}</span>
+                <span style="font-size: 12px;">{{ item.file_size_display }}</span>
+                <div style="font-size: 10px; text-transform: uppercase;">Unchanged</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

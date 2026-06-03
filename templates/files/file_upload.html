@@ -1,0 +1,679 @@
+{% extends 'base.html' %}
+{% block title %}{% if form.initial.parent_file %}Upload New Version{% else %}Upload Resources{% endif %} — IIAP PM{% endblock %}
+{% block page_title %}{% if form.initial.parent_file %}New Version: {{ form.initial.parent_file.original_name }}{% else %}Upload Resources{% endif %}{% endblock %}
+{% block extra_css %}
+<style>
+/* ── Modern Confirmed Upload Layout ── */
+.upload-stage {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 30px;
+    align-items: start;
+}
+
+/* LEFT: Interaction Area */
+.canvas-area { display: flex; flex-direction: column; gap: 24px; }
+
+/* Drop Zone: Visual & interactive */
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 24px;
+    padding: 60px 40px;
+    background: var(--bg-secondary);
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+.drop-zone:hover, .drop-zone.active {
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.05);
+    transform: translateY(-2px);
+}
+.drop-icon { font-size: 48px; color: var(--accent); margin-bottom: 20px; opacity: 0.8; }
+.drop-title { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.drop-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 30px; }
+
+/* Staging Queue */
+.queue-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+}
+.queue-header {
+    padding: 20px 24px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.queue-header h3 { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 0; }
+
+.queue-items { max-height: 500px; overflow-y: auto; }
+.queue-item {
+    display: grid;
+    grid-template-columns: 50px 1fr 100px 120px 40px;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.queue-item:hover { background: rgba(var(--accent-rgb), 0.02); }
+.queue-item.selected { background: rgba(var(--accent-rgb), 0.08); border-left: 4px solid var(--accent); padding-left: 20px; }
+
+.file-thumb {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--bg-secondary);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid var(--border);
+}
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+
+.file-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-meta { font-size: 12px; color: var(--text-muted); }
+
+/* RIGHT: Preview & Actions Sidebar */
+.sidebar-area { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 24px; }
+
+.preview-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+.preview-display {
+    flex: 1; min-height: 200px; max-height: 350px; background: var(--bg-secondary);
+    border-radius: 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; border: 1px solid var(--border);
+}
+.preview-display img, .preview-display video { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.confirmation-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+
+/* Progress Overlay */
+.upload-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+    z-index: 9999; display: none; align-items: center; justify-content: center;
+}
+.progress-card {
+    background: var(--bg-card); padding: 40px; border-radius: 32px; width: 450px; text-align: center;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.5); border: 1px solid var(--border);
+}
+.progress-ring { width: 100px; height: 100px; margin: 0 auto 30px; position: relative; }
+.progress-ring svg { transform: rotate(-90deg); }
+.progress-ring circle { fill: none; stroke-width: 8; stroke-linecap: round; }
+.progress-ring .bg { stroke: var(--bg-secondary); }
+.scan-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; border-radius: inherit; }
+.scan-spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
+.scan-text { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.preview-content { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; border-radius: 12px; margin: 15px 0; overflow: hidden; position: relative; border: 1px solid var(--border); min-height: 300px; }
+.preview-placeholder { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); }
+.preview-placeholder i { font-size: 48px; margin-bottom: 10px; opacity: 0.3; }
+
+.queue-item { animation: slideIn 0.3s ease-out; }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+
+/* Upload action buttons layout */
+.upload-btn-group { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 10px; }
+.upload-btn-row { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.upload-btn-row .btn { min-width: 140px; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; }
+
+/* Folder chips: shows each selected folder name */
+#folderChips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-height: 80px; overflow-y: auto; }
+.folder-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(var(--accent-rgb), 0.1); border: 1px solid rgba(var(--accent-rgb), 0.3);
+    color: var(--accent); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600;
+}
+
+@media(max-width: 900px) {
+    .upload-stage { grid-template-columns: 1fr; }
+    .sidebar-area { position: static; }
+    .upload-btn-row .btn { min-width: 110px; font-size: 13px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-stage">
+    
+    <!-- MAIN INTERACTION AREA -->
+    <div class="canvas-area">
+        
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+            <div id="scanOverlay" class="scan-overlay" style="display:none;">
+                <div class="scan-spinner"></div>
+                <div class="scan-text">Scanning Resources...</div>
+                <div id="scanProgress" style="font-size:12px; opacity:0.7;">0 files found</div>
+            </div>
+
+            <!-- Hidden file inputs (no onclick on drop zone itself) -->
+            <input type="file" id="fileInput" multiple style="display:none;">
+            <!-- Folder inputs are created dynamically for multi-folder support -->
+            <div id="folderInputsContainer"></div>
+
+            <i class="fas fa-cloud-upload-alt drop-icon"></i>
+            <div class="drop-title">Drop your resources here</div>
+            <div class="drop-subtitle">Support for images, documents, and entire folders. Max {{ max_size_gb|floatformat:1 }}GB per file.</div>
+
+            <!-- Action buttons: clearly separated from drop area -->
+            <div class="upload-btn-group">
+                <div class="upload-btn-row">
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-file-upload"></i> Select Files
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="openFolderPicker()">
+                        <i class="fas fa-folder-open"></i> Select Folder
+                    </button>
+                    <button type="button" class="btn btn-ghost" id="addFolderBtn" onclick="openFolderPicker()" style="display:none;">
+                        <i class="fas fa-folder-plus"></i> Add Folder
+                    </button>
+                </div>
+                <!-- Folder chips: shows selected folders -->
+                <div id="folderChips"></div>
+            </div>
+        </div>
+
+        <!-- Staging Queue -->
+        <div class="queue-card">
+            <div class="queue-header">
+                <h3>Staged Files <span id="stagedCount" style="color:var(--accent); margin-left:8px;"></span></h3>
+                <div id="stagedMeta" style="font-size:12px; color:var(--text-muted);">0 KB total</div>
+            </div>
+            <div id="stagedItems" class="queue-items">
+                <div id="emptyMsg" style="padding:80px 20px; text-align:center; color:var(--text-muted);">
+                    <i class="fas fa-files-medical" style="font-size:48px; opacity:0.2; margin-bottom:20px;"></i>
+                    <p>No files staged. Start by uploading or dragging files.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SIDEBAR AREA -->
+    <div class="sidebar-area">
+        
+        <!-- Large Preview Box -->
+        <div class="preview-box" id="previewPanel" style="display:none;">
+            <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:16px; letter-spacing:1px;">File Preview</div>
+            <div class="preview-display" id="previewDisplay"></div>
+            <div style="margin-bottom:24px;">
+                <div id="previewName" style="font-weight:700; font-size:16px; margin-bottom:4px; word-break:break-all;"></div>
+                <div id="previewMeta" style="font-size:13px; color:var(--text-muted);"></div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-secondary" style="flex:1;" onclick="openFullPreview()">
+                    <i class="fas fa-external-link-alt"></i> Full View
+                </button>
+                <button type="button" class="btn btn-ghost btn-icon" onclick="removeCurrent()"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        </div>
+
+        <!-- Global Settings & Final Action -->
+        <div class="confirmation-card">
+            <div style="font-size:12px; font-weight:800; color:var(--accent); text-transform:uppercase; margin-bottom:20px; letter-spacing:1px;">Final Configuration</div>
+            
+            <form id="uploadForm" method="POST">
+                {% csrf_token %}
+                {% if form.initial.parent_file %}
+                <div style="background:var(--bg-secondary); padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border);">
+                    <div style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Versioning Mode</div>
+                    <div style="font-size:13px; font-weight:600;">Updating: {{ form.initial.parent_file.original_name }}</div>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">This will create <strong>Version {{ form.initial.parent_file.version|add:1 }}</strong>. Project and Folder settings are inherited.</div>
+                    <div style="display:none;">
+                        {{ form.project }}
+                        {{ form.category }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:700; margin-bottom:6px; display:block;">Target Project</label>
+                    {{ form.project }}
+                </div>
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:700; margin-bottom:6px; display:block;">Folder / Category</label>
+                    {{ form.category }}
+                </div>
+                {% endif %}
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:700; margin-bottom:6px; display:block;">Description (Global)</label>
+                    {{ form.description }}
+                </div>
+                
+                <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+                    <button type="button" id="uploadBtn" class="btn btn-primary btn-lg" style="width:100%; height:54px; font-weight:700;" disabled onclick="executeUpload()">
+                        <i class="fas fa-rocket"></i> Upload <span id="fileCount"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- PROGRESS OVERLAY -->
+<div class="upload-overlay" id="uploadOverlay">
+    <div class="progress-card">
+        <div class="progress-ring">
+            <svg width="100" height="100">
+                <circle class="bg" cx="50" cy="50" r="40" />
+                <circle class="bar" id="progressRingBar" cx="50" cy="50" r="40" />
+            </svg>
+            <div id="progressPct" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px;">0%</div>
+        </div>
+        <h2 style="font-family:'Space Grotesk',sans-serif; margin-bottom:8px;">Uploading Assets</h2>
+        <p id="progressStatus" style="color:var(--text-muted); font-size:14px;">Preparing files for secure transmission...</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let stash = [];
+let currentIdx = -1;
+const MAX_SIZE_BYTES = {{ max_size_bytes }};
+
+const fileInput = document.getElementById('fileInput');
+const folderInput = document.getElementById('folderInput');
+const dropZone = document.getElementById('dropZone');
+const stagedItems = document.getElementById('stagedItems');
+const emptyMsg = document.getElementById('emptyMsg');
+const previewPanel = document.getElementById('previewPanel');
+const uploadBtn = document.getElementById('uploadBtn');
+const progressRingBar = document.getElementById('progressRingBar');
+const progressPct = document.getElementById('progressPct');
+const previewDisplay = document.getElementById('previewDisplay');
+
+function updateUploadBtnState() {
+    const projEl = document.getElementById('id_project');
+    const hasFiles = stash.length > 0;
+    const isVersionMode = !projEl; // versioning mode has no project select
+    const projectOk = isVersionMode || (projEl && projEl.value);
+    uploadBtn.disabled = !hasFiles || !projectOk;
+    document.getElementById('fileCount').textContent = hasFiles ? `(${stash.length} file${stash.length > 1 ? 's' : ''})` : '';
+}
+
+const TYPE_MAP = {
+    image: { icon: 'fa-file-image', color: '#06b6d4' },
+    video: { icon: 'fa-file-video', color: '#ec4899' },
+    pdf: { icon: 'fa-file-pdf', color: '#ef4444' },
+    archive: { icon: 'fa-file-archive', color: '#f59e0b' },
+    other: { icon: 'fa-file', color: '#94a3b8' }
+};
+
+function getFileType(n) {
+    const e = n.split('.').pop().toLowerCase();
+    if (['png','jpg','jpeg','gif','webp','svg'].includes(e)) return 'image';
+    if (['mp4','webm','mov'].includes(e)) return 'video';
+    if (e === 'pdf') return 'pdf';
+    if (['zip','rar','tar','7z'].includes(e)) return 'archive';
+    return 'other';
+}
+
+function prettySize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+}
+
+const scanOverlay = document.getElementById('scanOverlay');
+const scanProgress = document.getElementById('scanProgress');
+
+async function addFiles(files, paths = null) {
+    if (files.length === 0) return;
+    
+    scanOverlay.style.display = 'flex';
+    let addedCount = 0;
+    const fileList = Array.from(files);
+    const total = fileList.length;
+
+    // Process in chunks of 50 to keep UI responsive
+    const chunkSize = 50;
+    for (let i = 0; i < total; i += chunkSize) {
+        const chunk = fileList.slice(i, i + chunkSize);
+        chunk.forEach((f, idx) => {
+            const globalIdx = i + idx;
+            if (f.size > MAX_SIZE_BYTES) {
+                console.warn(`File "${f.name}" exceeds limit.`);
+                return;
+            }
+            const relPath = (paths && paths[globalIdx]) || f.webkitRelativePath || f.name;
+            stash.push({ file: f, path: relPath, confirmed: true }); // auto-confirmed
+            addedCount++;
+        });
+        
+        scanProgress.textContent = `${stash.length} items staged...`;
+        // Yield to browser for rendering
+        await new Promise(r => setTimeout(r, 0));
+    }
+
+    scanOverlay.style.display = 'none';
+    render();
+    if (stash.length > 0 && currentIdx === -1) showPreview(stash.length - 1);
+}
+
+function render() {
+    const hasFiles = stash.length > 0;
+    emptyMsg.style.display = hasFiles ? 'none' : 'block';
+
+    document.getElementById('stagedCount').textContent = hasFiles ? `(${stash.length})` : '';
+    const totalSize = stash.reduce((a,v) => a + v.file.size, 0);
+    document.getElementById('stagedMeta').textContent = prettySize(totalSize) + ' total';
+
+    updateUploadBtnState();
+    stagedItems.querySelectorAll('.queue-item').forEach(el => el.remove());
+
+    stash.forEach((item, idx) => {
+        const type = getFileType(item.file.name);
+        const cfg = TYPE_MAP[type];
+        const div = document.createElement('div');
+        div.className = `queue-item ${idx === currentIdx ? 'selected' : ''}`;
+
+        let thumb = `<i class="fas ${cfg.icon}" style="color:${cfg.color}"></i>`;
+        if (type === 'image') {
+            thumb = `<img src="${URL.createObjectURL(item.file)}">`;
+        }
+
+        div.innerHTML = `
+            <div class="file-thumb">${thumb}</div>
+            <div class="file-info">
+                <div class="file-name" title="${item.path}">${item.file.name}</div>
+                <div class="file-meta">${prettySize(item.file.size)} &bull; ${type}</div>
+            </div>
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.path}">
+                ${item.path.includes('/') ? item.path.substring(0, item.path.lastIndexOf('/')) : '<span style="opacity:0.3">Root</span>'}
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button type="button" class="btn btn-ghost btn-sm btn-icon" title="Preview" onclick="showPreview(${idx}, event)">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm btn-icon" onclick="removeIdx(${idx}, event)"><i class="fas fa-times"></i></button>
+        `;
+        div.onclick = () => showPreview(idx);
+        stagedItems.appendChild(div);
+    });
+}
+
+function showPreview(idx, e) {
+    if (e) e.stopPropagation();
+    currentIdx = idx;
+    const item = stash[idx];
+    if (!item) { previewPanel.style.display = 'none'; return; }
+    
+    previewPanel.style.display = 'flex';
+    render();
+
+    const f = item.file;
+    const type = getFileType(f.name);
+    const display = document.getElementById('previewDisplay');
+    document.getElementById('previewName').textContent = f.name;
+    document.getElementById('previewMeta').textContent = `${prettySize(f.size)} • ${type.toUpperCase()}`;
+
+    display.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="font-size:32px; opacity:0.3;"></i>';
+    document.getElementById('previewMeta').textContent = `${prettySize(f.size)} • ${f.type || 'unknown'}`;
+
+    previewDisplay.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="font-size:32px; opacity:0.3;"></i>';
+    
+    const name = item.file.name.toLowerCase();
+    const isText = name.endsWith('.py') || name.endsWith('.h') || name.endsWith('.c') || name.endsWith('.cpp') || 
+                   name.endsWith('.js') || name.endsWith('.html') || name.endsWith('.css') || name.endsWith('.md') || 
+                   name.endsWith('.txt') || name.endsWith('.java') || name.endsWith('.sh') || item.file.type.startsWith('text/');
+    
+    const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv');
+
+    if (item.file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            previewDisplay.innerHTML = `<img src="${e.target.result}" style="max-width:100%; max-height:100%; object-fit:contain; animation: fadeIn 0.5s;">`;
+        };
+        reader.readAsDataURL(item.file);
+    } else if (item.file.type === 'application/pdf') {
+        previewDisplay.innerHTML = `<div class="preview-placeholder"><i class="fas fa-file-pdf" style="color:#ef4444;"></i><span>PDF Document</span><div style="font-size:12px; margin-top:5px;">${item.file.name}</div></div>`;
+    } else if (isText) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const text = e.target.result.substring(0, 5000);
+            previewDisplay.innerHTML = `<pre style="width:100%; height:100%; padding:20px; color:#a5d6ff; background:#0d1117; font-family:'Fira Code',monospace; font-size:12px; overflow:auto; text-align:left; border-radius:8px; line-height:1.5;">${escapeHtml(text)}${e.target.result.length > 5000 ? '\n\n[Content truncated for performance...]' : ''}</pre>`;
+        };
+        reader.readAsText(item.file);
+    } else if (isExcel) {
+        previewDisplay.innerHTML = `<div class="preview-placeholder"><i class="fas fa-file-excel" style="color:#22c55e;"></i><span>Spreadsheet detected</span><div style="font-size:12px; margin-top:5px; opacity:0.6;">${item.file.name}</div><div style="font-size:10px; margin-top:10px; padding:4px 8px; background:rgba(34,197,94,0.1); border-radius:4px; color:#22c55e;">EXCEL PREVIEW READY</div></div>`;
+    } else {
+        previewDisplay.innerHTML = `<div class="preview-placeholder"><i class="fas fa-file-alt"></i><span>Generic File</span><div style="font-size:12px; margin-top:5px;">${item.file.name}</div></div>`;
+    }
+}
+
+function openFullPreview() {
+    if (currentIdx === -1) return;
+    const file = stash[currentIdx].file;
+    const url = URL.createObjectURL(file);
+    window.open(url, '_blank');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function removeIdx(idx, e) {
+    if (e) e.stopPropagation();
+    stash.splice(idx, 1);
+    if (currentIdx >= stash.length) currentIdx = stash.length - 1;
+    render();
+    if (stash.length > 0) showPreview(currentIdx);
+    else previewPanel.style.display = 'none';
+}
+
+function removeCurrent() { removeIdx(currentIdx); }
+
+fileInput.onchange = () => { addFiles(fileInput.files); fileInput.value = ''; };
+
+// ── Multi-folder selection ──
+let folderCount = 0;
+const addedFolderNames = [];
+
+function openFolderPicker() {
+    // Must append to document.body so browser allows programmatic .click()
+    // from within a user-gesture callback (button onclick).
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.webkitdirectory = true;
+    inp.setAttribute('directory', '');
+    inp.multiple = true;
+    inp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(inp);
+
+    inp.addEventListener('change', () => {
+        if (inp.files.length === 0) { document.body.removeChild(inp); return; }
+        // Derive folder name from first file's relative path
+        const folderName = inp.files[0].webkitRelativePath
+            ? inp.files[0].webkitRelativePath.split('/')[0]
+            : 'Folder ' + (++folderCount);
+        addFiles(inp.files);
+        // Show chip
+        if (!addedFolderNames.includes(folderName)) {
+            addedFolderNames.push(folderName);
+            const chip = document.createElement('div');
+            chip.className = 'folder-chip';
+            chip.innerHTML = '<i class="fas fa-folder"></i> ' + folderName;
+            document.getElementById('folderChips').appendChild(chip);
+        }
+        // Show "Add Folder" button after first folder is picked
+        document.getElementById('addFolderBtn').style.display = 'inline-flex';
+        document.body.removeChild(inp);
+    });
+
+    // Must call .click() synchronously inside the user-gesture handler
+    inp.click();
+}
+
+dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('active'); };
+dropZone.ondragleave = () => dropZone.classList.remove('active');
+dropZone.ondrop = (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('active');
+    if (e.dataTransfer.items) {
+        [...e.dataTransfer.items].forEach(item => {
+            if (item.kind === 'file') {
+                const entry = item.webkitGetAsEntry();
+                if (entry) scan(entry);
+            }
+        });
+    } else {
+        addFiles(e.dataTransfer.files);
+    }
+};
+
+function scan(entry, path = "") {
+    if (entry.isFile) {
+        const fullPath = path ? path + "/" + entry.name : entry.name;
+        entry.file(f => addFiles([f], [fullPath]));
+    } else if (entry.isDirectory) {
+        const newPath = path ? path + "/" + entry.name : entry.name;
+        const reader = entry.createReader();
+        const readEntries = () => {
+            reader.readEntries(list => {
+                if (list.length > 0) {
+                    list.forEach(e => scan(e, newPath));
+                    readEntries();
+                }
+            });
+        };
+        readEntries();
+    }
+}
+
+function executeUpload() {
+    // Validate: project must be selected (in non-versioning mode)
+    const projEl = document.getElementById('id_project');
+    if (projEl && !projEl.value) {
+        // Show inline error on the project field
+        projEl.style.borderColor = '#ef4444';
+        projEl.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.2)';
+        projEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const errId = 'proj-err-msg';
+        if (!document.getElementById(errId)) {
+            const err = document.createElement('div');
+            err.id = errId;
+            err.style.cssText = 'color:#ef4444;font-size:12px;font-weight:600;margin-top:6px;';
+            err.textContent = '⚠ Please select a project before uploading.';
+            projEl.parentNode.appendChild(err);
+        }
+        setTimeout(() => {
+            projEl.style.borderColor = '';
+            projEl.style.boxShadow = '';
+            const e = document.getElementById(errId);
+            if (e) e.remove();
+        }, 3000);
+        return;
+    }
+
+    const toUpload = stash.filter(s => s.confirmed);
+    if (!toUpload.length) return;
+
+    const overlay = document.getElementById('uploadOverlay');
+    overlay.style.display = 'flex';
+    document.getElementById('progressStatus').textContent = "Preparing files for secure transmission...";
+    
+    const fd = new FormData(document.getElementById('uploadForm'));
+    fd.delete('files');
+    toUpload.forEach(item => {
+        fd.append('files', item.file);
+        fd.append('relative_paths', item.path);
+    });
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.location.href, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    // Track real progress
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            // Cap at 99% until server responds with success
+            const displayPercent = Math.min(percentComplete, 99);
+            updateProgress(displayPercent);
+            document.getElementById('progressStatus').textContent = `Uploading... ${Math.round(displayPercent)}%`;
+        }
+    };
+
+    xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                    updateProgress(100);
+                    document.getElementById('progressStatus').textContent = "Upload Complete! Redirecting...";
+                    setTimeout(() => { window.location.href = res.redirect_url || "{% url 'files:file_list' %}"; }, 1000);
+                } else {
+                    alert('Upload failed: ' + (res.error || 'Unknown error'));
+                    overlay.style.display = 'none';
+                }
+            } catch(e) {
+                alert('Upload failed (invalid response from server).');
+                overlay.style.display = 'none';
+            }
+        } else {
+            alert('Upload failed with status code ' + xhr.status);
+            overlay.style.display = 'none';
+        }
+    };
+
+    xhr.onerror = function() {
+        alert('Network error during upload.');
+        overlay.style.display = 'none';
+    };
+
+    xhr.send(fd);
+}
+
+function updateProgress(p) {
+    const offset = 251.2 - (251.2 * p / 100);
+    progressRingBar.style.strokeDashoffset = offset;
+    progressPct.textContent = Math.round(p) + '%';
+}
+
+// Project Selection
+const proj = document.getElementById('id_project');
+const cat = document.getElementById('id_category');
+if (proj) {
+    proj.addEventListener('change', () => {
+        updateUploadBtnState();
+        const val = proj.value;
+        if (!val) { cat.innerHTML = '<option value="">Select Project First</option>'; return; }
+        fetch(`/files/api/project-categories/?project_id=${val}`, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(d => {
+                cat.innerHTML = '<option value="">Root / Uncategorized</option>';
+                (d || []).forEach(c => { cat.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+            });
+    });
+    if (proj.value) proj.dispatchEvent(new Event('change'));
+}
+updateUploadBtnState();
+</script>
+{% endblock %}

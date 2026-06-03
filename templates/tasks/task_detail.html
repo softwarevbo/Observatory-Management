@@ -1,0 +1,616 @@
+{% extends 'base.html' %}
+{% block title %}{{ task.task_id|default:task.pk }}: {{ task.title }} — IIAP PM{% endblock %}
+{% block page_title %}Task Details{% endblock %}
+
+{% block topbar_actions %}
+    <a href="javascript:history.back()" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+    {% if user.is_admin or user == task.created_by or is_pm %}
+    <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-edit"></i> Edit Task</a>
+    {% endif %}
+    {% if not task.is_approved and is_pm %}
+    <a href="{% url 'tasks:task_approve' task.pk %}" class="btn btn-success btn-sm"><i class="fas fa-check-circle"></i> Approve Task</a>
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .task-layout {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 28px;
+        align-items: start;
+    }
+
+    .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .section-title i { color: var(--accent); }
+
+    .meta-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .meta-box {
+        background: var(--bg-secondary);
+        padding: 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        transition: var(--transition);
+    }
+
+    .meta-box:hover { border-color: var(--accent); }
+
+    .meta-box-label {
+        font-size: 9px;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        margin-bottom: 6px;
+        display: block;
+    }
+
+    .meta-box-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .status-pill {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: var(--transition);
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .status-pill.active {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    .stats-progress {
+        height: 8px;
+        background: var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 12px 0;
+    }
+
+    .stats-fill {
+        height: 100%;
+        background: var(--accent);
+        transition: width 1s ease-in-out;
+    }
+
+    /* Inline Discussion */
+    .comment-post {
+        display: flex;
+        gap: 12px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .comment-post:last-child { border-bottom: none; }
+
+    .comment-bubble {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        border-top-left-radius: 2px;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <span class="badge {% if task.task_type == 'bug' %}badge-red{% elif task.task_type == 'feature' %}badge-purple{% else %}badge-blue{% endif %}">
+                {{ task.get_task_type_display|upper }}
+            </span>
+            <span class="badge {% if task.priority == 'critical' %}badge-red{% elif task.priority == 'high' %}badge-yellow{% else %}badge-gray{% endif %}">
+                {{ task.get_priority_display|upper }} PRIORITY
+            </span>
+            {% if task.release %}
+            <span class="badge badge-cyan"><i class="fas fa-rocket"></i> {{ task.release.name }}</span>
+            {% endif %}
+        </div>
+        <h1>{{ task.title }}</h1>
+        <p>Project: <strong>{{ task.project.name }}</strong> {% if task.module %} • Module: <strong>{{ task.module.name }}</strong>{% endif %}</p>
+    </div>
+</div>
+
+<div class="task-layout">
+    <div class="task-main">
+        <div class="meta-card-grid">
+            <div class="meta-box">
+                <span class="meta-box-label">Requirement</span>
+                {% if task.requirement %}
+                <a href="{% url 'tasks:rtm_view' task.project.pk %}" class="meta-box-value" style="color:var(--accent); text-decoration:none;">
+                    <i class="fas fa-link" style="font-size:10px; margin-right:4px;"></i> {{ task.requirement.name }}
+                </a>
+                {% else %}
+                <span class="meta-box-value">Unlinked</span>
+                {% endif %}
+            </div>
+            <div class="meta-box">
+                <span class="meta-box-label">Sprint</span>
+                <span class="meta-box-value">{{ task.sprint.name|default:"No Sprint" }}</span>
+            </div>
+            <div class="meta-box">
+                <span class="meta-box-label">Points</span>
+                <span class="meta-box-value">{{ task.story_points }} pts</span>
+            </div>
+            <div class="meta-box">
+                <span class="meta-box-label">Estimation</span>
+                <span class="meta-box-value">{{ task.estimated_hours|default:"0" }}h / {{ task.actual_hours|default:"0" }}h</span>
+            </div>
+        </div>
+
+        {% if task.requirement %}
+        <div class="card" style="margin-bottom:28px; border-left: 4px solid var(--accent);">
+            <div class="section-title"><i class="fas fa-clipboard-check"></i> Linked Requirement Context</div>
+            <div style="font-size:13px; color:var(--text-secondary); line-height:1.6;">
+                {{ task.requirement.description|truncatewords:50 }}
+                <a href="{% url 'tasks:rtm_view' task.project.pk %}" style="color:var(--accent); font-weight:600; text-decoration:none; margin-left:8px;">View RTM <i class="fas fa-external-link-alt" style="font-size:10px;"></i></a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="section-title"><i class="fas fa-file-alt"></i> Description</div>
+            <div class="render-markdown markdown-body" data-content="{{ task.description|default:'' }}" 
+                 style="background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-sm); border: 1px solid var(--border); min-height: 120px;">
+                {{ task.description|default:"No detailed description provided." }}
+            </div>
+
+            {% if task.tags %}
+            <div style="margin-top:20px; display:flex; gap:8px; flex-wrap:wrap;">
+                {% for tag in task.tag_list %}
+                <span style="background:var(--bg-secondary); border:1px solid var(--border); padding:4px 12px; border-radius:20px; font-size:11px; color:var(--text-muted); font-weight:700;">
+                    <i class="fas fa-hashtag"></i> {{ tag }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Testing & Quality -->
+        {% with stats=task.test_case_stats %}
+        {% if stats.total > 0 %}
+        <div class="card" style="margin-top:28px;">
+            <div class="section-title"><i class="fas fa-vial"></i> Quality Assurance</div>
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:32px; align-items:center;">
+                <div style="text-align:center;">
+                    <div style="font-size:32px; font-weight:800; color:var(--text-primary);">{{ stats.percentage }}%</div>
+                    <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Pass Rate</div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:4px;">
+                        <span>{{ stats.passed }} of {{ stats.total }} test cases passed</span>
+                        <span>{{ stats.total }} Total</span>
+                    </div>
+                    <div class="stats-progress">
+                        <div class="stats-fill" style="width:{{ stats.percentage }}%;"></div>
+                    </div>
+                    <div style="display:flex; gap:12px; margin-top:12px;">
+                        <span class="badge badge-green" style="font-size:9px;">{{ stats.passed }} PASSED</span>
+                        <span class="badge badge-red" style="font-size:9px;">{{ stats.failed }} FAILED</span>
+                        <span class="badge badge-gray" style="font-size:9px;">{{ stats.pending }} PENDING</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-top:28px;">
+            <div class="card">
+                <div class="section-title"><i class="fas fa-level-down-alt"></i> Subtasks</div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for sub in task.subtasks.all %}
+                    <a href="{% url 'tasks:task_detail' sub.pk %}" class="item-row" style="text-decoration:none; display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-secondary); border-radius:var(--radius-sm); border:1px solid var(--border);">
+                        <i class="fas {% if sub.status == 'done' %}fa-check-circle{% else %}fa-circle-notch{% endif %}" style="color:{% if sub.status == 'done' %}var(--green){% else %}var(--text-muted){% endif %};"></i>
+                        <span style="font-size:13px; font-weight:600;">{{ sub.title }}</span>
+                    </a>
+                    {% empty %}
+                    <p style="font-size:12px; color:var(--text-muted); text-align:center; padding:20px; border:1px dashed var(--border); border-radius:var(--radius-sm);">No subtasks defined.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Related Bugs -->
+            <div class="card">
+                <div class="section-title"><i class="fas fa-bug"></i> Related Bug Reports</div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for bug in related_bugs %}
+                    <a href="{% url 'tasks:bug_detail' bug.pk %}" class="item-row" style="text-decoration:none; display:flex; flex-direction:column; gap:6px; padding:12px; background:var(--bg-secondary); border-radius:var(--radius-sm); border:1px solid var(--border);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:13px; font-weight:700; color:var(--text-primary);">{{ bug.title }}</span>
+                            <span class="badge {% if bug.severity == 'critical' %}badge-red{% elif bug.severity == 'high' %}badge-yellow{% else %}badge-blue{% endif %}" style="font-size:9px;">{{ bug.severity|upper }}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted);">
+                            <span>Status: <strong style="color:{% if bug.status == 'resolved' %}var(--green){% elif bug.status == 'open' %}var(--red){% else %}var(--accent){% endif %};">{{ bug.get_status_display }}</strong></span>
+                            <span>{{ bug.created_at|date:"M d, Y" }}</span>
+                        </div>
+                    </a>
+                    {% empty %}
+                    <p style="font-size:12px; color:var(--text-muted); text-align:center; padding:20px; border:1px dashed var(--border); border-radius:var(--radius-sm);">No bugs linked to this task.</p>
+                    {% endfor %}
+                    <a href="{% url 'tasks:bug_create' %}?project={{ task.project.pk }}&task={{ task.pk }}" class="btn btn-secondary btn-sm" style="width:100%; justify-content:center; margin-top:4px; font-size:11px;">
+                        <i class="fas fa-plus-circle"></i> Report Bug for this Task
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="padding:0; margin-bottom:16px;">
+                    <div class="section-title" style="margin:0; border:0; padding:0;"><i class="fas fa-paperclip"></i> Task Resources</div>
+                    <a href="{% url 'files:file_upload' %}?project={{ task.project.pk }}&task={{ task.pk }}" class="btn btn-primary btn-sm" style="font-size:10px; padding:4px 10px;">
+                        <i class="fas fa-upload"></i> Upload
+                    </a>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for file in task.files.all %}
+                    <a href="{% url 'files:file_detail' file.pk %}" class="item-row" style="text-decoration:none; display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-secondary); border-radius:var(--radius-sm); border:1px solid var(--border);">
+                        <i class="fas {{ file.icon_class }}" style="color:var(--accent); font-size:16px;"></i>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ file.display_name }}</div>
+                            <div style="font-size:10px; color:var(--text-muted);">{{ file.file_size_display }} • {{ file.uploaded_at|date:"M d" }}</div>
+                        </div>
+                    </a>
+                    {% empty %}
+                    <p style="font-size:12px; color:var(--text-muted); text-align:center; padding:20px; border:1px dashed var(--border); border-radius:var(--radius-sm);">No resources attached.</p>
+                    {% endfor %}
+                </div>
+
+                {% if task.requirement and task.requirement.files.exists %}
+                <div class="section-title" style="margin-top:24px; font-size:10px;"><i class="fas fa-project-diagram"></i> Requirement Assets</div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for rfile in task.requirement.files.all %}
+                    <a href="{% url 'files:file_detail' rfile.pk %}" class="item-row" style="text-decoration:none; display:flex; align-items:center; gap:12px; padding:10px; background:var(--bg-card-hover); border-radius:var(--radius-sm); border:1px solid var(--border); opacity:0.9;">
+                        <i class="fas {{ rfile.icon_class }}" style="color:var(--text-muted); font-size:14px;"></i>
+                        <span style="font-size:12px; font-weight:500; flex:1; color:var(--text-secondary);">{{ rfile.display_name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if task.module and task.module.files.exists %}
+                <div class="section-title" style="margin-top:24px; font-size:10px;"><i class="fas fa-cubes"></i> Module Resources</div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for mfile in task.module.files.all %}
+                    <a href="{% url 'files:file_detail' mfile.pk %}" class="item-row" style="text-decoration:none; display:flex; align-items:center; gap:12px; padding:10px; background:var(--bg-card-hover); border-radius:var(--radius-sm); border:1px solid var(--border); opacity:0.9;">
+                        <i class="fas {{ mfile.icon_class }}" style="color:var(--text-muted); font-size:14px;"></i>
+                        <span style="font-size:12px; font-weight:500; flex:1; color:var(--text-secondary);">{{ mfile.display_name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="task-sidebar">
+        <div class="card card-accent">
+            <div class="section-title"><i class="fas fa-toggle-on"></i> Workflow Status</div>
+            <div style="display:flex; flex-direction:column;">
+                {% for val, label in task.STATUS_CHOICES %}
+                <div onclick="updateStatus('{{ val }}')" class="status-pill {% if task.status == val %}active{% endif %}">
+                    <i class="fas {% if task.status == val %}fa-dot-circle{% else %}fa-circle{% endif %}"></i>
+                    <span>{{ label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card card-accent">
+            <div class="section-title"><i class="fas fa-user-friends"></i> Stakeholders</div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="font-size:10px; color:var(--text-muted); font-weight:800; text-transform:uppercase; margin-bottom:-4px;">Assignees</div>
+                {% for assignee in task.assignees.all %}
+                <div style="display:flex; align-items:center; gap:12px; background:var(--bg-secondary); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border);">
+                    {% include 'partials/user_avatar.html' with avatar_user=assignee size="32" radius="8px" font_size="12" %}
+                    <div style="min-width:0;">
+                        <div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ assignee.display_name }}</div>
+                        <div style="font-size:10px; color:var(--text-muted);">{{ assignee.get_role_display }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="font-size:12px; color:var(--text-muted); text-align:center;">Unassigned</p>
+                {% endfor %}
+
+                <div style="font-size:10px; color:var(--text-muted); font-weight:800; text-transform:uppercase; margin-bottom:-4px; margin-top:8px;">Reporter</div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    {% include 'partials/user_avatar.html' with avatar_user=task.created_by size="24" radius="50%" font_size="10" %}
+                    <span style="font-size:12px; font-weight:600;">{{ task.created_by.display_name }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-accent">
+            <div class="section-title"><i class="fas fa-history"></i> Activity</div>
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Created</span>
+                    <span style="font-weight:600;">{{ task.created_at|date:"M d, Y" }}</span>
+                </div>
+                {% if task.due_date %}
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Due Date</span>
+                    <span style="font-weight:600; color:{% if task.is_overdue %}var(--red){% else %}var(--text-primary){% endif %};">{{ task.due_date|date:"M d, Y" }}</span>
+                </div>
+                {% endif %}
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Last Update</span>
+                    <span style="font-weight:600;">{{ task.updated_at|timesince }} ago</span>
+                </div>
+                {% if task.completed_at %}
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Completed</span>
+                    <span style="font-weight:600; color:var(--green);">{{ task.completed_at|date:"M d, Y" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if user.is_admin %}
+        <div class="card card-accent" style="border-left: 4px solid var(--purple);">
+            <div class="section-title" style="border-bottom-color: var(--purple);"><i class="fas fa-database" style="color:var(--purple);"></i> Database Metadata</div>
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:11px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--text-muted);">Primary Key (ID)</span>
+                    <code style="background:var(--bg-secondary); padding:2px 4px; border-radius:4px; color:var(--accent);">{{ task.pk }}</code>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--text-muted);">Internal Task ID</span>
+                    <span style="font-weight:600; color:var(--text-primary);">{{ task.task_id|default:"N/A" }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--text-muted);">Creation Raw</span>
+                    <span style="color:var(--text-secondary);">{{ task.created_at|date:"Y-m-d H:i:s" }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--text-muted);">Update Raw</span>
+                    <span style="color:var(--text-secondary);">{{ task.updated_at|date:"Y-m-d H:i:s" }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--text-muted);">Author ID</span>
+                    <span style="color:var(--text-primary);">{{ task.created_by.pk|default:"None" }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── INLINE DISCUSSION ── -->
+<div class="card" style="margin-top:28px;">
+    <div class="section-title">
+        <i class="fas fa-comments"></i> Discussion
+        {% if comments.count > 0 %}
+        <span class="badge badge-blue" style="font-size:9px;">{{ comments.count }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Comments List -->
+    <div style="display:flex;flex-direction:column;">
+        {% for comment in comments %}
+        <div id="comment-container-{{ comment.pk }}" style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+            <div class="comment-post" style="border-bottom: none; padding-bottom: 0;">
+                {% include 'partials/user_avatar.html' with avatar_user=comment.author size="34" radius="8px" font_size="12" extra_style="flex-shrink:0;" %}
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <span style="font-size:13px;font-weight:700;color:var(--text-primary);">{{ comment.author.display_name }}</span>
+                        <span style="font-size:11px;color:var(--text-muted);">{{ comment.created_at|timesince }} ago</span>
+                    </div>
+                    <div class="comment-bubble">
+                        {{ comment.content|linebreaksbr }}
+                        
+                        {% if comment.attachment %}
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+                            <a href="{{ comment.attachment.url }}" target="_blank" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                                <i class="fas fa-paperclip"></i>
+                                <span style="font-size: 11px; text-decoration: underline;">Attachment</span>
+                            </a>
+                            {% if comment.attachment.url|lower|slice:"-4:" == ".png" or comment.attachment.url|lower|slice:"-4:" == ".jpg" or comment.attachment.url|lower|slice:"-5:" == ".jpeg" %}
+                            <img src="{{ comment.attachment.url }}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; border: 1px solid var(--border);">
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top: 6px;">
+                        <a href="javascript:void(0);" onclick="showReplyForm('{{ comment.pk }}', 'comment-container-{{ comment.pk }}', '{% url 'tasks:task_detail' task.pk %}')" style="font-size: 11px; color: var(--accent); text-decoration: none; font-weight: 600;">
+                            <i class="fas fa-reply"></i> Reply
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nested Replies -->
+            {% if comment.replies.exists %}
+            <div style="margin-left: 44px; border-left: 2px solid var(--border); padding-left: 12px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+                {% for reply in comment.replies.all %}
+                <div class="comment-post" style="border-bottom: none; padding: 4px 0;">
+                    {% include 'partials/user_avatar.html' with avatar_user=reply.author size="28" radius="6px" font_size="10" extra_style="flex-shrink:0;" %}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <span style="font-size:12px;font-weight:700;color:var(--text-primary);">{{ reply.author.display_name }}</span>
+                            <span style="font-size:10px;color:var(--text-muted);">{{ reply.created_at|timesince }} ago</span>
+                        </div>
+                        <div class="comment-bubble" style="padding: 8px 10px; font-size: 12.5px;">
+                            {{ reply.content|linebreaksbr }}
+                            
+                            {% if reply.attachment %}
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+                                <a href="{{ reply.attachment.url }}" target="_blank" style="display: flex; align-items: center; gap: 6px; text-decoration: none; color: inherit;">
+                                    <i class="fas fa-paperclip"></i>
+                                    <span style="font-size: 10px; text-decoration: underline;">Attachment</span>
+                                </a>
+                                {% if reply.attachment.url|lower|slice:"-4:" == ".png" or reply.attachment.url|lower|slice:"-4:" == ".jpg" or reply.attachment.url|lower|slice:"-5:" == ".jpeg" %}
+                                <img src="{{ reply.attachment.url }}" style="max-width: 100%; max-height: 200px; border-radius: 6px; margin-top: 6px; border: 1px solid var(--border);">
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div style="margin-top: 4px;">
+                            <a href="javascript:void(0);" onclick="showReplyForm('{{ comment.pk }}', 'comment-container-{{ comment.pk }}', '{% url 'tasks:task_detail' task.pk %}')" style="font-size: 10px; color: var(--accent); text-decoration: none; font-weight: 600;">
+                                <i class="fas fa-reply"></i> Reply
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+            <i class="fas fa-comments" style="font-size:40px;opacity:0.15;display:block;margin-bottom:12px;"></i>
+            <p style="font-size:13px;">No comments yet. Be the first to start the discussion.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Post Form -->
+    <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Add a Comment</div>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                {% include 'partials/user_avatar.html' with avatar_user=user size="34" radius="8px" font_size="12" extra_style="flex-shrink:0;margin-top:2px;" %}
+                <div style="flex:1;">
+                    <textarea name="content" class="form-control" placeholder="Write a comment..." style="min-height:90px;font-size:13px;margin-bottom:10px;" required></textarea>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="id_attachment" class="btn btn-ghost btn-sm" style="border: 1px dashed var(--border);" title="Upload Screenshot/File">
+                                <i class="fas fa-camera"></i> Screenshot / File
+                            </label>
+                            <input type="file" name="attachment" id="id_attachment" style="display: none;" onchange="document.getElementById('main-file-name').textContent = this.files[0] ? this.files[0].name : '';">
+                            <span id="main-file-name" style="font-size: 11px; color: var(--text-muted);"></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-paper-plane"></i> Post Comment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    async function updateStatus(status) {
+        const resp = await fetch('{% url "tasks:task_update_status" task.pk %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ status: status })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            location.reload();
+        }
+    }
+
+    function renderMarkdown() {
+        if (typeof marked === 'undefined') return;
+        document.querySelectorAll('.render-markdown').forEach(el => {
+            const rawContent = el.getAttribute('data-content') || el.textContent;
+            el.innerHTML = marked.parse(rawContent);
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showReplyForm(commentId, containerId, postUrl) {
+        const existingForm = document.getElementById('active-reply-form');
+        if (existingForm) {
+            existingForm.remove();
+        }
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const formHtml = `
+            <form method="post" enctype="multipart/form-data" id="active-reply-form" action="${postUrl}" style="margin-top: 12px; margin-left: 44px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie('csrftoken')}">
+                <input type="hidden" name="parent_id" value="${commentId}">
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <textarea name="content" class="form-control" placeholder="Write a reply..." style="min-height: 70px; font-size: 13px; margin-bottom: 8px;" required></textarea>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="reply_attachment_${commentId}" class="btn btn-ghost btn-sm" style="border: 1px dashed var(--border); padding: 4px 8px; font-size: 11px;" title="Upload Screenshot/File">
+                                    <i class="fas fa-camera"></i> Attachment
+                                </label>
+                                <input type="file" name="attachment" id="reply_attachment_${commentId}" style="display: none;" onchange="document.getElementById('reply-file-name-${commentId}').textContent = this.files[0] ? this.files[0].name : '';">
+                                <span id="reply-file-name-${commentId}" style="font-size: 11px; color: var(--text-muted);"></span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px;" onclick="document.getElementById('active-reply-form').remove()">Cancel</button>
+                                <button type="submit" class="btn btn-primary btn-sm" style="font-size: 11px;">
+                                    <i class="fas fa-reply"></i> Reply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        `;
+        container.insertAdjacentHTML('beforeend', formHtml);
+    }
+
+    document.addEventListener("DOMContentLoaded", renderMarkdown);
+</script>
+{% endblock %}

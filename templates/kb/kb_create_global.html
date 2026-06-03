@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}New Knowledge Base Note — IIAP PM{% endblock %}
+{% block page_title %}Create New Note{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    .kb-form-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    .preview-panel {
+        position: sticky;
+        top: 20px;
+        height: calc(100vh - 160px);
+        display: flex;
+        flex-direction: column;
+    }
+    .preview-content {
+        flex: 1;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        overflow-y: auto;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-primary);
+    }
+    .preview-content h1, .preview-content h2, .preview-content h3 {
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+        color: var(--accent);
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .preview-content pre {
+        background: #0d1117;
+        color: #e6edf3;
+        padding: 16px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 1em 0;
+    }
+    .preview-content code {
+        font-family: 'Fira Code', monospace;
+    }
+    .preview-content blockquote {
+        border-left: 4px solid var(--accent);
+        margin: 1em 0;
+        padding-left: 16px;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    @media (max-width: 1000px) {
+        .kb-form-layout {
+            grid-template-columns: 1fr;
+        }
+        .preview-panel {
+            position: static;
+            height: 500px;
+            margin-top: 24px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>New Note</h1>
+        <p>Create a normal note or optionally assign it to a project.</p>
+    </div>
+</div>
+
+<div class="kb-form-layout">
+    <div class="card" style="padding:20px;">
+        <form method="post" id="kbForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="project_id" class="form-label">Optional project</label>
+                <select id="project_id" name="project_id" class="form-control" data-selected="{{ selected_project_id }}">
+                    <option value="">General note (no project)</option>
+                    {% for project in projects %}
+                    <option value="{{ project.pk }}"{% if selected_project_id and selected_project_id == project.pk|stringformat:"d" %} selected{% endif %}>{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:16px;">
+                <label class="form-label">{{ form.title.label }}</label>
+                {{ form.title }}
+            </div>
+            <div class="form-group" style="margin-top:16px;">
+                <label class="form-label">{{ form.content.label }}</label>
+                {{ form.content }}
+            </div>
+            <div style="margin-top:24px; display:flex; gap:10px; align-items:center;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Note</button>
+                <button type="button" class="btn btn-secondary" onclick="updatePreview()"><i class="fas fa-sync-alt"></i> Refresh Preview</button>
+                <a href="{% url 'tasks:kb_overview' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- PREVIEW COL -->
+    <div class="preview-panel">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:1px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-eye" style="color:var(--accent)"></i> Live Preview
+        </div>
+        <div class="preview-content markdown-body" id="previewArea">
+            <div style="color:var(--text-muted); display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
+                <i class="fas fa-pen-nib" style="font-size:32px; opacity:0.3"></i>
+                <p>Start typing to see your note here...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const contentField = document.getElementById('id_content');
+const previewArea = document.getElementById('previewArea');
+
+function updatePreview() {
+    const rawValue = contentField.value;
+    if (!rawValue.trim()) {
+        previewArea.innerHTML = `
+            <div style="color:var(--text-muted); display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
+                <i class="fas fa-pen-nib" style="font-size:32px; opacity:0.3"></i>
+                <p>Start typing to see your note here...</p>
+            </div>`;
+        return;
+    }
+    previewArea.innerHTML = marked.parse(rawValue);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (!contentField || !previewArea) return;
+
+    updatePreview();
+
+    let timeout = null;
+    contentField.addEventListener('input', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(updatePreview, 300);
+    });
+
+    // JS fallback: force-select the project if data-selected is set
+    const projectSelect = document.getElementById('project_id');
+    if (projectSelect) {
+        const preSelectedId = projectSelect.dataset.selected;
+        if (preSelectedId) {
+            projectSelect.value = preSelectedId;
+        }
+    }
+});
+</script>
+{% endblock %}

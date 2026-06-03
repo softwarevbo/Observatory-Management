@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — {{ project.name }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .module-form-layout {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow);
+    }
+
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 10px;
+    }
+
+    .section-title i {
+        color: var(--accent);
+    }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        transition: var(--transition);
+    }
+
+    .form-control:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.15);
+        background: var(--bg-card);
+    }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'tasks:module_list' project.pk %}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-times"></i> Cancel
+    </a>
+{% endblock %}
+
+{% block content %}
+<div style="width: 100%;">
+    <div class="page-header" style="margin-bottom: 24px; max-width: 800px; margin-left: auto; margin-right: auto;">
+        <div class="page-header-left">
+            <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 800;">{{ title }}</h1>
+            <p>Managing module for project: <span style="color: var(--accent); font-weight: 700;">{{ project.name }}</span></p>
+        </div>
+    </div>
+
+    <form method="post" novalidate class="module-form-layout">
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div class="card" style="border-left: 4px solid var(--red); background: var(--red-dim); margin-bottom: 24px; padding: 16px 24px;">
+            <div style="display: flex; align-items: center; gap: 12px; color: var(--red);">
+                <i class="fas fa-exclamation-circle" style="font-size: 16px;"></i>
+                <span style="font-weight: 700; font-size: 14px;">Please review the highlighted fields below.</span>
+            </div>
+            {% if form.non_field_errors %}
+            <div style="margin-top: 8px; font-size: 13px; color: var(--red);">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="section-title">
+                <i class="fas fa-cube"></i> Module Details
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="{{ form.name.id_for_label }}">Module Name <span style="color: var(--red);">*</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.name.errors.0 }}</div>{% endif %}
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Give this module a descriptive name.</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.description.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--accent); display: flex; gap: 12px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center; padding: 12px; font-weight: 700; border-radius: 8px;">
+                <i class="fas fa-save"></i> Save Module
+            </button>
+            <a href="{% url 'tasks:module_list' project.pk %}" class="btn btn-secondary" style="flex: 1; justify-content: center; padding: 12px; font-weight: 600; border-radius: 8px;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

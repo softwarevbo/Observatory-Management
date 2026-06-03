@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% block title %}{{ file.display_name }} — IIAP PM{% endblock %}
+{% block page_title %}File Detail{% endblock %}
+{% block topbar_actions %}
+{% if file.project %}
+<a href="{% url 'files:project_files' file.project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+{% else %}
+<a href="{% url 'files:file_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+{% endif %}
+<a href="{% url 'files:file_download' file.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>
+
+{% if file.is_previewable %}
+<a href="{% url 'files:file_view' file.pk %}" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-external-link-alt"></i> Open</a>
+{% endif %}
+<a href="{% url 'files:file_upload' %}{% if file.project %}?project={{ file.project.pk }}&parent_id={{ file.pk }}{% else %}?parent_id={{ file.pk }}{% endif %}" class="btn btn-secondary btn-sm"><i class="fas fa-code-branch"></i> Upload Version</a>
+{% if can_edit %}
+<a href="{% url 'files:file_edit' file.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit Details</a>
+{% endif %}
+{% if request.user.is_admin or request.user.is_project_manager or request.user in file.project.managers.all %}
+<a href="{% url 'files:file_access' file.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-lock"></i> Access</a>
+{% endif %}
+{% if can_delete %}
+<a href="{% url 'files:file_delete' file.pk %}" class="btn btn-danger btn-sm" onclick="return confirm('Delete this file permanently?')"><i class="fas fa-trash"></i></a>
+{% endif %}
+{% endblock %}
+{% block extra_css %}
+<style>
+.preview-frame { width:100%; border:none; border-radius:var(--radius-sm); background:#fff; }
+.code-preview {
+    background: #0d1117; border-radius: var(--radius-sm); padding: 20px;
+    font-family: 'Fira Code', 'Courier New', monospace; font-size: 13px;
+    line-height: 1.6; color: #e6edf3; overflow-x: auto;
+    max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+}
+@media (max-width: 900px) {
+    .file-detail-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="file-detail-grid" style="display:grid;grid-template-columns:minmax(0, 1fr) 280px;gap:20px;align-items:start;">
+
+    <!-- MAIN: Preview + Comments -->
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+
+        <!-- File Header -->
+        <div class="card">
+            <div style="display:flex;align-items:center;gap:16px;">
+                <div style="width:60px;height:60px;border-radius:12px;background:{{ file.icon_color }}20;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">
+                    <i class="fas {{ file.icon_class }}" style="color:{{ file.icon_color }};"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <h2 style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ file.display_name }}</h2>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; word-break: break-all;">
+                        <i class="fas fa-folder-open" style="margin-right: 4px;"></i>
+                        {% if file.project %}
+                            {{ file.project.name }} / {{ file.get_project_relative_path }}
+                        {% else %}
+                            Personal / {{ file.original_name }}
+                        {% endif %}
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                        <span class="badge badge-gray" style="font-size:10px;">{{ file.get_file_type_display }}</span>
+                        <span class="badge badge-gray" style="font-size:10px;">{{ file.extension }}</span>
+                        <span class="badge badge-gray" style="font-size:10px;">{{ file.file_size_display }}</span>
+                        {% if file.is_public %}<span class="badge badge-green" style="font-size:10px;"><i class="fas fa-globe"></i> Public</span>
+                        {% else %}<span class="badge badge-gray" style="font-size:10px;"><i class="fas fa-lock"></i> Private</span>{% endif %}
+                        {% if file.version > 1 %}<span class="badge badge-blue" style="font-size:10px;">v{{ file.version }}</span>{% endif %}
+                    </div>
+                    {% if file.description %}<p style="font-size:13px;color:var(--text-muted);">{{ file.description }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- PREVIEW SECTION -->
+        {% if file.is_image %}
+        <div class="card" style="padding:12px;">
+            <div class="card-title" style="margin-bottom:12px;"><i class="fas fa-eye" style="color:var(--cyan);margin-right:8px;"></i>Preview</div>
+            <img src="{% url 'files:file_view' file.pk %}" alt="{{ file.display_name }}"
+                 style="max-width:100%;max-height:600px;border-radius:var(--radius-sm);display:block;margin:0 auto;object-fit:contain;">
+        </div>
+
+        {% elif file.is_pdf %}
+        <div class="card" style="padding:12px;">
+            <div class="card-title" style="margin-bottom:12px;"><i class="fas fa-file-pdf" style="color:var(--red);margin-right:8px;"></i>PDF Preview</div>
+            <object data="{% url 'files:file_view' file.pk %}" type="application/pdf"
+                    style="width:100%;height:700px;border-radius:var(--radius-sm);border:none;display:block;">
+                <iframe src="{% url 'files:file_view' file.pk %}#toolbar=1"
+                        style="width:100%;height:700px;border:none;border-radius:var(--radius-sm);">
+                    <div style="text-align:center;padding:40px;">
+                        <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px;">Your browser cannot display PDFs inline.</p>
+                        <a href="{% url 'files:file_download' file.pk %}" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Download PDF
+                        </a>
+                    </div>
+                </iframe>
+            </object>
+        </div>
+
+        {% elif file.is_text_viewable and text_content %}
+        <div class="card" style="padding:0;overflow:hidden;" id="contentCard">
+            <div class="card-header" style="padding:14px 20px;">
+                <div class="card-title"><i class="fas fa-code" style="color:var(--purple);margin-right:8px;"></i>File Content</div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="copyCode()" id="copyBtn" class="btn btn-secondary btn-sm"><i class="fas fa-copy"></i> Copy</button>
+                    {% if can_edit %}
+                    <button onclick="enableEdit()" id="editBtn" class="btn btn-secondary btn-sm"><i class="fas fa-pen"></i> Edit Content</button>
+                    <button onclick="saveEdit()" id="saveBtn" class="btn btn-success btn-sm" style="display:none;"><i class="fas fa-save"></i> Save Changes</button>
+                    <button onclick="disableEdit()" id="cancelBtn" class="btn btn-gray btn-sm" style="display:none;"><i class="fas fa-times"></i> Cancel</button>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="code-preview" id="codeContent">{{ text_content }}</div>
+            <textarea id="editArea" style="display:none; width:100%; height:500px; background:#0d1117; color:#e6edf3; border:none; padding:20px; font-family:'Fira Code', monospace; font-size:13px; line-height:1.6; resize:vertical; outline:none;"></textarea>
+            
+            <form id="editForm" method="post" action="{% url 'files:file_content_edit' file.pk %}" style="display:none;">
+                {% csrf_token %}
+                <textarea name="content" id="hiddenContent"></textarea>
+            </form>
+        </div>
+
+        {% else %}
+        <div class="card" style="text-align:center;padding:40px;">
+            <div style="width:72px;height:72px;border-radius:16px;background:{{ file.icon_color }}20;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;">
+                <i class="fas {{ file.icon_class }}" style="color:{{ file.icon_color }};"></i>
+            </div>
+            <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--text-primary);margin-bottom:8px;">No Preview Available</h3>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">{{ file.get_file_type_display }} files cannot be previewed in the browser.</p>
+            <a href="{% url 'files:file_download' file.pk %}" class="btn btn-primary"><i class="fas fa-download"></i> Download to View</a>
+        </div>
+        {% endif %}
+
+        <!-- Version History -->
+        {% if versions %}
+        <div class="card">
+            <div class="card-title" style="margin-bottom:12px;"><i class="fas fa-history" style="color:var(--yellow);margin-right:8px;"></i>Version History</div>
+            {% for v in versions %}
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);">
+                <span class="badge badge-blue" style="font-size:10px;">v{{ v.version }}</span>
+                <a href="{% url 'files:file_detail' v.pk %}" style="color:var(--text-primary);text-decoration:none;font-size:13px;flex:1;">{{ v.original_name }}</a>
+                <span style="font-size:11px;color:var(--text-muted);">{{ v.file_size_display }}</span>
+                <span style="font-size:11px;color:var(--text-muted);">{{ v.created_at|date:"d M Y" }}</span>
+                <a href="{% url 'files:file_download' v.pk %}" class="btn btn-secondary btn-icon btn-sm"><i class="fas fa-download"></i></a>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <!-- File Info -->
+        <div class="card">
+            <div class="card-title" style="margin-bottom:14px;">File Information</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;">
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Original Name</span><span style="word-break:break-all;">{{ file.original_name }}</span></div>
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Size</span><span>{{ file.file_size_display }}</span></div>
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Type</span><span>{{ file.get_file_type_display }} ({{ file.extension }})</span></div>
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Downloads</span><span>{{ file.download_count }} time{{ file.download_count|pluralize }}</span></div>
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Uploaded By</span>
+                    {% if file.uploaded_by %}
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                        {% include 'partials/user_avatar.html' with avatar_user=file.uploaded_by size="22" radius="50%" font_size="9" %}
+                        <span>{{ file.uploaded_by.display_name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Uploaded</span><span>{{ file.created_at|date:"d M Y H:i" }}</span></div>
+            </div>
+        </div>
+
+        <!-- Linked To -->
+        <div class="card">
+            <div class="card-title" style="margin-bottom:12px;">Linked To</div>
+            <div style="font-size:13px;display:flex;flex-direction:column;gap:8px;">
+                {% if file.project %}
+                <div><span style="color:var(--text-muted);font-size:11px;display:block;margin-bottom:2px;">Project</span>
+                    <a href="{% url 'tasks:project_detail' file.project.pk %}" style="color:var(--accent);text-decoration:none;">{{ file.project.name }}</a></div>
+                {% endif %}
+                {% if file.task %}
+                <div><span style="color:var(--text-muted);font-size:11px;display:block;margin-bottom:2px;">Task</span>
+                    <a href="{% url 'tasks:task_detail' file.task.pk %}" style="color:var(--accent);text-decoration:none;">{{ file.task.title|truncatewords:6 }}</a></div>
+                {% endif %}
+                {% if not file.project and not file.task %}
+                <div style="color:var(--text-muted);">Not linked to any project or task.</div>
+                {% endif %}
+            </div>
+        </div>
+
+
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function copyCode() {
+    const text = document.getElementById('codeContent').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyBtn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+}
+
+function enableEdit() {
+    const codeContent = document.getElementById('codeContent');
+    const editArea = document.getElementById('editArea');
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const copyBtn = document.getElementById('copyBtn');
+
+    editArea.value = codeContent.innerText;
+    codeContent.style.display = 'none';
+    editArea.style.display = 'block';
+    
+    editBtn.style.display = 'none';
+    copyBtn.style.display = 'none';
+    saveBtn.style.display = 'inline-block';
+    cancelBtn.style.display = 'inline-block';
+    
+    editArea.focus();
+}
+
+function disableEdit() {
+    const codeContent = document.getElementById('codeContent');
+    const editArea = document.getElementById('editArea');
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const copyBtn = document.getElementById('copyBtn');
+
+    codeContent.style.display = 'block';
+    editArea.style.display = 'none';
+    
+    editBtn.style.display = 'inline-block';
+    copyBtn.style.display = 'inline-block';
+    saveBtn.style.display = 'none';
+    cancelBtn.style.display = 'none';
+}
+
+function saveEdit() {
+    const editArea = document.getElementById('editArea');
+    const hiddenContent = document.getElementById('hiddenContent');
+    const editForm = document.getElementById('editForm');
+    
+    hiddenContent.value = editArea.value;
+    editForm.submit();
+}
+</script>
+{% endblock %}

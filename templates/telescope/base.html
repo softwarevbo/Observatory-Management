@@ -1,0 +1,220 @@
+{% extends 'core_base.html' %}
+
+{% block title %}VBO Telescope Control Console{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+  /* Map telescope styling to core theme variables */
+  --space-bg: var(--bg-primary);
+  --space-sidebar: var(--bg-sidebar);
+  --space-card: var(--bg-card);
+  --space-card-hover: var(--bg-card-hover);
+  --space-border: var(--border);
+  --space-accent: var(--accent);
+  --space-accent-glow: var(--accent-glow);
+  --space-success: var(--green);
+  --space-warning: var(--yellow);
+  --space-info: var(--cyan);
+  --space-text-primary: var(--text-primary);
+  --space-text-secondary: var(--text-secondary);
+  --space-text-muted: var(--text-muted);
+}
+
+body[data-theme] {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.main-content {
+  margin-left: var(--sidebar-width) !important;
+  background: var(--bg-primary) !important;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidereal Clock Widget in Sidebar */
+.tele-sidebar-widget {
+  margin: auto 16px 16px 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.widget-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.widget-val {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+</style>
+{% block tele_css %}{% endblock %}
+{% endblock %}
+
+{% block sidebar %}
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <a href="{% url 'telescope:dashboard' %}" class="logo-mark">
+      <div class="logo-icon"><i class="fas fa-satellite-dish"></i></div>
+      <div>
+        <div class="logo-text">VBO <span>CONTROL</span></div>
+        <div class="logo-subtitle">Observatory System</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Operations</div>
+    <a href="{% url 'telescope:dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <i class="fas fa-th-large"></i><span>Dashboard</span>
+    </a>
+    
+    {% if user.is_superuser or user.is_telescope_admin %}
+    <div class="nav-section-label">Administration</div>
+    <a href="{% url 'accounts:user_list' %}?tab=telescope" class="nav-item">
+      <i class="fas fa-users-cog"></i><span>Operator Access</span>
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Sidereal Clock Widget inside standard sidebar structure -->
+  <div class="tele-sidebar-widget">
+    <div class="widget-title">
+      <span>Sidereal Time (LST)</span>
+      <i class="fas fa-clock" style="color:var(--accent)"></i>
+    </div>
+    <div class="widget-val" id="siderealClock">00:00:00</div>
+    <div style="font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 4px;">
+      VBO Kavalur (78° 50' E)
+    </div>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="user-card" onclick="toggleUserMenu()">
+      {% include 'partials/user_avatar.html' with avatar_user=user size="40" radius="10px" font_size="15" extra_style="border: 2px solid rgba(0,0,0,0.05);" %}
+      <div class="user-info">
+        <div class="user-name">{{ user.display_name }}</div>
+        <div class="user-role">
+          {% if user.is_telescope_admin %}System Admin{% else %}Telescope Operator{% endif %}
+        </div>
+      </div>
+      <i class="fas fa-chevron-up" style="font-size:10px;color:var(--text-muted)"></i>
+      <div class="user-dropdown" id="userMenu">
+        <a href="{% url 'accounts:profile' %}"><i class="fas fa-user"></i> My Profile</a>
+        <a href="{% url 'accounts:settings' %}"><i class="fas fa-cog"></i> Settings</a>
+        <a href="{% url 'accounts:logout' %}" class="danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="sidebar-logout">
+    <a href="{% url 'accounts:logout' %}" class="btn-logout">
+      <i class="fas fa-sign-out-alt"></i>
+      <span>Logout</span>
+    </a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div class="topbar-title" style="display:flex; flex-direction:column; justify-content:center;">
+    <h1 style="font-size:16px; font-weight:700; color:var(--text-primary); margin:0">
+      {% block tele_title %}Control Room Console{% endblock %}
+    </h1>
+    <div style="font-size:11px; color:var(--text-muted); margin-top:2px">
+      Indian Institute of Astrophysics | Vainu Bappu Observatory, Kavalur
+    </div>
+  </div>
+  
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:20px; background:var(--green-dim); color:var(--green); font-size:12px; font-weight:600; border:1px solid rgba(16, 185, 129, 0.2);">
+      <span style="width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; box-shadow:0 0 8px var(--green)"></span>
+      VBO LINK: ONLINE
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  {% block tele_content %}{% endblock %}
+</div>
+
+<script>
+function toggleUserMenu() {
+  const menu = document.getElementById('userMenu');
+  if (menu) {
+    menu.classList.toggle('active');
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+  const userCard = document.querySelector('.user-card');
+  const menu = document.getElementById('userMenu');
+  if (menu && userCard && !userCard.contains(event.target)) {
+    menu.classList.remove('active');
+  }
+});
+
+// Real-time local sidereal time calculation for VBO Kavalur (78.83 deg East)
+function updateSiderealTime() {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const utcDate = new Date(utc);
+  
+  // Approximate Julian Date
+  const JD = (utc / 86400000) + 2440587.5;
+  const T = (JD - 2451545.0) / 36525.0;
+  
+  // GMST in degrees
+  let gmst = 280.46061837 + 360.98564736629 * (JD - 2451545.0) + 0.000387933 * T * T - T * T * T / 38710000.0;
+  gmst = gmst % 360;
+  if (gmst < 0) gmst += 360;
+  
+  // Local Sidereal Time for VBO Kavalur longitude (78.83 deg East)
+  let lst = gmst + 78.83; 
+  lst = lst % 360;
+  if (lst < 0) lst += 360;
+  
+  // Convert to Hours, Minutes, Seconds
+  const lstHours = lst / 15;
+  const h = Math.floor(lstHours);
+  const m = Math.floor((lstHours - h) * 60);
+  const s = Math.floor(((lstHours - h) * 60 - m) * 60);
+  
+  document.getElementById('siderealClock').innerText = 
+    `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+updateSiderealTime();
+setInterval(updateSiderealTime, 1000);
+</script>
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block title %}Manage Members — {{ module.name }}{% endblock %}
+{% block page_title %}{{ project.name }} / {{ module.name }} / Members{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'tasks:module_detail' module.pk %}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Back to Module
+    </a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .page-breadcrumb a { color: var(--accent); text-decoration: none; }
+    .page-breadcrumb a:hover { text-decoration: underline; }
+
+    .members-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+        align-items: start;
+    }
+
+    .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+    }
+    .section-title i { color: var(--accent); }
+
+    .member-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        margin-bottom: 10px;
+        transition: var(--transition);
+    }
+    .member-row:last-child { margin-bottom: 0; }
+    .member-row:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+
+    .member-info { flex: 1; min-width: 0; }
+    .member-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .member-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 1px;
+    }
+
+    .form-label-styled {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .empty-members {
+        text-align: center;
+        padding: 40px 20px;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-muted);
+    }
+    .empty-members i {
+        font-size: 32px;
+        opacity: 0.25;
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    @media (max-width: 900px) {
+        .members-layout { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+    <div class="page-header-left">
+        <div class="page-breadcrumb">
+            <a href="{% url 'tasks:project_list' %}"><i class="fas fa-briefcase"></i> Projects</a>
+            <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <a href="{% url 'tasks:project_detail' project.pk %}">{{ project.name }}</a>
+            <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <a href="{% url 'tasks:module_list' project.pk %}">Modules</a>
+            <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <a href="{% url 'tasks:module_detail' module.pk %}">{{ module.name }}</a>
+            <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <span>Members</span>
+        </div>
+        <h1 style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);margin:0;">
+            <i class="fas fa-users" style="color:var(--accent);margin-right:8px;font-size:18px;"></i>Manage Module Members
+        </h1>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:4px;">
+            Only project members from <strong>{{ project.name }}</strong> can be assigned to this module.
+        </p>
+    </div>
+</div>
+
+<div class="members-layout">
+
+    <!-- LEFT: Current Members -->
+    <div class="card">
+        <div class="section-title">
+            <i class="fas fa-users"></i>
+            Current Members
+            <span class="badge badge-blue" style="font-size:9px;">{{ current_members.count }}</span>
+        </div>
+
+        {% if current_members %}
+            {% for m in current_members %}
+            <div class="member-row">
+                {% include 'partials/user_avatar.html' with avatar_user=m.user size="38" radius="9px" font_size="13" extra_style="flex-shrink:0;" %}
+                <div class="member-info">
+                    <div class="member-name">{{ m.user.display_name }}</div>
+                    <div class="member-sub">{{ m.user.get_role_display }} · {{ m.get_role_display }}</div>
+                </div>
+                <span class="badge
+                    {% if m.role == 'designer' %}badge-purple
+                    {% elif m.role == 'developer' %}badge-blue
+                    {% else %}badge-green{% endif %}"
+                    style="white-space:nowrap;">
+                    {{ m.get_role_display }}
+                </span>
+                <form method="post" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="remove">
+                    <input type="hidden" name="user_id" value="{{ m.user.pk }}">
+                    <button type="submit" class="btn btn-danger btn-icon btn-sm" title="Remove {{ m.user.display_name }}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-members">
+                <i class="fas fa-user-slash"></i>
+                No members assigned to this module yet.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT: Add Member Form -->
+    <div class="card">
+        <div class="section-title">
+            <i class="fas fa-user-plus"></i> Add a Member
+        </div>
+
+        {% if all_users %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+
+            <div class="form-group">
+                <label class="form-label-styled">Project Member</label>
+                <select name="user_id" class="form-control" required>
+                    <option value="">— Select a project member —</option>
+                    {% for u in all_users %}
+                    <option value="{{ u.pk }}">{{ u.display_name }}{% if u.get_role_display %} · {{ u.get_role_display }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+                    <i class="fas fa-info-circle"></i> Only members and managers of this project are shown.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label-styled">Module Role</label>
+                <select name="role" class="form-control" required>
+                    <option value="designer">Designer</option>
+                    <option value="developer" selected>Developer</option>
+                    <option value="tester">Tester</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">
+                <i class="fas fa-plus"></i> Add to Module
+            </button>
+        </form>
+        {% else %}
+        <div class="empty-members">
+            <i class="fas fa-check-double"></i>
+            <p style="font-size:13px;margin-top:8px;">
+                All project members are already assigned to this module, or there are no eligible members.
+            </p>
+            <a href="{% url 'tasks:project_members' project.pk %}" class="btn btn-secondary btn-sm" style="margin-top:12px;">
+                <i class="fas fa-user-plus"></i> Manage Project Members
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Quick Stats -->
+        <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Module Info</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Module</span>
+                    <span style="font-weight:600;">{{ module.name }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Project</span>
+                    <a href="{% url 'tasks:project_detail' project.pk %}" style="font-weight:600;color:var(--accent);text-decoration:none;">{{ project.name }}</a>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Current Members</span>
+                    <span style="font-weight:600;color:var(--accent);">{{ current_members.count }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Project Size</span>
+                    <span style="font-weight:600;">{{ project.members.count }} members</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

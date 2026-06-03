@@ -1,0 +1,196 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Dashboard Overview{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Premium Stats Cards */
+    .stats-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px;
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .stats-number {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .stats-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Quick Action Buttons */
+    .btn-action {
+        min-width: 140px;
+        min-height: 100px;
+        padding: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border-radius: 18px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: var(--bg-secondary);
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .btn-action:hover {
+        background: var(--accent);
+        color: #fff !important;
+        border-color: var(--accent);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px var(--accent-glow);
+    }
+
+    .btn-action i {
+        font-size: 1.8rem;
+        color: var(--accent);
+        transition: color 0.2s;
+    }
+
+    .btn-action:hover i {
+        color: #fff !important;
+    }
+
+    [data-theme="dark"] .stats-card { background: var(--bg-card); }
+    [data-theme="dark"] .btn-action { background: var(--bg-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    <i class="fas fa-tachometer-alt me-3"></i>Dashboard Overview
+</h1>
+
+<div class="row g-4 mb-5">
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card">
+            <i class="fas fa-boxes fa-3x mb-3" style="color: #667eea;"></i>
+            <div class="stats-number">{{ total_products }}</div>
+            <div class="stats-label">Total Products</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card">
+            <i class="fas fa-layer-group fa-3x mb-3" style="color: #4facfe;"></i>
+            <div class="stats-number">{{ total_stock }}</div>
+            <div class="stats-label">Volume </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card">
+            <i class="fas fa-sync-alt fa-3x mb-3" style="color: #43e97b;"></i>
+            <div class="stats-number">{{ stock_turnover|default:"0"|floatformat:2 }}</div>
+            <div class="stats-label">Stock Turnover</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3" style="color: #fa709a;"></i>
+            <div class="stats-number">{{ shrinkage_rate|default:"0"|floatformat:2 }}%</div>
+            <div class="stats-label">Shrinkage Rate</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="section-title text-center mb-4">
+        <i class="fas fa-bolt me-2"></i>Quick Actions
+    </h2>
+    <div class="row g-3 justify-content-center">
+        <div class="col-auto">
+            <a href="{% url 'add-product' %}" class="btn-action">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Product</span>
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'products' %}" class="btn-action">
+                <i class="fas fa-box"></i>
+                <span>View Products</span>
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'categories' %}" class="btn-action">
+                <i class="fas fa-tags"></i>
+                <span>Categories</span>
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'stock-in-page' %}" class="btn-action">
+                <i class="fas fa-arrow-down"></i>
+                <span>Stock In</span>
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'stock-out-page' %}" class="btn-action">
+                <i class="fas fa-arrow-up"></i>
+                <span>Stock Out</span>
+            </a>
+        </div>
+        {% if request.user.is_admin %}
+        <div class="col-auto">
+            <a href="{% url 'inventory-adjustments-page' %}" class="btn-action">
+                <i class="fas fa-sliders-h"></i>
+                <span>Adjustments</span>
+            </a>
+        </div>
+        {% endif %}
+        <div class="col-auto">
+            <a href="{% url 'inventory-serials-page' %}" class="btn-action">
+                <i class="fas fa-hashtag"></i>
+                <span>Serials</span>
+            </a>
+        </div>
+        {% if request.user.is_admin %}
+        <div class="col-auto">
+            <a href="{% url 'inventory-users-management' %}" class="btn-action">
+                <i class="fas fa-users-cog"></i>
+                <span>Users</span>
+            </a>
+        </div>
+        {% endif %}
+        <div class="col-auto">
+            <a href="{% url 'inventory-limits-page' %}" class="btn-action">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Limits</span>
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'audit-logs' %}" class="btn-action">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Audit Logs</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

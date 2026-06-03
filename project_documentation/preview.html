@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Management System - UML Class Diagram</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f4f6f9;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1e293b;
+        }
+
+        .diagram-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .class-box {
+            width: 320px;
+            background: white;
+            border: 2px solid #1e293b;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .class-title {
+            background: #1e293b;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .section {
+            padding: 10px 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .section h3 {
+            margin: 0 0 10px;
+            color: #0f172a;
+            font-size: 16px;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        li {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .relations {
+            margin-top: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #1e293b;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .relations h2 {
+            margin-top: 0;
+            color: #1e293b;
+        }
+
+        .relation-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f1f5f9;
+            border-left: 5px solid #2563eb;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Audit Management System - UML Class Diagram</h1>
+
+    <div class="diagram-container">
+
+        <!-- User -->
+        <div class="class-box">
+            <div class="class-title">User</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>userId : int</li>
+                    <li>username : string</li>
+                    <li>email : string</li>
+                    <li>passwordHash : string</li>
+                    <li>role : string</li>
+                    <li>isActive : bool</li>
+                    <li>lastLogin : datetime</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>login()</li>
+                    <li>logout()</li>
+                    <li>resetPassword()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Role -->
+        <div class="class-box">
+            <div class="class-title">Role</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>roleId : int</li>
+                    <li>roleName : string</li>
+                    <li>description : string</li>
+                    <li>permissions : List</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>assignPermission()</li>
+                    <li>removePermission()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Audit Universe -->
+        <div class="class-box">
+            <div class="class-title">Audit Universe</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>universeId : int</li>
+                    <li>entityName : string</li>
+                    <li>category : string</li>
+                    <li>riskLevel : string</li>
+                    <li>owner : string</li>
+                    <li>lastAuditDate : datetime</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>addAuditableEntity()</li>
+                    <li>updateRiskRating()</li>
+                    <li>getAuditHistory()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Audit Plan -->
+        <div class="class-box">
+            <div class="class-title">Audit Plan</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>planId : int</li>
+                    <li>planName : string</li>
+                    <li>fiscalYear : int</li>
+                    <li>startDate : date</li>
+                    <li>endDate : date</li>
+                    <li>status : string</li>
+                    <li>approvedBy : string</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>createPlan()</li>
+                    <li>approvePlan()</li>
+                    <li>revisePlan()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Audit Engagement -->
+        <div class="class-box">
+            <div class="class-title">Audit Engagement</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>engagementId : int</li>
+                    <li>title : string</li>
+                    <li>objective : string</li>
+                    <li>scope : string</li>
+                    <li>plannedStart : date</li>
+                    <li>plannedEnd : date</li>
+                    <li>actualStart : date</li>
+                    <li>actualEnd : date</li>
+                    <li>status : string</li>
+                    <li>phase : string</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>createEngagement()</li>
+                    <li>updateStatus()</li>
+                    <li>closeEngagement()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Finding -->
+        <div class="class-box">
+            <div class="class-title">Finding</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>findingId : int</li>
+                    <li>title : string</li>
+                    <li>riskRating : string</li>
+                    <li>recommendation : string</li>
+                    <li>status : string</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>logFinding()</li>
+                    <li>escalateFinding()</li>
+                    <li>closeFinding()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Recommendation -->
+        <div class="class-box">
+            <div class="class-title">Recommendation</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>recommendationId : int</li>
+                    <li>priority : string</li>
+                    <li>dueDate : date</li>
+                    <li>assignedTo : string</li>
+                    <li>completionPercent : int</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>assignOwner()</li>
+                    <li>updateProgress()</li>
+                    <li>markImplemented()</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Audit Report -->
+        <div class="class-box">
+            <div class="class-title">Audit Report</div>
+
+            <div class="section">
+                <h3>Attributes</h3>
+                <ul>
+                    <li>reportId : int</li>
+                    <li>reportType : string</li>
+                    <li>executiveSummary : string</li>
+                    <li>overallRating : string</li>
+                    <li>issuedDate : datetime</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h3>Methods</h3>
+                <ul>
+                    <li>draftReport()</li>
+                    <li>reviewReport()</li>
+                    <li>issueReport()</li>
+                    <li>distributeReport()</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Relationships -->
+
+    <div class="relations">
+        <h2>Class Relationships</h2>
+
+        <div class="relation-item">
+            User → Role : has
+        </div>
+
+        <div class="relation-item">
+            Audit Plan → Audit Engagement : contains
+        </div>
+
+        <div class="relation-item">
+            Audit Engagement → Audit Team : assigned to
+        </div>
+
+        <div class="relation-item">
+            Audit Engagement → Work Program : includes
+        </div>
+
+        <div class="relation-item">
+            Audit Engagement → Finding : produces
+        </div>
+
+        <div class="relation-item">
+            Finding → Recommendation : leads to
+        </div>
+
+        <div class="relation-item">
+            Recommendation → Action Plan : tracked by
+        </div>
+
+        <div class="relation-item">
+            Audit Universe → Risk Assessment : evaluated by
+        </div>
+
+        <div class="relation-item">
+            User → Notification : receives
+        </div>
+
+        <div class="relation-item">
+            User ↔ Audit Team : member of
+        </div>
+
+    </div>
+
+</body>
+</html>

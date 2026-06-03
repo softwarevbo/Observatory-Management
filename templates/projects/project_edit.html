@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-light);
+    }
+    .form-section-title i {
+        color: var(--accent);
+        font-size: 16px;
+    }
+    .member-checkbox-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 4px;
+    }
+    .member-checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    .member-checkbox-item:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+    }
+    .member-checkbox-item input[type=checkbox] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent);
+        cursor: pointer;
+    }
+    .member-checkbox-item.checked {
+        border-color: var(--accent);
+        background: rgba(79, 142, 247, 0.08);
+    }
+    .team-section {
+        margin-bottom: 24px;
+    }
+    .team-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .sticky-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-primary);
+        padding: 20px 0;
+        border-top: 1px solid var(--border);
+        margin-top: 40px;
+        z-index: 100;
+        display: flex;
+        gap: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>{{ title }}</h1>
+            <p>Refine project parameters and team access.</p>
+        </div>
+        <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary"><i class="fas fa-times"></i> Discard</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate id="projectForm">
+        {% csrf_token %}
+        <div class="grid-2" style="gap: 30px; align-items: start;">
+            <!-- LEFT COLUMN: BASIC INFO -->
+            <div style="display:flex; flex-direction:column; gap:24px;">
+                <div class="card">
+                    <div class="form-section-title">
+                        <i class="fas fa-file-invoice"></i> 1. Basic Information
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Project Name <span class="text-danger">*</span></label>
+                        {{ form.name }}
+                        {% if form.name.errors %}<div class="form-error">{{ form.name.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}<div class="form-error">{{ form.description.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="form-error">{{ form.status.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Priority</label>
+                            {{ form.priority }}
+                            {% if form.priority.errors %}<div class="form-error">{{ form.priority.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Start Date</label>
+                            {{ form.start_date }}
+                            {% if form.start_date.errors %}<div class="form-error">{{ form.start_date.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target End Date</label>
+                            {{ form.end_date }}
+                            {% if form.end_date.errors %}<div class="form-error">{{ form.end_date.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label class="form-label">Project Incharge</label>
+                        {{ form.project_incharge }}
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Assign a specific person in-charge of this project.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: TEAM ASSIGNMENT -->
+            <div style="display:flex; flex-direction:column; gap:24px; position: sticky; top: 80px;">
+                <div class="card" style="margin-bottom:0;">
+                    <div class="form-section-title">
+                        <i class="fas fa-users"></i> 2. Team Assignment
+                    </div>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">
+                        Select the team members who will participate in this project.
+                    </p>
+                    <div class="search-wrap" style="margin-bottom:20px;">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="memberSearch" class="search-input" style="width:100%; height:42px;" placeholder="Search by name or role...">
+                    </div>
+                    {% if form.members.errors %}
+                        <div class="form-error" style="margin-bottom:15px;">{{ form.members.errors.0 }}</div>
+                    {% endif %}
+                    <div id="membersList" style="margin-top:10px;">
+                        {% regroup form.members.field.queryset by get_team_display as team_groups %}
+                        {% for team_group in team_groups %}
+                        <div class="team-section" data-team="{{ team_group.grouper }}">
+                            <div class="team-label">
+                                <i class="fas fa-users"></i> {{ team_group.grouper }}
+                            </div>
+                            <div class="member-checkbox-list">
+                                {% for member in team_group.list %}
+                                <label class="member-checkbox-item {% if member.pk in form.members.value %}checked{% endif %}" data-name="{{ member.display_name|lower }}" data-role="{{ member.get_role_display|lower }}">
+                                    <input type="checkbox" name="members" value="{{ member.pk }}" 
+                                        {% if member.pk in form.members.value %}checked{% endif %}
+                                        onchange="toggleChecked(this)" class="member-cb">
+                                    <div class="avatar" style="background:{{ member.avatar_color }}; width:32px; height:32px; font-size:12px;">{{ member.initials }}</div>
+                                    <div style="min-width:0; flex:1;">
+                                        <div style="font-size:13px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ member.display_name }}</div>
+                                        <div style="font-size:11px; color:var(--text-muted);">{{ member.get_role_display }}</div>
+                                    </div>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="empty-state" style="padding:20px;">
+                            <i class="fas fa-users-slash"></i>
+                            <p>No members available to assign.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sticky-actions">
+            <button type="submit" class="btn btn-primary btn-lg" style="padding: 12px 32px;">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+            <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-lg" style="padding: 12px 32px;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleChecked(checkbox) {
+        const label = checkbox.closest('.member-checkbox-item');
+        label.classList.toggle('checked', checkbox.checked);
+    }
+    const memberSearch = document.getElementById('memberSearch');
+    if (memberSearch) {
+        memberSearch.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('.member-checkbox-item').forEach(item => {
+                const name = item.getAttribute('data-name');
+                const role = item.getAttribute('data-role');
+                if (name.includes(q) || role.includes(q)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            document.querySelectorAll('.team-section').forEach(section => {
+                const visibleItems = section.querySelectorAll('.member-checkbox-item[style=""]');
+                section.style.display = visibleItems.length > 0 ? '' : 'none';
+            });
+        });
+    }
+</script>
+{% endblock %}

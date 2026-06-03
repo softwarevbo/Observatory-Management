@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventory Overview — IIAP PM{% endblock %}
+
+{% block content %}
+<div style="width: 100%;">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Inventory Overview</h1>
+            <p>Monitor stock levels, branch distribution, and product availability across all projects.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <!-- Search & Filter -->
+        <div class="filter-bar" style="margin-bottom: 24px;">
+            <form method="get" style="display: flex; gap: 10px; flex: 1;">
+                <div class="search-wrap" style="flex: 1;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="search" class="search-input" 
+                           placeholder="Search by name, brand, SKU, or serial number..." value="{{ search_query }}">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> Apply Filter
+                </button>
+                {% if search_query %}
+                <a href="{% url 'tasks:inventory_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> Clear
+                </a>
+                {% endif %}
+            </form>
+        </div>
+
+        {% if products %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">Image</th>
+                        <th>Product Details</th>
+                        <th>Brand</th>
+                        <th>SKU / Serial</th>
+                        <th>Category</th>
+                        <th>Branch</th>
+                        <th>Price</th>
+                        <th style="text-align: center;">Stock</th>
+                        <th>Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>
+                            {% if product.image %}
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}" 
+                                 style="width: 40px; height: 40px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                            {% else %}
+                            <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--bg-primary); display: flex; align-items: center; justify-content: center; color: var(--text-muted); border: 1px solid var(--border);">
+                                <i class="fas fa-box-open" style="font-size: 14px;"></i>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; color: var(--text-primary);">{{ product.name }}</div>
+                            {% if product.description %}
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">{{ product.description|truncatechars:50 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="font-size: 13px;">{{ product.brand|default:"—" }}</span>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <span class="badge badge-gray" style="width: fit-content; font-size: 9px;">SKU: {{ product.sku|default:"N/A" }}</span>
+                                {% if product.serial_number %}
+                                <span class="badge badge-blue" style="width: fit-content; font-size: 9px;">SN: {{ product.serial_number }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if product.category %}
+                            <span class="badge badge-purple">{{ product.category.name }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge badge-cyan">
+                                <i class="fas fa-map-marker-alt" style="margin-right: 4px; font-size: 10px;"></i>
+                                {{ product.get_branch_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-weight: 600; color: var(--text-primary);">₹{{ product.price|floatformat:2|default:"0.00" }}</span>
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="badge {% if product.current_quantity > 0 %}badge-green{% else %}badge-red{% endif %}" 
+                                  style="font-size: 12px; min-width: 30px; justify-content: center;">
+                                {{ product.current_quantity|default:"0" }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if product.rack_number or product.shelf_number %}
+                            <div style="font-size: 11px; color: var(--text-secondary);">
+                                <div style="white-space: nowrap;">R: {{ product.rack_number|default:"-" }}</div>
+                                <div style="white-space: nowrap;">S: {{ product.shelf_number|default:"-" }}</div>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="margin-top: 24px;">
+            {% include 'pagination.html' with page_obj=products %}
+        </div>
+
+        {% else %}
+        <div style="text-align: center; padding: 60px 20px;">
+            <div style="width: 64px; height: 64px; background: var(--bg-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: var(--text-muted);">
+                <i class="fas fa-search" style="font-size: 24px;"></i>
+            </div>
+            <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin-bottom: 8px;">No Products Found</h3>
+            <p style="color: var(--text-muted); font-size: 14px;">Try adjusting your search or filters to find what you're looking for.</p>
+            {% if search_query %}
+            <a href="{% url 'tasks:inventory_list' %}" class="btn btn-secondary" style="margin-top: 16px;">
+                Show All Products
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    /* Table specific overrides for inventory */
+    td {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% load task_tags %}
+<div class="tree-category-node" style="margin-left: {{ depth|multiply:20 }}px;">
+    {% if not category.is_in_trash %}
+    <div class="folder-header" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: background 0.2s;" onclick="toggleReleaseFolder(this)">
+        <i class="fas fa-chevron-right chevron-icon" style="font-size: 10px; color: var(--text-muted); transition: transform 0.2s;"></i>
+        <input type="checkbox" name="selected_folders" value="{{ category.pk }}" {% if category.pk in form.selected_folders.value %}checked{% endif %} style="margin: 0;" onclick="event.stopPropagation()">
+        <i class="fas fa-folder" style="color: var(--accent); opacity: 0.8; font-size: 14px;"></i>
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">{{ category.name }}</span>
+    </div>
+    
+    <div class="folder-content" style="display: none; margin-top: 2px;">
+        {% for subcat in category.children.all|dictsort:"name" %}
+            {% if not subcat.is_in_trash %}
+                {% include 'releases/release_file_tree_node.html' with category=subcat depth=depth|add:1 %}
+            {% endif %}
+        {% endfor %}
+        
+        {% for file in category.latest_files %}
+            {% if not file.task and not file.is_in_trash %}
+            <label class="tree-selection-item" style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin-left: {{ depth|add:1|multiply:20|add:20 }}px; border-radius: 6px; cursor: pointer; transition: background 0.2s; margin-bottom: 2px;">
+                <input type="checkbox" name="selected_files" value="{{ file.pk }}" {% if file.pk in form.selected_files.value %}checked{% endif %} style="margin: 0;">
+                <i class="fas {{ file.icon_class }}" style="color: {{ file.icon_color }}; width: 16px; text-align: center; font-size: 14px;"></i>
+                <span style="font-size: 13px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ file.display_name }}</span>
+                <span style="font-size: 10px; color: var(--text-muted);">{{ file.file_size_display }}</span>
+            </label>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

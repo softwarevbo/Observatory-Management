@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Restore Release · {{ release.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 40px auto;">
+    <div class="card" style="padding: 32px; text-align: center; border: 2px solid var(--warning);">
+        <div style="background: rgba(245, 158, 11, 0.1); color: var(--warning); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px auto; font-size: 32px;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        
+        <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 16px;">Restore Project Files?</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 32px; line-height: 1.6;">
+            You are about to restore all files from <strong>{{ release.name }}</strong> ({{ release.version|default:release.tag_name }}) into the live project workspace.
+            <br><br>
+            This will create <strong>new versions</strong> of all existing files to match the release snapshot. No data will be permanently deleted, but the current working versions will be superseded.
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <a href="{% url 'tasks:release_detail' release.pk %}" class="btn btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-undo"></i> Confirm Restore
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

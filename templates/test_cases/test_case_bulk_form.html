@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+
+{% block title %}Bulk Test Case Creation — {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --grid-border: #e2e8f0;
+        --grid-header: #f8fafc;
+        --grid-row-hover: #f1f5f9;
+        --accent-color: #0ea5e9; /* Sky blue for testing */
+        --error-color: #ef4444;
+    }
+
+    body {
+        overflow: hidden;
+    }
+
+    .bulk-container {
+        position: fixed;
+        top: 60px;
+        left: var(--sidebar-width);
+        right: 0;
+        bottom: 0;
+        background: var(--bg-primary);
+        display: flex;
+        flex-direction: column;
+        z-index: 10;
+    }
+
+    .bulk-toolbar {
+        padding: 16px 32px;
+        background: white;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .project-info {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .project-info h1 {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .grid-viewport {
+        flex: 1;
+        overflow: auto;
+        background: white;
+        padding: 0;
+    }
+
+    .modern-grid {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+        min-width: 3200px; /* Wider for test cases */
+    }
+
+    .modern-grid th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: var(--grid-header);
+        padding: 12px 16px;
+        text-align: left;
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--grid-border);
+        border-right: 1px solid var(--grid-border);
+        box-shadow: inset 0 -1px 0 var(--grid-border);
+    }
+
+    .modern-grid td {
+        padding: 0;
+        border-bottom: 1px solid var(--grid-border);
+        border-right: 1px solid var(--grid-border);
+        height: 64px; /* Taller for textareas */
+        vertical-align: top;
+        position: relative;
+    }
+
+    .modern-grid tr:hover td {
+        background: var(--grid-row-hover);
+    }
+
+    .cell-input {
+        width: 100%;
+        height: 100%;
+        border: 2px solid transparent;
+        background: transparent;
+        padding: 8px 14px;
+        font-size: 13px;
+        color: var(--text-primary);
+        outline: none;
+        transition: all 0.15s;
+        display: block;
+        resize: none;
+        font-family: inherit;
+    }
+
+    .cell-input:focus {
+        background: white;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+        z-index: 5;
+    }
+
+    select.cell-input {
+        cursor: pointer;
+        padding-right: 32px;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 14px;
+    }
+
+    .col-num { width: 40px; text-align: center; color: #cbd5e1; font-size: 10px; padding-top: 12px !important; }
+    .col-task { width: 300px; }
+    .col-title { width: 350px; }
+    .col-scenario { width: 400px; }
+    .col-pre { width: 300px; }
+    .col-steps { width: 500px; }
+    .col-expected { width: 400px; }
+    .col-priority { width: 120px; }
+    .col-status { width: 150px; }
+    .col-assign { width: 280px; }
+    .col-del { width: 50px; text-align: center; padding-top: 12px !important; }
+
+    .bulk-footer {
+        padding: 16px 32px;
+        background: white;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .btn-action {
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        text-decoration: none;
+    }
+
+    .btn-save { background: var(--accent-color); color: white; }
+    .btn-save:hover { background: #0284c7; transform: translateY(-1px); }
+    .btn-add { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+    .btn-add:hover { background: #f1f5f9; border-color: #cbd5e1; }
+
+    .error-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background: var(--error-color);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        white-space: nowrap;
+        z-index: 100;
+        display: none;
+    }
+
+    td:hover .error-tooltip { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-container">
+    <div class="bulk-toolbar">
+        <div class="project-info">
+            <h1>Bulk Test Case Creation <span style="color: #64748b; font-weight: 400;">for</span> {{ project.name }}</h1>
+            <span class="badge-project" style="background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                {{ project.project_id }}
+            </span>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn-action btn-add" id="add-form-row">
+                <i class="fas fa-plus"></i> Add New Row
+            </button>
+            <a href="{% url 'tasks:project_detail' project.pk %}" class="btn-action btn-add">
+                <i class="fas fa-times"></i> Close
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="bulk-form" style="display: contents;">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        
+        <div class="grid-viewport">
+            {% if formset.non_form_errors %}
+            <div style="background: #fee2e2; color: #b91c1c; padding: 12px 32px; border-bottom: 1px solid #fecaca; font-size: 14px;">
+                {{ formset.non_form_errors }}
+            </div>
+            {% endif %}
+
+            <table class="modern-grid">
+                <thead>
+                    <tr>
+                        <th class="col-num">#</th>
+                        <th class="col-task">Related Task *</th>
+                        <th class="col-title">Test Case Title *</th>
+                        <th class="col-scenario">Test Scenario</th>
+                        <th class="col-pre">Preconditions</th>
+                        <th class="col-steps">Test Steps</th>
+                        <th class="col-expected">Expected Result</th>
+                        <th class="col-priority">Priority</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-assign">Assignees</th>
+                        <th class="col-del"></th>
+                    </tr>
+                </thead>
+                <tbody id="grid-body">
+                    {% for form in formset %}
+                    <tr class="grid-row {% if form.errors %}error-row{% endif %}">
+                        {{ form.id }}
+                        {{ form.project }}
+                        <td class="col-num">{{ forloop.counter }}</td>
+                        <td class="col-task">
+                            {{ form.task }}
+                            {% if form.task.errors %}<div class="error-tooltip" style="display:block">{{ form.task.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-title">
+                            {{ form.title }}
+                            {% if form.title.errors %}<div class="error-tooltip" style="display:block">{{ form.title.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-scenario">{{ form.scenario }}</td>
+                        <td class="col-pre">{{ form.preconditions }}</td>
+                        <td class="col-steps">{{ form.steps }}</td>
+                        <td class="col-expected">{{ form.expected_result }}</td>
+                        <td class="col-priority">{{ form.priority }}</td>
+                        <td class="col-status">{{ form.status }}</td>
+                        <td class="col-assign">{{ form.assigned_members }}</td>
+                        <td class="col-del">
+                            <button type="button" onclick="removeGridRow(this)" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding-top:8px;">
+                                <i class="far fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bulk-footer">
+            <div style="color: #64748b; font-size: 13px;">
+                <i class="fas fa-info-circle"></i> Tip: Only rows with a **Title** will be saved. Empty rows are automatically ignored.
+            </div>
+            <button type="submit" class="btn-action btn-save">
+                <i class="fas fa-save"></i> SAVE TEST CASES
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const gridBody = document.getElementById('grid-body');
+        
+        // Add row logic
+        document.getElementById('add-form-row').addEventListener('click', () => {
+            const total = document.getElementById('id_form-TOTAL_FORMS');
+            const count = parseInt(total.value);
+            const template = document.querySelector('.grid-row');
+            const newRow = template.cloneNode(true);
+            
+            const regex = /form-0-/g;
+            const prefix = `form-${count}-`;
+
+            newRow.querySelectorAll('input, select, textarea').forEach(el => {
+                if (el.name) el.name = el.name.replace(regex, prefix);
+                if (el.id) el.id = el.id.replace(regex, prefix);
+                
+                if (el.type !== 'hidden') {
+                    if (el.tagName === 'SELECT') {
+                        if (!el.multiple) el.selectedIndex = 0;
+                        else Array.from(el.options).forEach(o => o.selected = false);
+                    } else {
+                        el.value = '';
+                    }
+                }
+            });
+
+            newRow.classList.remove('error-row');
+            newRow.querySelectorAll('.error-tooltip').forEach(t => t.remove());
+            newRow.querySelector('.col-num').innerText = count + 1;
+            
+            gridBody.appendChild(newRow);
+            total.value = count + 1;
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    });
+
+    function removeGridRow(btn) {
+        const row = btn.closest('.grid-row');
+        if (document.querySelectorAll('.grid-row').length > 1) {
+            row.remove();
+            document.querySelectorAll('.grid-row').forEach((r, i) => {
+                r.querySelector('.col-num').innerText = i + 1;
+                const prefix = `form-${i}-`;
+                r.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name) el.name = el.name.replace(/form-(\d+)-/, prefix);
+                    if (el.id) el.id = el.id.replace(/form-(\d+)-/, prefix);
+                });
+            });
+            document.getElementById('id_form-TOTAL_FORMS').value = document.querySelectorAll('.grid-row').length;
+        }
+    }
+</script>
+{% endblock %}

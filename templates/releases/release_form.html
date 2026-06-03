@@ -1,0 +1,422 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% if project %} — {{ project.name }}{% endif %} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .release-form-layout {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 24px;
+        align-items: start;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    @media (max-width: 992px) {
+        .release-form-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow);
+    }
+
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 10px;
+    }
+
+    .section-title i {
+        color: var(--accent);
+    }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        transition: var(--transition);
+    }
+
+    .form-control:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.15);
+        background: var(--bg-card);
+    }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    /* Checkbox & Switch Switch Styles */
+    .checkbox-switch-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        background: var(--bg-primary);
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        margin-bottom: 18px;
+    }
+
+    @media (max-width: 576px) {
+        .checkbox-switch-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .checkbox-switch-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        cursor: pointer;
+    }
+
+    .checkbox-switch-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin-top: 3px;
+        cursor: pointer;
+    }
+
+    .checkbox-switch-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        cursor: pointer;
+    }
+
+    .checkbox-switch-label strong {
+        display: block;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 2px;
+    }
+
+    /* Custom File tree styles */
+    .tree-container {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .tree-selection-item:hover, .folder-header:hover {
+        background: var(--bg-card-hover) !important;
+    }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% if release %}{% url 'tasks:release_detail' release.pk %}{% elif project %}{% url 'tasks:release_list' project.pk %}{% else %}{% url 'tasks:global_release_list' %}{% endif %}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-times"></i> Cancel
+    </a>
+{% endblock %}
+
+{% block content %}
+<div style="width: 100%;">
+    <div class="page-header" style="margin-bottom: 24px;">
+        <div class="page-header-left">
+            <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 800;">{{ title }}</h1>
+            {% if project %}
+            <p>Drafting release version snapshot for project: <span style="color: var(--accent); font-weight: 700;">{{ project.name }}</span></p>
+            {% else %}
+            <p>Draft a release milestone across projects.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div class="card" style="border-left: 4px solid var(--red); background: var(--red-dim); margin-bottom: 24px; padding: 16px 24px;">
+            <div style="display: flex; align-items: center; gap: 12px; color: var(--red);">
+                <i class="fas fa-exclamation-circle" style="font-size: 16px;"></i>
+                <span style="font-weight: 700; font-size: 14px;">Please review the highlighted fields below.</span>
+            </div>
+            {% if form.non_field_errors %}
+            <div style="margin-top: 8px; font-size: 13px; color: var(--red);">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="release-form-layout">
+            <!-- LEFT COLUMN: Form details -->
+            <div class="form-main-col">
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-sliders-h"></i> Release Parameters
+                    </div>
+
+                    {% if form.project %}
+                    <div class="form-group">
+                        <label class="form-label" for="{{ form.project.id_for_label }}">Target Project <span style="color: var(--red);">*</span></label>
+                        {{ form.project }}
+                        {% if form.project.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.project.errors.0 }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label class="form-label" for="{{ form.name.id_for_label }}">Release Title <span style="color: var(--red);">*</span></label>
+                        {{ form.name }}
+                        {% if form.name.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.name.errors.0 }}</div>{% endif %}
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Give this release a descriptive name.</div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label" for="{{ form.tag_name.id_for_label }}">Tag Name</label>
+                            {{ form.tag_name }}
+                            {% if form.tag_name.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.tag_name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="{{ form.version.id_for_label }}">Version Number</label>
+                            {{ form.version }}
+                            {% if form.version.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.version.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label" for="{{ form.release_type.id_for_label }}">Release Type</label>
+                            {{ form.release_type }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="{{ form.status.id_for_label }}">Initial Status</label>
+                            {{ form.status }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="{{ form.target_date.id_for_label }}">Target Release Date</label>
+                        {{ form.target_date }}
+                        {% if form.target_date.errors %}<div style="color: var(--red); font-size: 11px; margin-top: 4px;">{{ form.target_date.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="checkbox-switch-container">
+                        <label class="checkbox-switch-item" for="{{ form.is_draft.id_for_label }}">
+                            {{ form.is_draft }}
+                            <div class="checkbox-switch-label">
+                                <strong>Save as Draft</strong>
+                                <span>Save progress without publishing to feed.</span>
+                            </div>
+                        </label>
+                        <label class="checkbox-switch-item" for="{{ form.is_prerelease.id_for_label }}">
+                            {{ form.is_prerelease }}
+                            <div class="checkbox-switch-label">
+                                <strong>Mark as Pre-release</strong>
+                                <span>Identifies as a beta or release candidate.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fab fa-markdown"></i> Description &amp; Release Notes
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label" for="{{ form.description.id_for_label }}">Release Notes</label>
+                        {{ form.description }}
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fab fa-markdown" style="font-size: 14px; color: var(--accent);"></i>
+                            <span>Markdown tags are supported. Use headers, bold, or lists.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: File snapshots selection -->
+            <div class="form-sidebar-col">
+                {% if project %}
+                <div class="card" style="padding-bottom: 16px;">
+                    <div class="section-title">
+                        <i class="fas fa-folder-open"></i> Project Snapshot Assets
+                    </div>
+                    
+                    <div style="display: flex; align-items: flex-start; gap: 10px; background: rgba(var(--accent-rgb, 79,142,247), 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
+                        {{ form.include_subfolders }}
+                        <div style="font-size: 12px; line-height: 1.4; color: var(--text-secondary);">
+                            <label for="{{ form.include_subfolders.id_for_label }}" style="font-weight: 700; cursor: pointer; color: var(--text-primary);">Recursive Folders</label>
+                            <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--text-muted);">Automatically snapshot all files inside selected directories recursively.</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="file-search" class="form-control" placeholder="🔍 Search/Filter files..." style="padding: 8px 12px; font-size: 12px;">
+                    </div>
+
+                    <div class="tree-container">
+                        <div id="file-tree-selection" style="padding: 10px;">
+                            {% for cat in root_categories|dictsort:"name" %}
+                                {% include 'releases/release_file_tree_node.html' with category=cat depth=0 %}
+                            {% endfor %}
+                            
+                            <!-- Root Files -->
+                            {% for f in root_files %}
+                                <label class="tree-selection-item" style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: background 0.2s; margin-bottom: 2px;">
+                                    <input type="checkbox" name="selected_files" value="{{ f.pk }}" {% if f.pk in form.selected_files.value %}checked{% endif %} style="margin: 0;">
+                                    <i class="fas {{ f.icon_class }}" style="color: {{ f.icon_color }}; width: 16px; text-align: center; font-size: 14px;"></i>
+                                    <span style="font-size: 13px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ f.display_name }}</span>
+                                    <span style="font-size: 10px; color: var(--text-muted);">{{ f.file_size_display }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="card" style="border-top: 4px solid var(--accent);">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button type="submit" class="btn btn-primary" style="justify-content: center; width: 100%; padding: 12px; font-weight: 700; border-radius: 8px;">
+                            <i class="fas fa-rocket"></i> {% if release.is_draft %}Save Draft Release{% else %}Create Release Milestone{% endif %}
+                        </button>
+                        
+                        <a href="{% if release %}{% url 'tasks:release_detail' release.pk %}{% elif project %}{% url 'tasks:release_list' project.pk %}{% else %}{% url 'tasks:global_release_list' %}{% endif %}" class="btn btn-secondary" style="justify-content: center; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px;">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleReleaseFolder(header) {
+    const content = header.nextElementSibling;
+    const chevron = header.querySelector('.chevron-icon');
+    if (content.style.display === 'none' || !content.style.display) {
+        content.style.display = 'block';
+        chevron.style.transform = 'rotate(90deg)';
+    } else {
+        content.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Event delegation on the file tree container to handle all checkbox interactions
+document.addEventListener('DOMContentLoaded', () => {
+    const treeContainer = document.getElementById('file-tree-selection');
+    if (!treeContainer) return;
+
+    treeContainer.addEventListener('change', function(e) {
+        const target = e.target;
+        if (target.tagName !== 'INPUT' || target.type !== 'checkbox') return;
+
+        // 1. If folder is toggled, update all descendant checkboxes
+        if (target.name === 'selected_folders') {
+            const header = target.closest('.folder-header');
+            if (header) {
+                const content = header.nextElementSibling;
+                if (content && content.classList.contains('folder-content')) {
+                    const childCheckboxes = content.querySelectorAll('input[type="checkbox"]');
+                    childCheckboxes.forEach(cb => {
+                        cb.checked = target.checked;
+                    });
+                }
+            }
+        }
+
+        // 2. Cascade up to update parent folder checkboxes
+        updateParentCheckboxes(target);
+    });
+});
+
+function updateParentCheckboxes(checkbox) {
+    let current = checkbox;
+    while (current) {
+        const parentContent = current.closest('.folder-content');
+        if (!parentContent) break;
+
+        const parentHeader = parentContent.previousElementSibling;
+        if (!parentHeader || !parentHeader.classList.contains('folder-header')) break;
+
+        const parentCheckbox = parentHeader.querySelector('input[name="selected_folders"]');
+        if (!parentCheckbox) break;
+
+        if (!current.checked) {
+            // If any child is unchecked, the parent folder cannot be fully checked
+            parentCheckbox.checked = false;
+        } else {
+            // If all checkboxes inside this parentContent are checked, check the parent folder
+            const siblingCheckboxes = parentContent.querySelectorAll('input[type="checkbox"]');
+            const allChecked = Array.from(siblingCheckboxes).every(cb => cb.checked);
+            parentCheckbox.checked = allChecked;
+        }
+
+        // Move one level up
+        current = parentHeader.querySelector('input[name="selected_folders"]');
+    }
+}
+
+const fileSearch = document.getElementById('file-search');
+if (fileSearch) {
+    fileSearch.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        const items = document.querySelectorAll('.tree-selection-item');
+        
+        items.forEach(item => {
+            const text = item.querySelector('span').textContent.toLowerCase();
+            if (text.includes(query)) {
+                item.style.display = 'flex';
+                // Also ensure parents are visible if hidden
+                let parent = item.closest('.folder-content');
+                while(parent) {
+                    parent.style.display = 'block';
+                    const header = parent.previousElementSibling;
+                    if(header && header.classList.contains('folder-header')) {
+                        const chevron = header.querySelector('.chevron-icon');
+                        if(chevron) chevron.style.transform = 'rotate(90deg)';
+                    }
+                    parent = parent.parentElement.closest('.folder-content');
+                }
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+}
+</script>
+{% endblock %}

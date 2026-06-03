@@ -1,0 +1,593 @@
+{% extends 'base.html' %}
+
+{% block title %}Bulk Task Management — IIAP PM{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --grid-border: var(--border);
+        --grid-header: #f8fafc;
+        --grid-row-hover: #f1f5f9;
+        --accent-color: var(--accent);
+        --error-color: #ef4444;
+    }
+
+    body {
+        overflow: hidden;
+    }
+
+    .bulk-container {
+        position: fixed;
+        top: 60px;
+        left: var(--sidebar-width);
+        right: 0;
+        bottom: 0;
+        background: var(--bg-primary);
+        display: flex;
+        flex-direction: column;
+        z-index: 10;
+    }
+
+    .bulk-toolbar {
+        padding: 16px 32px;
+        background: linear-gradient(to right, #ffffff, #f8fafc);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        position: relative;
+        z-index: 30;
+    }
+
+    .project-info {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .project-info h1 {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .grid-viewport {
+        flex: 1;
+        overflow: auto;
+        background: white;
+        padding: 0;
+    }
+
+    .modern-grid {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+        min-width: 1800px;
+    }
+
+    .modern-grid th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #f1f5f9;
+        padding: 14px 16px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid var(--border);
+        border-right: 1px solid var(--border);
+        box-shadow: inset 0 -1px 0 var(--border);
+    }
+
+    .modern-grid td {
+        padding: 4px;
+        border-bottom: 1px solid var(--grid-border);
+        border-right: 1px solid var(--grid-border);
+        vertical-align: top;
+        position: relative;
+        background: white;
+    }
+
+    .modern-grid tr:hover td {
+        background: var(--grid-row-hover);
+    }
+
+    .cell-input {
+        width: 100%;
+        height: 38px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #f8fafc;
+        padding: 0 12px;
+        font-size: 13px;
+        color: var(--text-primary);
+        outline: none;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        display: block;
+    }
+
+    .cell-input:hover {
+        border-color: #94a3b8;
+        background: white;
+    }
+
+    .cell-input:focus {
+        background: white;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        z-index: 5;
+    }
+
+    textarea.cell-input {
+        height: 80px;
+        padding: 8px 12px;
+        resize: vertical;
+    }
+
+    select.cell-input {
+        cursor: pointer;
+        padding-right: 32px;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 14px;
+    }
+
+    .col-num {
+        width: 40px;
+        text-align: center;
+        color: #cbd5e1;
+        font-size: 10px;
+    }
+
+    .col-project {
+        width: 250px;
+        background: #fdfdfd;
+    }
+
+    .col-title {
+        width: 350px;
+    }
+
+    .col-desc {
+        width: 450px;
+    }
+
+    .col-module {
+        width: 220px;
+    }
+
+    .col-req {
+        width: 300px;
+    }
+
+    .col-type {
+        width: 140px;
+    }
+
+    .col-prio {
+        width: 120px;
+    }
+
+    .col-status {
+        width: 140px;
+    }
+
+    .col-assign {
+        width: 320px;
+    }
+
+    .col-del {
+        width: 50px;
+        text-align: center;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        color: var(--accent-color);
+    }
+
+    .bulk-footer {
+        padding: 16px 32px;
+        background: white;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .btn-action {
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        text-decoration: none;
+    }
+
+    .btn-save {
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .btn-save:hover {
+        background: #4338ca;
+        transform: translateY(-1px);
+    }
+
+    .btn-add {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #475569;
+    }
+
+    .btn-add:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+
+    .error-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--error-color);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        white-space: nowrap;
+        z-index: 100;
+        pointer-events: none;
+        margin-bottom: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .error-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: var(--error-color);
+    }
+
+    .error-row td {
+        background: #fff1f2 !important;
+    }
+
+    /* Checkbox list styling in grid */
+    .checkbox-grid-container {
+        height: 140px;
+        overflow-y: auto;
+        padding: 6px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin: 4px;
+    }
+
+    .checkbox-grid-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .checkbox-grid-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        color: #475569;
+    }
+
+    .checkbox-grid-item:hover {
+        background: white;
+        border-color: var(--accent);
+        color: var(--accent);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .checkbox-grid-item input {
+        cursor: pointer;
+        width: 14px;
+        height: 14px;
+        accent-color: var(--accent);
+    }
+
+    /* Colorful Badge Helpers for Inputs */
+    .grid-badge-wrap {
+        position: relative;
+    }
+    
+    .grid-badge-wrap select {
+        font-weight: 600;
+    }
+
+    select[name$="-priority"] { color: #f59e0b; }
+    select[name$="-task_type"] { color: #3b82f6; }
+    select[name$="-status"] { color: #10b981; }
+
+    .btn-save {
+        background: var(--accent);
+        color: white;
+        padding: 12px 32px;
+        font-size: 15px;
+        box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn-save:hover {
+        background: var(--accent-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px var(--accent-glow);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-container">
+    <div class="bulk-toolbar">
+        <div class="project-info">
+            <h1>Bulk Task Creation <span style="color: #64748b; font-weight: 400;">for</span> {{ project.name }}</h1>
+            <span class="badge-project">{{ project.project_id }}</span>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn-action btn-add" id="add-form-row">
+                <i class="fas fa-plus"></i> Add New Row
+            </button>
+            <a href="{% url 'tasks:project_list' %}" class="btn-action btn-add">
+                <i class="fas fa-times"></i> Close
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="bulk-form" style="display: contents;">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <div class="grid-viewport">
+            {% if formset.non_form_errors %}
+            <div style="background: #fee2e2; color: #b91c1c; padding: 12px 32px; border-bottom: 1px solid #fecaca; font-size: 14px;">
+                {{ formset.non_form_errors }}
+            </div>
+            {% endif %}
+
+            <table class="modern-grid">
+                <thead>
+                    <tr>
+                        <th class="col-num">#</th>
+                        <th class="col-title">Task Title *</th>
+                        <th class="col-desc">Description</th>
+                        <th class="col-module">Module</th>
+                        <th class="col-req">Requirement</th>
+                        <th class="col-type">Type</th>
+                        <th class="col-prio">Priority</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-assign">Assignees</th>
+                        <th class="col-del"></th>
+                    </tr>
+                </thead>
+                <tbody id="grid-body">
+                    {% for form in formset %}
+                    <tr class="grid-row {% if form.errors %}error-row{% endif %}">
+                        {{ form.id }}
+                        {{ form.project }}
+                        <td class="col-num">{{ forloop.counter }}</td>
+                        <td class="col-title">
+                            {{ form.title }}
+                            {% if form.title.errors %}<div class="error-tooltip" style="display:block">{{ form.title.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-desc">{{ form.description }}</td>
+                        <td class="col-module">
+                            <div class="loading-overlay"><i class="fas fa-spinner fa-spin"></i></div>
+                            {{ form.module }}
+                            {% if form.module.errors %}<div class="error-tooltip" style="display:block">{{ form.module.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-req">
+                            <div class="loading-overlay"><i class="fas fa-spinner fa-spin"></i></div>
+                            {{ form.requirement }}
+                            {% if form.requirement.errors %}<div class="error-tooltip" style="display:block">{{ form.requirement.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-type">
+                            {{ form.task_type }}
+                            {% if form.task_type.errors %}<div class="error-tooltip" style="display:block">{{ form.task_type.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-prio">
+                            {{ form.priority }}
+                            {% if form.priority.errors %}<div class="error-tooltip" style="display:block">{{ form.priority.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-status">
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="error-tooltip" style="display:block">{{ form.status.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-assign">
+                            <div class="loading-overlay"><i class="fas fa-spinner fa-spin"></i></div>
+                            <div class="checkbox-grid-container" id="assignees-container-{{ forloop.index0 }}">
+                                {{ form.assignees }}
+                            </div>
+                            {% if form.assignees.errors %}<div class="error-tooltip" style="display:block">{{ form.assignees.errors.0 }}</div>{% endif %}
+                        </td>
+                        <td class="col-del">
+                            <button type="button" class="btn-del" onclick="removeGridRow(this)"
+                                style="background:none;border:none;cursor:pointer;color:#94a3b8;">
+                                <i class="far fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bulk-footer">
+            <div style="color: #64748b; font-size: 13px;">
+                <i class="fas fa-info-circle"></i> Tip: Only rows with a **Title** will be saved. Empty rows are automatically ignored.
+            </div>
+            <button type="submit" class="btn-action btn-save">
+                <i class="fas fa-save"></i> SAVE TASKS
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    async function loadProjectData(row) {
+        const projectEl = row.querySelector('[name$="-project"]');
+        if (!projectEl) return;
+        const projectId = projectEl.value;
+        const moduleSelect = row.querySelector('select[name$="-module"]');
+        const reqSelect = row.querySelector('select[name$="-requirement"]');
+        const assigneeContainer = row.querySelector('.checkbox-grid-container');
+        
+        // Get form prefix to construct checkbox names correctly
+        const prefix = moduleSelect.name.split('-module')[0];
+
+        if (!projectId) {
+            moduleSelect.innerHTML = '<option value="">---------</option>';
+            reqSelect.innerHTML = '<option value="">---------</option>';
+            if (assigneeContainer) assigneeContainer.innerHTML = '';
+            return;
+        }
+
+        // Show loading
+        row.querySelectorAll('.loading-overlay').forEach(l => l.style.display = 'flex');
+
+        try {
+            const response = await fetch(`/ajax/get-project-data/?project_id=${projectId}`);
+            const data = await response.json();
+
+            // Update Modules
+            let modHtml = '<option value="">---------</option>';
+            data.modules.forEach(m => {
+                modHtml += `<option value="${m.id}">${m.name}</option>`;
+            });
+            moduleSelect.innerHTML = modHtml;
+
+            // Update Requirements
+            let reqHtml = '<option value="">---------</option>';
+            data.requirements.forEach(r => {
+                const label = r.req_id ? `[${r.req_id}] ${r.name}` : r.name;
+                reqHtml += `<option value="${r.id}">${label}</option>`;
+            });
+            reqSelect.innerHTML = reqHtml;
+
+            // Update Assignees as checkboxes
+            let assHtml = '<ul class="checkbox-grid-list">';
+            data.members.forEach((m, index) => {
+                const checkboxId = `id_${prefix}-assignees_${index}`;
+                assHtml += `
+                    <li>
+                        <label class="checkbox-grid-item" for="${checkboxId}">
+                            <input type="checkbox" name="${prefix}-assignees" value="${m.id}" id="${checkboxId}">
+                            <span>${m.display_name}</span>
+                        </label>
+                    </li>`;
+            });
+            assHtml += '</ul>';
+            if (assigneeContainer) assigneeContainer.innerHTML = assHtml;
+
+        } catch (error) {
+            console.error('Error loading project data:', error);
+        } finally {
+            row.querySelectorAll('.loading-overlay').forEach(l => l.style.display = 'none');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const gridBody = document.getElementById('grid-body');
+
+        gridBody.addEventListener('change', (e) => {
+            if (e.target.name && e.target.name.endsWith('-project')) {
+                loadProjectData(e.target.closest('.grid-row'));
+            }
+        });
+
+        // Initialize existing rows
+        document.querySelectorAll('.grid-row').forEach(row => {
+            const projectEl = row.querySelector('[name$="-project"]');
+            if (projectEl && projectEl.value) {
+                loadProjectData(row);
+            }
+        });
+
+        document.getElementById('add-form-row').addEventListener('click', () => {
+            const total = document.getElementById('id_form-TOTAL_FORMS');
+            const count = parseInt(total.value);
+            const template = document.querySelector('.grid-row');
+            const newRow = template.cloneNode(true);
+
+            // Clean up new row
+            newRow.classList.remove('error-row');
+            newRow.querySelectorAll('.error-tooltip').forEach(e => e.remove());
+
+            const regex = /form-\d+-/g;
+            const prefix = `form-${count}-`;
+
+            newRow.querySelectorAll('input, select, textarea').forEach(el => {
+                if (el.name) el.name = el.name.replace(regex, prefix);
+                if (el.id) el.id = el.id.replace(regex, prefix);
+
+                if (el.type !== 'hidden') {
+                    if (el.tagName === 'SELECT') {
+                        el.selectedIndex = 0;
+                        if (el.name.includes('-module') || el.name.includes('-requirement') || el.name.includes('-assignees')) {
+                            el.innerHTML = el.name.includes('-assignees') ? '' : '<option value="">---------</option>';
+                        }
+                    } else {
+                        el.value = '';
+                    }
+                }
+            });
+
+            newRow.querySelector('.col-num').innerText = count + 1;
+            gridBody.appendChild(newRow);
+            total.value = count + 1;
+
+            // Load project data for the new row
+            loadProjectData(newRow);
+        });
+    });
+
+    function removeGridRow(btn) {
+        const row = btn.closest('.grid-row');
+        if (document.querySelectorAll('.grid-row').length > 1) {
+            row.remove();
+            document.querySelectorAll('.grid-row').forEach((r, i) => {
+                r.querySelector('.col-num').innerText = i + 1;
+                const prefix = `form-${i}-`;
+                r.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name) el.name = el.name.replace(/form-(\d+)-/, prefix);
+                    if (el.id) el.id = el.id.replace(/form-(\d+)-/, prefix);
+                });
+            });
+            document.getElementById('id_form-TOTAL_FORMS').value = document.querySelectorAll('.grid-row').length;
+        }
+    }
+</script>
+{% endblock %}

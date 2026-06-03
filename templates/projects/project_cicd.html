@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load task_tags %}
+{% block title %}CI/CD & Releases — {{ project.name }} — IIAP PM{% endblock %}
+{% block page_title %}{{ project.name }} CI/CD & Releases{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back to Project</a>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+    <!-- Pipeline Runs -->
+    <div class="card" style="padding:0;">
+        <div class="card-header" style="padding:14px 20px; border-bottom:1px solid var(--border);">
+            <div class="card-title"><i class="fas fa-satellite-dish" style="color:var(--accent); margin-right:8px;"></i>Recent Pipeline Runs</div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Run Name</th>
+                        <th>Triggered By</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in pipeline_runs %}
+                    <tr>
+                        <td>
+                            <span class="badge {% if run.status == 'passed' %}badge-green{% elif run.status == 'failed' %}badge-red{% elif run.status == 'running' %}badge-blue{% else %}badge-gray{% endif %}" style="font-size:10px;">
+                                {% if run.status == 'running' %}<i class="fas fa-spinner fa-spin"></i> {% endif %}{{ run.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong style="color:var(--text-primary); font-size:13px;">{{ run.name }}</strong>
+                            {% if run.trigger_commit %}<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Commit: {{ run.trigger_commit|truncatechars:10 }}</div>{% endif %}
+                        </td>
+                        <td style="font-size:12px; color:var(--text-muted);">{{ run.triggered_by|default:"System" }}</td>
+                        <td style="font-size:11px; color:var(--text-muted);">{{ run.started_at|date:"M d, H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-paper-plane" style="font-size:24px; color:var(--border);"></i>
+                                <p style="margin-top:10px; font-size:12px;">No pipeline runs detected.</p>
+                                <small style="color:var(--text-muted);">Configure webhooks to track CI/CD status.</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Releases -->
+    <div class="card" style="padding:0;">
+        <div class="card-header" style="padding:14px 20px; border-bottom:1px solid var(--border);">
+            <div class="card-title"><i class="fas fa-box-open" style="color:var(--green); margin-right:8px;"></i>Releases</div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Version</th>
+                        <th>Title</th>
+                        <th>Release Date</th>
+                        <th>Artifacts</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for release in releases %}
+                    <tr>
+                        <td><span class="badge badge-purple" style="font-size:12px;">{{ release.version }}</span></td>
+                        <td>
+                            <strong style="color:var(--text-primary); font-size:13px;">{{ release.title }}</strong>
+                        </td>
+                        <td style="font-size:11px; color:var(--text-muted);">{{ release.release_date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if release.files.count > 0 %}
+                                <a href="{% url 'files:project_files' project.pk %}" style="font-size:11px; color:var(--accent);"><i class="fas fa-cube"></i> {{ release.files.count }} file(s)</a>
+                            {% else %}
+                                <span style="font-size:11px; color:var(--text-muted);">No artifacts</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-tags" style="font-size:24px; color:var(--border);"></i>
+                                <p style="margin-top:10px; font-size:12px;">No releases found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

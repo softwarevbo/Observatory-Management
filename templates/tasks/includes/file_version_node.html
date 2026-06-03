@@ -1,0 +1,9 @@
+<div style="display:flex; align-items:center; gap:8px; font-size:12px;">
+    <i class="fas fa-level-up-alt fa-rotate-90" style="color:var(--text-muted);"></i>
+    <span class="badge badge-gray" style="font-size:9px;">v{{ f.version }}</span>
+    <a href="{% url 'files:file_detail' f.pk %}" style="color:var(--text-secondary); text-decoration:none;">{{ f.display_name }}</a>
+    <span style="color:var(--text-muted); font-size:11px; margin-left:auto;">by {{ f.uploaded_by.display_name }} on {{ f.created_at|date:"d M Y, H:i" }}</span>
+</div>
+{% if f.parent_file %}
+    {% include 'tasks/includes/file_version_node.html' with f=f.parent_file %}
+{% endif %}

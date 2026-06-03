@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="premium-dashboard-container">
+    <div class="page-header-premium">
+        <div class="header-main">
+            <h1 class="header-title">Project Settings</h1>
+            <p class="header-subtitle">Configuration & Control Center for <strong>{{ project.name }}</strong></p>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Project
+            </a>
+        </div>
+    </div>
+
+    <!-- MAIN SETTINGS FORM -->
+    <form method="post" enctype="multipart/form-data" id="premiumSettingsForm">
+        {% csrf_token %}
+        <div class="settings-layout">
+            
+            <div class="settings-main">
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-sliders-h"></i>
+                        <h2>Project Definition</h2>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label-premium">Discipline Module</label>
+                        {{ form.module }}
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-top: 20px;">
+                        <div>
+                            <label class="form-label-premium">Cover Artwork</label>
+                            <div style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px;">
+                                {{ form.image }}
+                            </div>
+                            <div class="preview-box" id="artworkPreview">
+                                {% if project.image %}
+                                    <img src="{{ project.image.url }}" alt="Cover">
+                                {% else %}
+                                    <div style="text-align: center; color: var(--text-muted);">
+                                        <i class="fas fa-image fa-2x" style="opacity: 0.2; margin-bottom: 8px; display: block;"></i>
+                                        <span style="font-size: 11px;">Preview Area</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <div class="form-group">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label class="form-label-premium">Theme Background</label>
+                                    <button type="button" onclick="resetColor('bg')" class="btn-text-only">Default</button>
+                                </div>
+                                <div class="color-swatch">
+                                    <div class="color-indicator" id="bgIndicator" style="background: {{ form.background_color.value|default:'#f4f6f8' }}"></div>
+                                    {{ form.background_color }}
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label class="form-label-premium">Accent Color</label>
+                                    <button type="button" onclick="resetColor('btn')" class="btn-text-only">Default</button>
+                                </div>
+                                <div class="color-swatch">
+                                    <div class="color-indicator" id="btnIndicator" style="background: {{ form.button_color.value|default:'#4f8ef7' }}"></div>
+                                    {{ form.button_color }}
+                                </div>
+                            </div>
+                            <!-- Quick Palette -->
+                            <div class="form-group">
+                                <label class="form-label-premium">Quick Palette</label>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <div class="palette-dot" style="background: #4f8ef7;" onclick="setAccent('#4f8ef7')" title="Classic Blue"></div>
+                                    <div class="palette-dot" style="background: #10b981;" onclick="setAccent('#10b981')" title="Emerald"></div>
+                                    <div class="palette-dot" style="background: #f59e0b;" onclick="setAccent('#f59e0b')" title="Amber"></div>
+                                    <div class="palette-dot" style="background: #ef4444;" onclick="setAccent('#ef4444')" title="Ruby"></div>
+                                    <div class="palette-dot" style="background: #8b5cf6;" onclick="setAccent('#8b5cf6')" title="Purple"></div>
+                                    <div class="palette-dot" style="background: #06b6d4;" onclick="setAccent('#06b6d4')" title="Cyan"></div>
+                                    <div class="palette-dot" style="background: #ec4899;" onclick="setAccent('#ec4899')" title="Pink"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-bell"></i>
+                        <h2>Integrations</h2>
+                    </div>
+                    
+                    <div style="display: grid; gap: 12px;">
+                        <div style="padding: 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 16px;">
+                            <i class="fas fa-envelope-open-text" style="font-size: 20px; color: var(--accent);"></i>
+                            <div style="flex: 1;">
+                                <div style="font-size: 13px; font-weight: 600;">System Notifications</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Managed via global account preferences.</div>
+                            </div>
+                            <span class="badge badge-green">ACTIVE</span>
+                        </div>
+                        <div style="padding: 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 16px;">
+                            <i class="fab fa-google" style="font-size: 20px; color: #4285F4;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-size: 13px; font-weight: 600;">Google Calendar</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Sync project milestones to calendar.</div>
+                            </div>
+                            <span class="badge badge-green">CONNECTED</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-sidebar">
+
+
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-shield-alt"></i>
+                        <h2>Governance</h2>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label-premium">Privacy Level</label>
+                        {{ form.visibility }}
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label-premium">Project Incharge</label>
+                        {{ form.project_incharge }}
+                        <p style="font-size: 10px; color: var(--text-muted); margin-top: 5px;">Primary person responsible for project execution.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label-premium">Authorized Managers</label>
+                        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px;">Select users with administrative rights for this project.</p>
+                        <div style="max-height: 200px; overflow-y: auto; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            {{ form.managers }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-database"></i>
+                        <h2>Data Assets</h2>
+                    </div>
+                    
+                    <div class="tab-header" style="display: flex; gap: 12px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                        <a href="javascript:void(0)" onclick="switchTab('tasks')" id="t-tasks" style="font-size: 11px; font-weight: 700; color: var(--accent); text-decoration: none;">TASKS</a>
+                        <a href="javascript:void(0)" onclick="switchTab('reqs')" id="t-reqs" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-decoration: none;">REQUIREMENTS</a>
+                        <a href="javascript:void(0)" onclick="switchTab('tests')" id="t-tests" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-decoration: none;">TEST CASES</a>
+                        <a href="javascript:void(0)" onclick="switchTab('bugs')" id="t-bugs" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-decoration: none;">BUGS</a>
+                    </div>
+
+                    <div id="c-tasks" class="tab-content" style="max-height: 250px; overflow-y: auto;">
+                        {% for task in tasks %}
+                        <div class="asset-list-item">
+                            <span style="font-size: 12px; font-weight: 500;">{{ task.title }}</span>
+                            <button type="button" class="btn btn-danger btn-xs" onclick="confirmAction('{% url 'tasks:task_delete' task.pk %}', 'Task: {{ task.title|escapejs }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">No tasks found.</div>
+                        {% endfor %}
+                    </div>
+                    <div id="c-reqs" class="tab-content" style="display: none; max-height: 250px; overflow-y: auto;">
+                        {% for req in requirements %}
+                        <div class="asset-list-item">
+                            <span style="font-size: 12px; font-weight: 500;">{{ req.name }}</span>
+                            <button type="button" class="btn btn-danger btn-xs" onclick="confirmAction('{% url 'tasks:requirement_delete' req.pk %}', 'Requirement: {{ req.name|escapejs }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">No requirements found.</div>
+                        {% endfor %}
+                    </div>
+                    <div id="c-tests" class="tab-content" style="display: none; max-height: 250px; overflow-y: auto;">
+                        {% for tc in test_cases %}
+                        <div class="asset-list-item">
+                            <span style="font-size: 12px; font-weight: 500;">{{ tc.title }}</span>
+                            <button type="button" class="btn btn-danger btn-xs" onclick="confirmAction('{% url 'tasks:test_case_delete' tc.pk %}', 'Test Case: {{ tc.title|escapejs }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">No test cases found.</div>
+                        {% endfor %}
+                    </div>
+                    <div id="c-bugs" class="tab-content" style="display: none; max-height: 250px; overflow-y: auto;">
+                        {% for bug in bugs %}
+                        <div class="asset-list-item">
+                            <span style="font-size: 12px; font-weight: 500;">{{ bug.title }}</span>
+                            <button type="button" class="btn btn-danger btn-xs" onclick="confirmAction('{% url 'tasks:bug_delete' bug.pk %}', 'Bug: {{ bug.title|escapejs }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">No bugs found.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="danger-zone">
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--red); margin-bottom: 12px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3 style="font-size: 12px; font-weight: 700; margin: 0; text-transform: uppercase;">System Safety</h3>
+                    </div>
+                    
+                    <div class="danger-item">
+                        <div>
+                            <div style="font-size: 13px; font-weight: 600;">Archive Project</div>
+                            <div style="font-size: 10px; color: var(--text-muted);">Deprioritize from active workspace</div>
+                        </div>
+                        <button type="button" onclick="document.getElementById('archiveForm').submit();" class="btn btn-secondary btn-sm">Archive</button>
+                    </div>
+
+                    <div class="danger-item">
+                        <div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--red);">Purge Workspace</div>
+                            <div style="font-size: 10px; color: var(--text-muted);">Irreversible data removal</div>
+                        </div>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="openDeleteModal()">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sticky-footer">
+            <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary">Discard</a>
+            <button type="submit" class="btn btn-primary" style="padding-left: 30px; padding-right: 30px;">
+                <i class="fas fa-save"></i> Commit Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- HIDDEN ACTION FORMS (Outside main form to avoid nesting) -->
+<form id="globalActionForm" method="post" action="" style="display: none;">
+    {% csrf_token %}
+</form>
+
+<form id="archiveForm" method="post" action="{% url 'tasks:project_archive' project.pk %}" style="display: none;">
+    {% csrf_token %}
+</form>
+
+<form id="realDeleteForm" method="post" action="{% url 'tasks:project_delete' project.pk %}" style="display: none;">
+    {% csrf_token %}
+</form>
+
+<!-- Verification Modal -->
+<div class="modal-overlay" id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 10000; justify-content: center; align-items: center;">
+    <div class="modal-card" style="background: var(--bg-card); border: 1px solid var(--red); border-radius: 16px; padding: 32px; width: 100%; max-width: 480px; box-shadow: 0 24px 64px rgba(0,0,0,0.5);">
+        <h2 style="color: var(--red); margin-top: 0;">Confirm Irreversible Deletion</h2>
+        <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">You are about to permanently delete <strong>{{ project.name }}</strong> and all its associated tasks, requirements, and files. This action cannot be undone.</p>
+        
+        <div style="background: #2d1a1a; border-radius: 8px; padding: 16px; margin: 20px 0; border: 1px solid #4d2a2a;">
+            <p style="font-size: 11px; text-transform: uppercase; color: var(--red); font-weight: 700; margin-bottom: 8px;">Verification Required</p>
+            <p style="font-size: 13px; margin-bottom: 12px;">Please type <code style="background: #1a1111; padding: 2px 6px; border-radius: 4px; color: #fff;">DELETE {{ project.name|upper }}</code> to confirm:</p>
+            <input type="text" id="confirmInput" class="form-control" placeholder="Type verification phrase..." style="background: #1a1111; border-color: #4d2a2a; color: #fff;">
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 32px;">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()" style="flex: 1;">Cancel</button>
+            <button type="button" id="deleteBtn" class="btn btn-danger" onclick="document.getElementById('realDeleteForm').submit();" disabled style="flex: 1;">Purge Project</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .settings-layout { display: grid; grid-template-columns: 1fr 400px; gap: 24px; margin-bottom: 100px; }
+    .form-glass-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm); }
+    .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); }
+    .section-header i { font-size: 18px; color: var(--accent); }
+    .section-header h2 { font-size: 16px; font-weight: 700; margin: 0; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .form-group { margin-bottom: 20px; }
+    .form-label-premium { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px; }
+    .form-control { width: 100%; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text-primary); transition: all 0.2s; }
+    .form-control:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(79,142,247,0.1); }
+    
+    .color-swatch { display: flex; align-items: center; gap: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
+    .color-indicator { width: 32px; height: 32px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+    .preview-box { width: 100%; height: 120px; margin-top: 12px; border-radius: var(--radius-sm); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000; }
+    .preview-box img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .asset-list-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; transition: all 0.2s; }
+    .asset-list-item:hover { border-color: var(--border-light); background: rgba(255,255,255,0.02); }
+    
+    .danger-zone { margin-top: 12px; padding: 20px; background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--radius); }
+    .danger-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(239,68,68,0.1); }
+    .danger-item:last-child { border-bottom: none; }
+    
+    .sticky-footer { position: fixed; bottom: 0; left: var(--sidebar-width); right: 0; background: var(--bg-card); border-top: 1px solid var(--border); padding: 20px 40px; display: flex; justify-content: flex-end; gap: 16px; z-index: 900; box-shadow: var(--shadow); }
+    
+    .badge-green { background: rgba(34,197,94,0.1); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
+
+    .btn-text-only { background: none; border: none; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase; cursor: pointer; padding: 0; transition: opacity 0.2s; }
+    .btn-text-only:hover { opacity: 0.7; }
+    
+    .palette-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
+    .palette-dot:hover { transform: scale(1.2); border-color: var(--accent); }
+    
+    /* Responsive */
+    @media (max-width: 1200px) { .settings-layout { grid-template-columns: 1fr; } .settings-sidebar { width: 100%; } }
+</style>
+
+<script>
+    function confirmAction(url, title) {
+        if(confirm('Are you sure you want to delete/archive ' + title + '?')) {
+            const form = document.getElementById('globalActionForm');
+            form.action = url;
+            form.submit();
+        }
+    }
+
+    // Artwork preview
+    const imgInp = document.getElementById('id_image');
+    const prvBox = document.getElementById('artworkPreview');
+    if(imgInp) {
+        imgInp.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => prvBox.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+
+    // Color indicators
+    const bgInp = document.getElementById('id_background_color');
+    const btnInp = document.getElementById('id_button_color');
+    const bgInd = document.getElementById('bgIndicator');
+    const btnInd = document.getElementById('btnIndicator');
+
+    if(bgInp) bgInp.addEventListener('input', e => bgInd.style.background = e.target.value);
+    if(btnInp) btnInp.addEventListener('input', e => btnInd.style.background = e.target.value);
+
+    // Modal logic
+    const delMod = document.getElementById('deleteModal');
+    const confInp = document.getElementById('confirmInput');
+    const delBtn = document.getElementById('deleteBtn');
+    const target = "DELETE {{ project.name|upper }}";
+
+    function openDeleteModal() { delMod.style.display = 'flex'; confInp.focus(); }
+    function closeDeleteModal() { delMod.style.display = 'none'; }
+
+    confInp.addEventListener('input', e => {
+        delBtn.disabled = e.target.value !== target;
+    });
+
+    // Color resetting
+    function resetColor(type) {
+        if(type === 'bg') {
+            bgInp.value = '#f4f6f8';
+            bgInd.style.background = '#f4f6f8';
+        } else {
+            btnInp.value = '#4f8ef7';
+            btnInd.style.background = '#4f8ef7';
+        }
+    }
+
+    function setAccent(color) {
+        if(btnInp) {
+            btnInp.value = color;
+            btnInd.style.background = color;
+        }
+    }
+
+    // Tab logic
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+        document.querySelectorAll('.tab-header a').forEach(a => a.style.color = 'var(--text-muted)');
+        document.getElementById('c-' + tab).style.display = 'block';
+        document.getElementById('t-' + tab).style.color = 'var(--accent)';
+    }
+</script>
+{% endblock %}

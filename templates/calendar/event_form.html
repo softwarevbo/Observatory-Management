@@ -1,0 +1,456 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .event-form-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+    .form-section-title {
+        padding: 16px 20px;
+        background: rgba(var(--accent-rgb), 0.05);
+        border-bottom: 1px solid var(--border);
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--accent);
+    }
+
+    .card-body {
+        padding: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+    }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .attendee-list {
+        max-height: 250px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 4px;
+    }
+
+    .attendee-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .attendee-item:hover {
+        border-color: var(--accent);
+    }
+
+    .attendee-item.checked {
+        background: rgba(var(--accent-rgb), 0.1);
+        border-color: var(--accent);
+    }
+
+    .sticky-actions {
+        position: sticky;
+        bottom: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        background: var(--bg-card);
+        padding: 16px 24px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        z-index: 100;
+        margin-top: 24px;
+    }
+
+    /* Preview Component */
+    .preview-box {
+        position: sticky;
+        top: 100px;
+    }
+
+    .event-card-preview {
+        padding: 20px;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 700;
+        opacity: 0.8;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+        display: block;
+    }
+
+    .preview-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        line-height: 1.2;
+    }
+
+    .preview-detail {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        margin-bottom: 6px;
+        opacity: 0.9;
+    }
+
+    @media (max-width: 900px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        .preview-box {
+            position: static;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="event-form-container">
+    <div style="margin-bottom: 24px;">
+        <nav style="display:flex; gap:8px; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+            <a href="{% url 'tasks:calendar' %}" style="color:inherit;">Calendar</a>
+            <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+            <span>{{ title }}</span>
+        </nav>
+        <h1 style="font-size: 28px; font-weight: 800;">{{ title }}</h1>
+    </div>
+
+    <form method="POST" id="eventForm">
+        {% csrf_token %}
+        
+        <div class="form-grid">
+            <!-- LEFT COLUMN -->
+            <div>
+                <!-- 1. Basics -->
+                <div class="card">
+                    <div class="form-section-title">
+                        <i class="fas fa-info-circle"></i> Basic Information
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">Title <span style="color:var(--red)">*</span></label>
+                            {{ form.title }}
+                            {% if form.title.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.title.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            {{ form.description }}
+                        </div>
+
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Type</label>
+                                {{ form.event_type }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Display Color</label>
+                                {{ form.color }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Logistics -->
+                <div class="card">
+                    <div class="form-section-title">
+                        <i class="fas fa-clock"></i> Schedule & Logistics
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Starts <span style="color:var(--red)">*</span></label>
+                                {{ form.start_datetime }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Ends <span style="color:var(--red)">*</span></label>
+                                {{ form.end_datetime }}
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label class="form-label">Location / Room</label>
+                            {{ form.location }}
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:6px;">
+                                <i class="fas fa-map-marker-alt"></i> Where will this event take place?
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Virtual Meeting -->
+                <div class="card">
+                    <div class="form-section-title">
+                        <i class="fas fa-video"></i> Virtual Meeting (Optional)
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">Meeting Link</label>
+                            {{ form.meeting_link }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Meeting Password</label>
+                            {{ form.meeting_password }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div>
+                <!-- 4. Project Link -->
+                <div class="card">
+                    <div class="form-section-title">
+                        <i class="fas fa-project-diagram"></i> Contextual Links
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">Project</label>
+                            {{ form.project }}
+                            <p style="font-size:10px; color:var(--text-muted); margin-top:4px;">Events can be tied to specific projects.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Task Link</label>
+                            {{ form.task }}
+                            <p id="task-loading" style="font-size:10px; color:var(--accent); display:none; margin-top:4px;">
+                                <i class="fas fa-spinner fa-spin"></i> Loading tasks for selected project...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Attendees -->
+                <div class="card">
+                    <div class="form-section-title">
+                        <i class="fas fa-users"></i> Attendees
+                    </div>
+                    <div class="card-body">
+                        <div class="attendee-list">
+                            {% for value, text in form.attendees.field.choices %}
+                            <label class="attendee-item">
+                                <input type="checkbox" name="attendees" value="{{ value }}" 
+                                    {% if value|stringformat:'s' in form.attendees.value|stringformat:'s' %}checked{% endif %}
+                                    style="margin-right: 12px;">
+                                <span style="font-size: 13px; font-weight: 500;">{{ text }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="preview-box">
+                    <div id="previewCard" class="event-card-preview" style="background: var(--accent);">
+                        <span class="preview-label" id="previewType">Meeting</span>
+                        <div class="preview-title" id="previewTitle">Event Preview</div>
+                        <div class="preview-detail">
+                            <i class="fas fa-clock"></i> <span id="previewTime">Not set</span>
+                        </div>
+                        <div class="preview-detail" id="previewLocRow">
+                            <i class="fas fa-map-marker-alt"></i> <span id="previewLoc">No location</span>
+                        </div>
+                        <div class="preview-detail" id="previewProjRow" style="display:none;">
+                            <i class="fas fa-project-diagram"></i> <span id="previewProj">Project Name</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sticky-actions">
+            <a href="{% url 'tasks:calendar' %}" class="btn btn-secondary">Cancel</a>
+            
+            {% if event %}
+                <a href="{% url 'tasks:event_delete' event.id %}" class="btn btn-outline-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </a>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-primary" style="padding: 10px 32px;">
+                <i class="fas fa-check"></i> {{ action }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const projectSel = document.getElementById('id_event_project');
+    const taskSel = document.getElementById('id_event_task');
+    const taskLoading = document.getElementById('task-loading');
+
+    // Preview Elements
+    const titleInp = document.getElementById('id_title');
+    const typeInp = document.getElementById('id_event_type');
+    const colorInp = document.getElementById('id_color');
+    const startInp = document.getElementById('id_start_datetime');
+    const locInp = document.getElementById('id_location');
+
+    const pTitle = document.getElementById('previewTitle');
+    const pType = document.getElementById('previewType');
+    const pCard = document.getElementById('previewCard');
+    const pTime = document.getElementById('previewTime');
+    const pLoc = document.getElementById('previewLoc');
+    const pLocRow = document.getElementById('previewLocRow');
+    const pProj = document.getElementById('previewProj');
+    const pProjRow = document.getElementById('previewProjRow');
+
+    function updatePreview() {
+        pTitle.textContent = titleInp.value || 'Untitled Event';
+        pType.textContent = typeInp.options[typeInp.selectedIndex].text;
+        pCard.style.background = colorInp.value;
+        
+        if (startInp.value) {
+            const d = new Date(startInp.value);
+            pTime.textContent = d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } else {
+            pTime.textContent = 'Not set';
+        }
+
+        if (locInp.value) {
+            pLoc.textContent = locInp.value;
+            pLocRow.style.display = 'flex';
+        } else {
+            pLocRow.style.display = 'none';
+        }
+
+        if (projectSel.value && projectSel.selectedIndex > 0) {
+            pProj.textContent = projectSel.options[projectSel.selectedIndex].text;
+            pProjRow.style.display = 'flex';
+        } else {
+            pProjRow.style.display = 'none';
+        }
+    }
+
+    function loadTasks(projectId, selectedTaskId = null) {
+        if (!projectId) {
+            taskSel.innerHTML = '<option value="">— Select Project First —</option>';
+            taskSel.disabled = true;
+            return;
+        }
+
+        taskSel.disabled = true;
+        taskLoading.style.display = 'block';
+
+        fetch(`/api/tasks-for-project/?project_id=${projectId}`)
+            .then(res => res.json())
+            .then(data => {
+                taskSel.innerHTML = '<option value="">— No task link —</option>';
+                (data.tasks || []).forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = `[${t.task_id}] ${t.title}`;
+                    if (String(t.id) === String(selectedTaskId)) opt.selected = true;
+                    taskSel.appendChild(opt);
+                });
+                taskSel.disabled = false;
+                taskLoading.style.display = 'none';
+            })
+            .catch(err => {
+                console.error('Error loading tasks:', err);
+                taskLoading.innerHTML = '<i class="fas fa-times"></i> Error loading tasks';
+            });
+    }
+
+    // Initial setup
+    [titleInp, typeInp, colorInp, startInp, locInp, projectSel].forEach(el => {
+        el.addEventListener('input', updatePreview);
+    });
+
+    projectSel.addEventListener('change', function() {
+        loadTasks(this.value);
+        updatePreview();
+    });
+
+    // Checkboxes
+    document.querySelectorAll('.attendee-item input').forEach(cb => {
+        cb.addEventListener('change', function() {
+            if (this.checked) this.parentElement.classList.add('checked');
+            else this.parentElement.classList.remove('checked');
+        });
+    });
+
+    // Load initial tasks if editing
+    {% if form.instance.pk and form.instance.project %}
+        loadTasks("{{ form.instance.project.id }}", "{{ form.instance.task.id|default:'' }}");
+    {% endif %}
+
+    updatePreview();
+</script>
+{% endblock %}

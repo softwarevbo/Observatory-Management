@@ -1,0 +1,263 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Stock Transfer Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Stock Transfer Management
+</h1>
+
+<div class="row g-4">
+    <div class="col-lg-5 col-md-12">
+        <div class="card h-100">
+            <div class="text-center mb-4">
+                <h2 class="mb-0">Inter-Branch Transfer</h2>
+                <p>Transfer items between institutional branches</p>
+            </div>
+            
+            <form method="post" autocomplete="off" id="transferForm">
+                {% csrf_token %}
+                
+                <div class="mb-4 position-relative">
+                    <label for="product_search" class="form-label">Product Name</label>
+                    <input type="text" class="form-control" id="product_search" placeholder="Type to search products..." autocomplete="off" required>
+                    <input type="hidden" name="product_id" id="product_id">
+                    <div id="productList" class="list-group position-absolute w-100 mt-1 shadow" style="z-index: 1000; max-height: 250px; overflow-y: auto;"></div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <label for="from_branch" class="form-label">From Branch</label>
+                        <select class="form-select" id="from_branch" name="from_branch" required>
+                            <option value="">Select Source</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}" {% if request.user.branch == branch %}selected{% endif %}>{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <label for="to_branch" class="form-label">To Branch</label>
+                        <select class="form-select" id="to_branch" name="to_branch" required>
+                            <option value="">Select Destination</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" placeholder="Enter quantity" required>
+                </div>
+
+                <div class="mb-4">
+                    <label for="description" class="form-label">Transfer Notes</label>
+                    <textarea class="form-control" id="description" name="description" rows="2" placeholder="Reason for transfer (optional)"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-3">
+                    <i class="fas fa-exchange-alt me-2"></i> Execute Transfer
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-7 col-md-12">
+        <!-- New Inbound Section -->
+        {% if request.user.branch %}
+        <div class="card mb-4 border-warning">
+            <h5 class="card-header bg-warning text-dark"><i class="fas fa-truck-loading me-2"></i> Pending Inbound to {{ request.user.branch.code }}</h5>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>From</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in transfers %}
+                                {% if entry.status == 'pending' and entry.to_branch == request.user.branch %}
+                                <tr>
+                                    <td><strong>{{ entry.product.name }}</strong></td>
+                                    <td>{{ entry.quantity }}</td>
+                                    <td>{{ entry.from_branch.code }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-xs btn-success py-0" data-bs-toggle="modal" data-bs-target="#receiveModal{{ entry.id }}">
+                                            Receive
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card h-100">
+            <h2 class="section-title">Transfer History</h2>
+            
+            {% if transfers %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Route</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in transfers %}
+                            <tr>
+                                <td>
+                                    <strong class="text-primary">{{ entry.product.name }}</strong>
+                                    <div class="small text-muted">SN: {{ entry.product.serial_number|default:"-" }}</div>
+                                </td>
+                                <td><span class="badge bg-primary">{{ entry.quantity }}</span></td>
+                                <td>
+                                    <div class="small fw-bold">{{ entry.from_branch.code }} → {{ entry.to_branch.code }}</div>
+                                </td>
+                                <td>
+                                    {% if entry.status == "pending" %}
+                                        <span class="badge bg-warning text-dark">In Transit</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Received</span>
+                                        <div class="small text-muted" style="font-size: 10px;">{{ entry.rack_number }}/{{ entry.shelf_number }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small">{{ entry.created_at|date:'M d, Y' }}</div>
+                                </td>
+                                <td>
+                                    {% if entry.status == "pending" %}
+                                        {% if request.user.is_super_admin or request.user.branch == entry.to_branch %}
+                                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#receiveModal{{ entry.id }}">
+                                            Receive
+                                        </button>
+                                        
+                                        <!-- Receive Modal -->
+                                        <div class="modal fade" id="receiveModal{{ entry.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Receive Inventory</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form method="post" action="{% url 'stock-transfer-receive' entry.id %}">
+                                                        {% csrf_token %}
+                                                        <div class="modal-body text-start">
+                                                            <p>Assign storage location for <strong>{{ entry.product.name }}</strong> ({{ entry.quantity }} units).</p>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Rack Number</label>
+                                                                <input type="text" name="rack_number" class="form-control" placeholder="e.g. R-01" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Shelf Number</label>
+                                                                <input type="text" name="shelf_number" class="form-control" placeholder="e.g. S-05" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">SKU (Optional)</label>
+                                                                <input type="text" name="sku" class="form-control" placeholder="Verify or enter SKU" value="{{ entry.product.sku|default:'' }}">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                            <button type="submit" class="btn btn-success">Complete Receipt</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted small">Awaiting Receipt</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% include 'pagination.html' %}
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-exchange-alt fa-3x mb-3 opacity-25"></i>
+                    <p>No transfer history found.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const products = [
+            {% for p in transfer_products %}
+            {
+                id: {{ p.id }}, 
+                name: "{{ p.name|escapejs }}", 
+                sku: "{{ p.sku|escapejs }}", 
+                branch: "{{ p.branch_name|escapejs }}", 
+                branch_id: "{{ p.branch_id }}",
+                quantity: {{ p.quantity }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        const input = document.getElementById('product_search');
+        const productList = document.getElementById('productList');
+        const productIdInput = document.getElementById('product_id');
+        const fromBranchSelect = document.getElementById('from_branch');
+        
+        input.addEventListener('input', function() {
+            const val = this.value.toLowerCase();
+            productList.innerHTML = '';
+            if (val.length === 0) return;
+            
+            const matches = products.filter(function(p) { 
+                return p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val); 
+            });
+            
+            matches.slice(0, 10).forEach(function(p) {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `<div class="d-flex justify-content-between align-items-center">
+                                      <div><strong>${p.name}</strong>${p.sku ? `<br><small class="text-muted">SKU: ${p.sku}</small>` : ''}</div>
+                                      <div class="text-end">
+                                          <span class="badge bg-secondary mb-1" style="font-size: 0.7rem;">${p.branch}</span>
+                                          <div class="small text-success fw-bold">Qty: ${p.quantity}</div>
+                                      </div>
+                                  </div>`;
+                item.onclick = function() {
+                    input.value = p.name;
+                    productIdInput.value = p.id;
+                    productList.innerHTML = '';
+                    if (p.branch_id) {
+                        fromBranchSelect.value = p.branch_id;
+                    }
+                };
+                productList.appendChild(item);
+            });
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !productList.contains(e.target)) {
+                productList.innerHTML = '';
+            }
+        });
+    });
+</script>
+{% endblock %}

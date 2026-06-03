@@ -1,0 +1,114 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Super Admin Dashboard | IIA Inventory{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title mb-0">Super Admin Control Center</h1>
+    <a href="{% url 'inventory-branches' %}" class="btn btn-primary">Manage Branches</a>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title">Total Branches</h5>
+                <h2 class="display-5 mb-0">{{ total_branches }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title">Total Products</h5>
+                <h2 class="display-5 mb-0">{{ total_products }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title">Global Stock Level</h5>
+                <h2 class="display-5 mb-0">{{ current_total_stock }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <h5 class="card-title">Active Users</h5>
+                <h2 class="display-5 mb-0">{{ total_users }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Branch-wise Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Branch Name</th>
+                                <th>Code</th>
+                                <th>Users</th>
+                                <th>Products in Stock</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in branches %}
+                            <tr>
+                                <td><strong>{{ b.name }}</strong></td>
+                                <td><span class="badge bg-secondary">{{ b.code|upper }}</span></td>
+                                <td>{{ b.user_count }}</td>
+                                <td>{{ b.product_count }}</td>
+                                <td>
+                                    <a href="#" class="btn btn-sm btn-outline-primary">View Stock</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No branches configured.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Recent Global Activities</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for log in recent_activities %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ log.action }}</h6>
+                            <small class="text-muted">{{ log.timestamp|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1 text-muted small">
+                            <span class="fw-bold">{{ log.user.username }}</span> performed action on {{ log.model_name }}.
+                        </p>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        No recent activities.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

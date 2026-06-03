@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load task_tags %}
+{% block title %}Finances — {{ project.name }} — IIAP PM{% endblock %}
+{% block page_title %}{{ project.name }} Finances{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back to Project</a>
+{% if user.is_admin or user.is_project_manager %}
+<a href="{% url 'finance:expense_create' project.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Track Expense</a>
+<a href="{% url 'finance:budget_edit' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit Budget</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- STATS ROW -->
+<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--text-muted);">
+            ₹{{ budget.total_amount|default:"0.00" }}
+        </div>
+        <div style="font-size:11px; color:var(--text-muted);">Total Budget</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--red);">
+            ₹{{ budget.total_expenses|default:"0.00" }}
+        </div>
+        <div style="font-size:11px; color:var(--text-muted);">Total Expenses</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--green);">
+            ₹{{ budget.remaining_budget|default:"0.00" }}
+        </div>
+        <div style="font-size:11px; color:var(--text-muted);">Remaining Budget</div>
+    </div>
+</div>
+
+<div class="card" style="padding:0;">
+    <div class="card-header" style="padding:14px 20px; border-bottom:1px solid var(--border);">
+        <div class="card-title"><i class="fas fa-wallet" style="color:var(--accent); margin-right:8px;"></i>Expenses Log</div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Expense Title</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Logged By</th>
+                    <th>Receipt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td>
+                        <strong style="color:var(--text-primary); font-size:13px;">{{ expense.title }}</strong>
+                        {% if expense.description %}<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">{{ expense.description|truncatewords:10 }}</div>{% endif %}
+                    </td>
+                    <td>
+                        <span class="badge badge-blue" style="font-size:10px;">{{ expense.get_category_display }}</span>
+                    </td>
+                    <td><strong style="color:var(--text-primary); font-size:13px;">₹{{ expense.amount }}</strong></td>
+                    <td style="font-size:12px; color:var(--text-muted);">{{ expense.date_incurred|date:"M d, Y" }}</td>
+                    <td style="font-size:12px;">{{ expense.logged_by.display_name }}</td>
+                    <td>
+                        {% if expense.receipt %}
+                            <a href="{{ expense.receipt.file.url }}" target="_blank" class="btn btn-secondary btn-sm" title="Download Receipt"><i class="fas fa-file-download"></i></a>
+                        {% else %}
+                            <span style="color:var(--text-muted); font-size:11px;">No receipt</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="fas fa-receipt"></i>
+                            <h3>No expenses tracked</h3>
+                            <p>Expenses added by Project Managers will appear here.</p>
+                            {% if user.is_admin or user.is_project_manager %}
+                            <a href="{% url 'finance:expense_create' project.pk %}" class="btn btn-primary" style="margin-top:12px;"><i class="fas fa-plus"></i> Track Expense</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

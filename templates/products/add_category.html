@@ -1,0 +1,49 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Add Category - Inventory Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Add New Category
+</h1>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+        <div class="card">
+            <div class="text-center mb-4">
+                
+                <h2 class="mb-0" style="font-family: 'Space Grotesk', sans-serif;">Category Details</h2>
+                <p class="text-muted">Create a new organizational bucket for your products</p>
+            </div>
+            
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label for="name" class="form-label">Category Name</label>
+                    <input type="text" class="form-control" id="name" name="name" placeholder="Enter category name" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="3" placeholder="Enter category description"></textarea>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="image" class="form-label">Category Image (Optional)</label>
+                    <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-5">
+                    <a href="{% url 'categories' %}" class="btn btn-secondary me-md-2">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        Save Category
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

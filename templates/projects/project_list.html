@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% block title %}Projects — IIAP PM{% endblock %}
+{% block page_title %}Projects{% endblock %}
+
+{% block extra_css %}
+<style>
+    .project-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 24px;
+        margin-top: 24px;
+    }
+
+    .project-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        transition: var(--transition);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        box-shadow: var(--shadow);
+    }
+
+    .project-card:hover {
+        transform: translateY(-4px);
+        border-color: var(--accent);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .project-image {
+        width: 100%;
+        height: 160px;
+        position: relative;
+        overflow: hidden;
+        background: var(--bg-primary);
+    }
+
+    .project-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .project-card:hover .project-image img {
+        transform: scale(1.05);
+    }
+
+    .project-image-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, transparent, rgba(15, 17, 26, 0.6));
+    }
+
+    .project-content {
+        padding: 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .project-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+        text-decoration: none;
+    }
+
+    .project-id {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+
+    .project-description {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 16px;
+        flex: 1;
+    }
+
+    .project-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-top: 15px;
+        border-top: 1px solid var(--border-light);
+        margin-top: auto;
+    }
+
+    .project-stats {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .filter-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+    }
+
+    .search-input-premium {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 12px 10px 40px;
+        color: var(--text-primary);
+        width: 100%;
+        transition: var(--transition);
+        outline: none;
+    }
+
+    .search-input-premium:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .filter-select-premium {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 9px 12px;
+        color: var(--text-primary);
+        font-size: 13px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .project-badge-container {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        display: flex;
+        gap: 6px;
+        z-index: 10;
+    }
+
+    .action-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 30px;">
+    <div class="page-header-left">
+        <h1 class="page-title" style="margin-bottom: 4px !important;">Workspace Projects</h1>
+        <p style="color: var(--text-muted); font-size: 14px;">Browse and manage active initiatives across the workspace.</p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <div style="display: flex; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px;">
+            <a href="{% url 'tasks:project_list' %}" class="btn {% if request.GET.archived != '1' and request.GET.deletion_requested != '1' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm" style="border: none;">Active</a>
+            <a href="{% url 'tasks:project_list' %}?archived=1" class="btn {% if request.GET.archived == '1' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm" style="border: none;">Archived</a>
+            {% if user.is_admin or user.is_project_manager %}
+            <a href="{% url 'tasks:project_list' %}?deletion_requested=1" class="btn {% if request.GET.deletion_requested == '1' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm" style="border: none;">Deletion Pending</a>
+            {% endif %}
+        </div>
+        {% if user.is_project_manager %}
+        <a href="{% url 'tasks:project_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Project</a>
+        {% endif %}
+    </div>
+</div>
+
+<form method="get" class="filter-section">
+    <div style="flex: 1; min-width: 250px; position: relative;">
+        <i class="fas fa-search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        <input type="text" name="q" placeholder="Search projects..." value="{{ search }}" class="search-input-premium">
+    </div>
+    <select name="module" class="filter-select-premium" onchange="this.form.submit()">
+        <option value="">All Modules</option>
+        {% for val, label in module_choices %}
+        <option value="{{ val }}" {% if module_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="status" class="filter-select-premium" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    {% if search or module_filter or status_filter %}
+    <a href="{% url 'tasks:project_list' %}" class="btn btn-secondary btn-icon btn-sm" title="Clear Filters"><i class="fas fa-times"></i></a>
+    {% endif %}
+</form>
+
+{% if projects %}
+<div class="project-grid">
+    {% for project in projects %}
+    <div class="project-card">
+        <div class="project-badge-container">
+            <span class="badge {% if project.module == 'electronics' %}badge-blue{% elif project.module == 'software' %}badge-green{% elif project.module == 'mechanical' %}badge-yellow{% elif project.module == 'optics' %}badge-cyan{% else %}badge-purple{% endif %}">
+                {{ project.get_module_display }}
+            </span>
+            <span class="badge {% if project.status == 'active' %}badge-green{% elif project.status == 'planning' %}badge-blue{% elif project.status == 'on_hold' %}badge-yellow{% elif project.status == 'completed' %}badge-gray{% else %}badge-red{% endif %}">
+                {{ project.get_status_display }}
+            </span>
+        </div>
+
+        <div class="project-image">
+            {% if project.image %}
+                <img src="{{ project.image.url }}" alt="{{ project.name }}">
+            {% else %}
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0.1;">
+                    <i class="fas fa-folder-open fa-3x"></i>
+                </div>
+            {% endif %}
+            <div class="project-image-overlay"></div>
+        </div>
+
+        <div class="project-content">
+            <div class="project-id">ID: {{ project.project_id|default:project.pk }}</div>
+            <a href="{% url 'tasks:project_detail' project.pk %}" class="project-title">{{ project.name }}</a>
+            <p class="project-description">{{ project.description|truncatewords:15|default:"No description provided." }}</p>
+
+            <div class="project-stats">
+                <div class="stat-item">
+                    <i class="fas fa-tasks"></i>
+                    <span>{{ project.task_count }} Tasks</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-users"></i>
+                    <span>{{ project.members.count|default:"0" }} Members</span>
+                </div>
+            </div>
+
+            <div class="progress-wrap" style="margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+                    <span style="color: var(--text-muted); font-weight: 600;">WORKSPACE COMPLETION</span>
+                    <span style="color: var(--accent); font-weight: 700;">{{ project.progress }}%</span>
+                </div>
+                <div class="progress-bar" style="height: 4px; background: var(--bg-primary);">
+                    <div class="progress-fill" style="width: {{ project.progress }}%; background: var(--accent);"></div>
+                </div>
+            </div>
+
+            <div class="project-meta">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    {% if project.managers.first %}
+                    <div class="avatar" style="background: {{ project.managers.first.avatar_color }}; width: 24px; height: 24px; font-size: 9px;">{{ project.managers.first.initials }}</div>
+                    <span style="font-size: 12px; color: var(--text-primary); font-weight: 600;">{{ project.managers.first.display_name }}</span>
+                    {% endif %}
+                </div>
+                <div style="margin-left: auto; font-size: 11px; color: var(--text-muted);">
+                    <i class="far fa-calendar-alt"></i> {{ project.end_date|date:"M d" }}
+                </div>
+            </div>
+
+            <div class="action-row">
+                <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm" style="flex: 1; justify-content: center;">Overview</a>
+                {% if user.is_admin or user.is_project_manager or user in project.managers.all or user in project.members.all %}
+                <a href="{% url 'files:manage_resource' %}?project_id={{ project.pk }}" class="btn btn-secondary btn-icon btn-sm" title="Manage Resources" style="color: var(--accent);"><i class="fas fa-tools"></i></a>
+                {% endif %}
+                {% if project.is_archived %}
+                <a href="{% url 'tasks:project_archive' project.pk %}" class="btn btn-success btn-icon btn-sm" title="Restore"><i class="fas fa-box-open"></i></a>
+                {% else %}
+                <a href="{% url 'tasks:project_archive' project.pk %}" class="btn btn-warning btn-icon btn-sm" title="Archive"><i class="fas fa-archive"></i></a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="padding: 60px; text-align: center;">
+    <div class="empty-state">
+        <i class="fas fa-folder-open fa-3x" style="opacity: 0.1; margin-bottom: 20px; display: block;"></i>
+        <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin-bottom: 10px;">No projects found</h3>
+        <p style="color: var(--text-muted); margin-bottom: 25px;">Adjust your search or create a new project to populate the workspace.</p>
+        {% if user.is_project_manager %}
+        <a href="{% url 'tasks:project_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Create New Project</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% include 'pagination.html' %}
+{% endblock %}

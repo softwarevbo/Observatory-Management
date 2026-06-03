@@ -1,0 +1,49 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Edit Category - Inventory Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Edit Category
+</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="text-center mb-4">
+                
+                <h2 class="text-white mb-0">Edit Category Information</h2>
+                <p class="text-white-75">Update the details and image for this category</p>
+            </div>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="name" class="form-label">Category Name</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ category.name }}" required>
+                </div>
+                <div class="mb-4">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="3">{{ category.description }}</textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="image" class="form-label">Category Image</label>
+                    {% if category.image %}
+                        <div class="mb-2">
+                            <img src="{{ category.image.url }}" alt="Current Image" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: cover; border-radius: 1rem;">
+                        </div>
+                    {% endif %}
+                    <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                </div>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{% url 'categories' %}" class="btn btn btn-secondary me-md-2">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn btn-success">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

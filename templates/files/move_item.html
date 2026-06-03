@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Manage Location — {{ item.display_name|default:item.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .manage-container {
+        max-width: 1000px;
+        margin: 30px auto;
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 24px;
+    }
+
+    .item-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 30px;
+        height: fit-content;
+        position: sticky;
+        top: 90px;
+    }
+
+    .selection-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .card-header-premium {
+        padding: 24px 30px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .card-title-premium {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .directory-tree-picker {
+        padding: 20px;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .picker-item {
+        padding: 10px 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 4px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        font-size: 14px;
+    }
+
+    .picker-item:hover {
+        background: var(--bg-card-hover);
+    }
+
+    .picker-item.selected {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    .picker-item i {
+        font-size: 16px;
+    }
+
+    .move-summary {
+        background: var(--bg-secondary);
+        padding: 24px 30px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .btn-action {
+        height: 48px;
+        padding: 0 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+
+    .btn-confirm {
+        background: var(--accent);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .btn-confirm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px var(--accent-glow);
+    }
+
+    .btn-cancel {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+    }
+
+    .btn-cancel:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-primary);
+    }
+
+    .warning-ribbon {
+        background: #fffbeb;
+        border-bottom: 1px solid #fef3c7;
+        padding: 12px 30px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #92400e;
+        font-size: 13px;
+    }
+
+    [data-theme="dark"] .warning-ribbon {
+        background: #1e1b10;
+        border-color: #332b12;
+        color: #fbbf24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="manage-container">
+    <!-- Left: Item Info -->
+    <div class="item-card">
+        <div style="width: 60px; height: 60px; border-radius: 12px; background: {% if item_type == 'folder' %}rgba(245, 158, 11, 0.1){% else %}rgba(79, 142, 247, 0.1){% endif %}; display: flex; align-items: center; justify-content: center; font-size: 28px; color: {% if item_type == 'folder' %}#f59e0b{% else %}var(--accent){% endif %}; margin-bottom: 20px;">
+            <i class="fas {% if item_type == 'folder' %}fa-folder{% else %}fa-file-alt{% endif %}"></i>
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px; color: var(--text-primary);">{{ item.display_name|default:item.name }}</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px;">{{ item_type|capfirst }} Relocation</p>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;">Current Path</label>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
+                    <i class="fas fa-project-diagram" style="margin-right: 6px; opacity: 0.5;"></i> {{ project.name|default:"Global" }}
+                    <br>
+                    <i class="fas fa-folder-open" style="margin-right: 6px; opacity: 0.5; margin-left: 14px;"></i> 
+                    {% if item_type == 'folder' %}{{ item.parent.name|default:"Root" }}{% else %}{{ item.category.name|default:"Root" }}{% endif %}
+                </div>
+            </div>
+
+            {% if item_type == 'file' %}
+            <div>
+                <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;">File Details</label>
+                <div style="font-size: 13px; color: var(--text-muted);">
+                    Size: {{ item.file_size_display }}<br>
+                    Type: {{ item.get_file_type_display }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Picker -->
+    <div class="selection-card">
+        <div class="card-header-premium">
+            <h3 class="card-title-premium">
+                <i class="fas fa-map-marker-alt"></i>
+                Select Destination Directory
+            </h3>
+        </div>
+
+        {% if item_type == 'folder' %}
+        <div class="warning-ribbon">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>All contents of <strong>{{ item.name }}</strong> will be moved to the selected destination.</span>
+        </div>
+        {% endif %}
+
+        <form method="post" id="moveForm">
+            {% csrf_token %}
+            <input type="hidden" name="item_type" value="{{ item_type }}">
+            <input type="hidden" name="item_id" value="{{ item.pk }}">
+            <input type="hidden" name="target_category_id" id="targetIdInput" value="">
+
+            <div class="directory-tree-picker">
+                <!-- Root Option -->
+                <div class="picker-item selected" onclick="selectDir(null, '(Root)', this)">
+                    <i class="fas fa-hdd" style="opacity: 0.6;"></i>
+                    <span>(Project Root)</span>
+                    <i class="fas fa-check-circle ms-auto check-mark"></i>
+                </div>
+
+                {% for cat in categories %}
+                    {% if item_type == 'file' or cat.pk != item.pk %}
+                        <div class="picker-item" onclick="selectDir('{{ cat.pk }}', '{{ cat.name|escapejs }}', this)">
+                            <i class="fas fa-folder" style="color: var(--accent); opacity: 0.8;"></i>
+                            <span>{{ cat.name }}</span>
+                            <i class="fas fa-check-circle ms-auto check-mark" style="display:none;"></i>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="move-summary">
+                <div id="selectionSummary">
+                    <span style="font-size: 12px; color: var(--text-muted);">Target:</span>
+                    <span style="font-size: 14px; font-weight: 700; color: var(--accent); margin-left: 5px;" id="targetLabel">(Project Root)</span>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <a href="{% if project %}{% url 'files:project_files' project.pk %}{% else %}{% url 'files:file_list' %}{% endif %}" class="btn-action btn-cancel">Cancel</a>
+                    <button type="submit" class="btn-action btn-confirm">
+                        Move Here <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function selectDir(id, name, el) {
+        // Update hidden input
+        document.getElementById('targetIdInput').value = id || '';
+        
+        // Update label
+        document.getElementById('targetLabel').textContent = name;
+        
+        // Update UI selection
+        document.querySelectorAll('.picker-item').forEach(item => {
+            item.classList.remove('selected');
+            item.querySelector('.check-mark').style.display = 'none';
+        });
+        el.classList.add('selected');
+        el.querySelector('.check-mark').style.display = 'block';
+    }
+</script>
+{% endblock %}

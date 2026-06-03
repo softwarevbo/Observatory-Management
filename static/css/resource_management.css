@@ -1,0 +1,171 @@
+/* VS Code Tree Styling for Resource Management */
+.vscode-tree {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.vscode-tree .tree-children {
+    padding-left: 0;
+    margin-left: 14px;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .vscode-tree .tree-children {
+    border-left: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.vscode-tree .tree-item {
+    margin: 0;
+    position: relative;
+}
+
+.vscode-tree .tree-row {
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    height: 28px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-radius: 4px;
+    margin: 1px 4px;
+}
+
+.vscode-tree .tree-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .vscode-tree .tree-row:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.vscode-tree .chevron {
+    width: 16px;
+    font-size: 9px;
+    text-align: center;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--text-muted);
+    margin-right: 4px;
+}
+
+.vscode-tree .folder-item.open > .tree-row .chevron {
+    transform: rotate(90deg);
+}
+
+.vscode-tree .folder-icon {
+    color: #f59e0b; /* Professional folder yellow */
+    margin-right: 8px;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.vscode-tree .file-icon {
+    margin-right: 8px;
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.vscode-tree .tree-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.vscode-tree .actions-group {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    margin-left: 12px;
+}
+
+.vscode-tree .tree-row:hover .actions-group {
+    opacity: 1;
+}
+
+.vscode-tree .add-folder-btn {
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: none;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.vscode-tree .add-folder-btn:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.vscode-tree .tree-empty-text {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 12px 4px 34px;
+    font-style: italic;
+    opacity: 0.6;
+}
+
+/* Category Pills and Badges */
+.cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: var(--transition);
+}
+
+.cat-pill:hover, .cat-pill.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.cat-pill:not(:hover):not(.active) {
+    background: var(--bg-card);
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+
+.btn-icon {
+    padding: 7px 9px;
+}
+
+/* Repository View Styling (GitHub inspired) */
+.github-repo-style {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-card);
+}
+
+.repo-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 120px 120px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.repo-row:hover {
+    background: var(--bg-card-hover);
+}
+
+.repo-row:last-child {
+    border-bottom: none;
+}

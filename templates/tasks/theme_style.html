@@ -1,0 +1,15 @@
+{% if p %}
+:root {
+    {% if p.button_color %}
+    --accent: {{ p.button_color }};
+    --accent-hover: {{ p.button_color }}cc;
+    --accent-glow: {{ p.button_color }}26;
+    {% endif %}
+}
+
+{% if p.background_color and p.background_color != '#ffffff' %}
+[data-theme="light"] {
+    --bg-primary: {{ p.background_color }};
+}
+{% endif %}
+{% endif %}

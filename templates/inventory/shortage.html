@@ -1,0 +1,197 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Inventory Shortage{% endblock %}
+
+{% block content %}
+<h1 class="page-title d-flex justify-content-between align-items-center">
+    <span>Inventory Shortage</span>
+    <div>
+        <form method="get" action="{% url 'inventory-shortage-export-csv' %}" style="display:inline;">
+            <button type="submit" class="btn btn-outline-primary me-2">Export as CSV</button>
+        </form>
+        <form id="pdfExportForm" method="post" action="{% url 'inventory-shortage-export-pdf' %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="export_data" id="pdfExportData" />
+            <button type="submit" class="btn btn-outline-danger">Export as PDF</button>
+        </form>
+    </div>
+</h1>
+
+<div class="card">
+    <h2 class="section-title mb-4">
+        Items Needing Restock
+    </h2>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>In Quantity</th>
+                    
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in shortage_items %}
+                <tr>
+                    <td><a href="{% url 'product-detail' item.product.id %}" target="_blank">{{ item.product.name }}</a></td>
+                    <td style="text-align:center;">{{ item.current_quantity }}</td>
+                    
+                    <td style="text-align:center;"><span class="checkbox"></span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not shortage_items %}
+    <div class="text-center py-4">
+        
+        <p class="fs-5">No items are currently under their limit. Inventory is healthy!</p>
+    </div>
+    {% endif %}
+</div>
+
+<script id="shortage-items-data" type="application/json">{{ shortage_items|json_script:"shortageItemsJson" }}</script>
+<script id="products-data" type="application/json">{{ products|json_script:"productsJson" }}</script>
+<script>
+// --- Data from backend ---
+const shortageItems = JSON.parse(document.getElementById('shortageItemsJson').textContent);
+const allProducts = JSON.parse(document.getElementById('productsJson').textContent);
+
+// --- LocalStorage Key ---
+const PURCHASE_LIST_KEY = 'manualPurchaseList';
+
+function getManualPurchaseList() {
+    return JSON.parse(localStorage.getItem(PURCHASE_LIST_KEY) || '[]');
+}
+function setManualPurchaseList(list) {
+    localStorage.setItem(PURCHASE_LIST_KEY, JSON.stringify(list));
+}
+
+function renderTable() {
+    const manualList = getManualPurchaseList();
+    // Filter out any manual products that are already in shortageItems
+    const manualOnly = manualList.filter(item => !shortageItems.some(x => x.product.id === item.product.id));
+    const tbody = document.getElementById('shortageTableBody');
+    tbody.innerHTML = '';
+    let hasRows = false;
+    if (shortageItems.length > 0) {
+        const shortageHeader = document.createElement('tr');
+        shortageHeader.innerHTML = `<td colspan="4" style="background:#f8f9fa;font-weight:bold;">Current Shortage List</td>`;
+        tbody.appendChild(shortageHeader);
+        shortageItems.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.product.name}</td>
+                <td style="text-align:center;">${item.current_quantity !== undefined ? item.current_quantity : ''}</td>
+                <td></td>
+                <td style="text-align:center;"><span class="checkbox"></span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        hasRows = true;
+    }
+    if (manualOnly.length > 0) {
+        const manualHeader = document.createElement('tr');
+        manualHeader.innerHTML = `<td colspan="4" style="background:#f8f9fa;font-weight:bold;">Manually Added Products</td>`;
+        tbody.appendChild(manualHeader);
+        manualOnly.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.product.name}</td>
+                <td></td>
+                <td></td>
+                <td style="text-align:center;"><span class="checkbox"></span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        hasRows = true;
+    }
+    document.getElementById('noItemsMsg').style.display = hasRows ? 'none' : '';
+}
+
+// --- Add Product Modal Logic ---
+const addProductBtn = document.getElementById('addProductBtn');
+const addProductModal = document.getElementById('addProductModal');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const addProductConfirmBtn = document.getElementById('addProductConfirmBtn');
+const productSelect = document.getElementById('productSelect');
+
+addProductBtn.onclick = () => {
+    addProductModal.style.display = 'block';
+};
+closeModalBtn.onclick = () => {
+    addProductModal.style.display = 'none';
+};
+addProductConfirmBtn.onclick = () => {
+    const productId = productSelect.value;
+    if (!productId) return;
+    const product = allProducts.find(p => p.id == productId);
+    if (!product) return;
+    let manualList = getManualPurchaseList();
+    if (!manualList.some(x => x.product.id == product.id)) {
+        manualList.push({ product: product });
+        setManualPurchaseList(manualList);
+        renderTable();
+    }
+    addProductModal.style.display = 'none';
+};
+
+// --- Export CSV ---
+document.getElementById('exportCsvBtn').onclick = function(e) {
+    e.preventDefault();
+    const manualList = getManualPurchaseList();
+    const combined = [...shortageItems];
+    manualList.forEach(item => {
+        if (!combined.some(x => x.product.id === item.product.id)) {
+            combined.push(item);
+        }
+    });
+    let csv = 'Product,In Quantity,Buyed Qty\n';
+    combined.forEach(item => {
+        csv += `${item.product.name},${item.current_quantity !== undefined ? item.current_quantity : ''},\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventory_shortage.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+// --- Export PDF ---
+document.getElementById('pdfExportForm').onsubmit = function() {
+    const manualList = getManualPurchaseList();
+    const combined = [...shortageItems];
+    manualList.forEach(item => {
+        if (!combined.some(x => x.product.id === item.product.id)) {
+            combined.push(item);
+        }
+    });
+    document.getElementById('pdfExportData').value = JSON.stringify(combined);
+};
+
+// --- Modal close on outside click ---
+window.onclick = function(event) {
+    if (event.target == addProductModal) {
+        addProductModal.style.display = 'none';
+    }
+};
+
+// --- Initial render ---
+renderTable();
+</script>
+<style>
+.modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background: rgba(0,0,0,0.4); }
+.modal-dialog { margin: 10% auto; max-width: 400px; }
+.modal-content { background: #fff; border-radius: 8px; padding: 0; }
+.modal-header, .modal-footer { padding: 1rem; border-bottom: 1px solid #eee; }
+.modal-header { border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.modal-title { margin: 0; font-size: 1.25rem; }
+.btn-close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.modal-body { padding: 1rem; }
+</style>
+{% endblock %} 

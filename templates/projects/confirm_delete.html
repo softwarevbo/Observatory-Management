@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Delete — IIAP PM{% endblock %}
+{% block page_title %}Confirm Delete{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:0 auto">
+    <div class="card" style="border-color:rgba(239,68,68,0.3);text-align:center;padding:40px">
+        <div style="width:64px;height:64px;background:var(--red-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;color:var(--red)">
+            <i class="fas fa-trash-alt"></i>
+        </div>
+        <h2 style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:10px">Delete {{ obj_type }}</h2>
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:6px">Are you sure you want to delete:</p>
+        <p style="color:var(--red);font-weight:600;font-size:15px;margin-bottom:24px">{{ obj }}</p>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:28px">This action is permanent and cannot be undone.</p>
+        
+        {% if warning %}
+        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin-bottom:24px;color:#d97706;font-size:13px;text-align:left;">
+            <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i> {{ warning }}
+        </div>
+        {% endif %}
+        <div style="display:flex;gap:10px;justify-content:center">
+            
+            {% if obj_type == 'Project' %}
+                
+                {% if user.is_admin %}
+                    {% if obj.deletion_requested_by_admin %}
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="cancel_deletion"><button type="submit" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel Project Deletion</button></form>
+                        {% if can_force_delete %}
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="force_delete"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Force Delete (30 Days Passed)</button></form>
+                        {% endif %}
+                    {% elif obj.deletion_requested_by_pm %}
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="approve_deletion"><button type="submit" class="btn btn-danger"><i class="fas fa-check"></i> Approve Project Deletion</button></form>
+                    {% else %}
+                        <form method="post" style="width:100%; text-align:left;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="request_deletion">
+                            <div style="margin-bottom:15px;">
+                                <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:6px;">Reason for Deletion *</label>
+                                <textarea name="reason" class="form-control" rows="3" required placeholder="Why does this project need to be deleted?"></textarea>
+                            </div>
+                            <div style="text-align:center;">
+                                <button type="submit" class="btn btn-danger"><i class="fas fa-paper-plane"></i> Request to Delete</button>
+                            </div>
+                        </form>
+                    {% endif %}
+                
+                {% elif user.is_project_manager and request.user in obj.managers.all %}
+                    {% if obj.deletion_requested_by_pm %}
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="cancel_deletion"><button type="submit" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel Delete Request</button></form>
+                    {% elif obj.deletion_requested_by_admin %}
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="approve_deletion"><button type="submit" class="btn btn-danger"><i class="fas fa-check"></i> Approve Project Deletion</button></form>
+                    {% else %}
+                        <form method="post" style="width:100%; text-align:left;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="request_deletion">
+                            <div style="margin-bottom:15px;">
+                                <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:6px;">Reason for Deletion *</label>
+                                <textarea name="reason" class="form-control" rows="3" required placeholder="Why does this project need to be deleted?"></textarea>
+                            </div>
+                            <div style="text-align:center;">
+                                <button type="submit" class="btn btn-danger"><i class="fas fa-paper-plane"></i> Request to Delete</button>
+                            </div>
+                        </form>
+                    {% endif %}
+                {% else %}
+                    <!-- For non-admin/non-PM on project, though they shouldn't reach here -->
+                {% endif %}
+                
+            {% else %}
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Yes, Delete</button>
+                </form>
+            {% endif %}
+            
+            <a href="javascript:history.back()" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Go Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

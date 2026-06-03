@@ -1,0 +1,162 @@
+{% extends 'inventory_base.html' %}
+{% load inventory_extras %}
+
+{% block title %}Rental Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Rental Management
+</h1>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-5 col-md-12">
+        <div class="card">
+            <h2 class="mb-3">New Rental</h2>
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+                <div class="mb-3">
+                    <label for="product" class="form-label">Product</label>
+                    <select class="form-select" id="product" name="product" required onchange="updateRentalPreview()">
+                        <option value="">Select Product</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}" data-available="{{ product.available }}">{{ product.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if branches %}
+                    <div class="mt-3">
+                        <label for="branch" class="form-label">Branch</label>
+                        <select class="form-select" id="branch" name="branch" required>
+                            <option value="" disabled selected>Select Branch</option>
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }} ({{ b.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div id="availableQty" class="form-text text-success"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" required oninput="updateRentalPreview()">
+                    <div id="rentalPreview" class="form-text"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="rented_to" class="form-label">Rented To</label>
+                    <input type="text" class="form-control" id="rented_to" name="rented_to" required>
+                </div>
+                <div class="mb-3">
+                    <label for="reason" class="form-label">Reason</label>
+                    <textarea class="form-control" id="reason" name="reason" rows="2" placeholder="Optional"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="rental_date" class="form-label">Rental Date</label>
+                    <input type="date" class="form-control" id="rental_date" name="rental_date" required>
+                </div>
+                <div class="mb-3">
+                    <label for="rental_time" class="form-label">Rental Time</label>
+                    <input type="time" class="form-control" id="rental_time" name="rental_time" required>
+                </div>
+                <div class="mb-3">
+                    <label for="return_date" class="form-label">Return Date (optional)</label>
+                    <input type="date" class="form-control" id="return_date" name="return_date">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Rent Product</button>
+            </form>
+        </div>
+        {% if overdue_rentals %}
+        <div class="alert alert-danger mt-4">
+            
+            <strong>Overdue Rentals:</strong>
+            <ul class="mb-0">
+                {% for rental in overdue_rentals %}
+                    <li>{{ rental.product.name }} ({{ rental.quantity }}) to {{ rental.rented_to }} - Due: {{ rental.return_date }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-lg-7 col-md-12">
+        <div class="card">
+            <h2 class="section-title mb-3">All Rentals</h2>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>To</th>
+                            <th>Reason</th>
+                            <th>Rental Date</th>
+                            <th>Time</th>
+                            <th>Return Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rental in rentals %}
+                        <tr {% if rental.status == 'overdue' %}class="table-danger"{% endif %}>
+                            <td><strong>{{ rental.product.name }}</strong></td>
+                            <td>{{ rental.quantity }}</td>
+                            <td>{{ rental.rented_to }}</td>
+                            <td>{{ rental.reason|default:'-' }}</td>
+                            <td>{{ rental.rental_date }}</td>
+                            <td>{{ rental.rental_time }}</td>
+                            <td>{{ rental.return_date|default:'-' }}</td>
+                            <td>
+                                {% if rental.status == 'active' %}
+                                    <span class="badge bg-warning">Active</span>
+                                {% elif rental.status == 'returned' %}
+                                    <span class="badge bg-success">Returned</span>
+                                {% elif rental.status == 'overdue' %}
+                                    <span class="badge bg-danger">Overdue</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rental.status == 'active' %}
+                                <form method="post" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="return">
+                                    <input type="hidden" name="rental_id" value="{{ rental.id }}">
+                                    <button type="submit" class="btn btn-success btn-sm">Mark Returned</button>
+                                </form>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const productAvailability = {};
+{% for product in products %}productAvailability['{{ product.id }}'] = {{ product.available|default:0 }};
+{% endfor %}
+function updateRentalPreview() {
+    const productSelect = document.getElementById('product');
+    const qtyInput = document.getElementById('quantity');
+    const availableQtyDiv = document.getElementById('availableQty');
+    const previewDiv = document.getElementById('rentalPreview');
+    const productId = productSelect.value;
+    const available = productAvailability[productId] || 0;
+    availableQtyDiv.textContent = productId ? `Available: ${available}` : '';
+    const qty = parseInt(qtyInput.value) || 0;
+    if (productId && qty > 0) {
+        const remaining = available - qty;
+        if (qty > available) {
+            previewDiv.innerHTML = `<span class='text-danger'>Not enough stock! Only ${available} available.</span>`;
+        } else {
+            previewDiv.innerHTML = `After rental: <span class='${remaining < 0 ? 'text-danger' : 'text-success'}'>${remaining}</span>`;
+        }
+    } else {
+        previewDiv.innerHTML = '';
+    }
+}
+</script>
+{% endblock %} 

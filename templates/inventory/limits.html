@@ -1,0 +1,197 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Quantity Limits Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Quantity Limits Management
+</h1>
+
+<div class="row g-4">
+    <div class="col-lg-6 col-md-12">
+        <div class="card">
+            <div class="text-center mb-4">
+                
+                <h2 class="mb-0">Set Quantity Limit</h2>
+                <p>Configure alerts for product quantities</p>
+            </div>
+            
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <div class="mb-4 position-relative">
+                    <label for="product_search" class="form-label">Product</label>
+                    <input type="text" class="form-control" id="product_search" placeholder="Type to search products..." autocomplete="off">
+                    <input type="hidden" name="product" id="product_id">
+                    <div id="productList" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                {% if branches %}
+                <div class="mb-4">
+                    <label for="branch" class="form-label">Branch</label>
+                    <select class="form-select" id="branch" name="branch" required>
+                        <option value="" disabled selected>Select Branch</option>
+                        {% for b in branches %}
+                        <option value="{{ b.id }}">{{ b.name }} ({{ b.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="mb-4">
+                    <label for="limit_quantity" class="form-label">Limit Quantity</label>
+                    <input type="number" class="form-control" id="limit_quantity" name="limit_quantity" min="1" placeholder="Enter limit quantity" required>
+                    <small class="form-text text-muted">Alert will be triggered when quantity reaches this limit</small>
+                </div>
+                <div class="mb-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                        <label class="form-check-label" for="is_active">
+                            Active Limit
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn btn-secondary w-100 py-3">
+                    Set Limit
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 col-md-12">
+        <div class="card mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="section-title mb-0">
+                    Standard Limit
+                </h2>
+            </div>
+            {% if standard_limit %}
+            <div class="mb-2">
+                <span class="badge bg-primary">Current Standard Limit: {{ standard_limit }}</span>
+            </div>
+            {% endif %}
+            <form method="post" action="{% url 'set-standard-limit' %}" class="row g-3 align-items-center mt-2">
+                {% csrf_token %}
+                <div class="col-auto">
+                    <label for="standard_limit" class="col-form-label">Limit Count</label>
+                </div>
+                <div class="col-auto">
+                    <input type="number" class="form-control" id="standard_limit" name="standard_limit" min="1" required placeholder="Enter standard limit">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn btn-primary">
+                        Set Standard Limit
+                    </button>
+                </div>
+            </form>
+            <div class="alert alert-warning-glass mt-3 mb-0" role="alert">
+                
+                All items will be assigned the standard limit except those with specifically configured limits.<br>
+                <strong>Priority:</strong> If a product has a specific limit, it will use that. Otherwise, the standard limit will apply.
+            </div>
+        </div>
+        <div class="card">
+            <h2 class="section-title">
+                Current Limits
+            </h2>
+            
+            {% if limits %}
+                <div class="table-wrap">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Serial Number</th>
+                                    <th>Limit</th>
+                                    <th>Status</th>
+                                    <th class="d-none d-md-table-cell">Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for limit in limits %}
+                                <tr>
+                                    <td><strong>{{ limit.product.name }}</strong></td>
+                                    <td><span class="badge bg-info">{{ limit.product.serial_number|default:"-" }}</span></td>
+                                    <td><span class="badge bg-warning">{{ limit.limit_quantity }}</span></td>
+                                    <td>
+                                        {% if limit.is_active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="d-none d-md-table-cell">{{ limit.updated_at|date:'M d, Y H:i' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    
+                    <p>No quantity limits configured.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script id="products-data" type="application/json">
+    {{ products|json_script:"productsJson" }}
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const products = JSON.parse(document.getElementById('productsJson').textContent);
+        const input = document.getElementById('product_search');
+        const productList = document.getElementById('productList');
+        const productIdInput = document.getElementById('product_id');
+        
+        input.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            productList.innerHTML = '';
+            
+            if (query.length < 2) {
+                productList.style.display = 'none';
+                return;
+            }
+            
+            const filtered = products.filter(product => 
+                product.name.toLowerCase().includes(query) ||
+                product.serial.toLowerCase().includes(query)
+            );
+            
+            if (filtered.length > 0) {
+                filtered.forEach(product => {
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item list-group-item-action';
+                    item.style.background = 'rgba(255, 255, 255, 0.9)';
+                    item.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+                    item.style.cursor = 'pointer';
+                    item.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${product.name}</strong>
+                                ${product.serial ? `<br><small class="text-muted">SN: ${product.serial}</small>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    item.addEventListener('click', function() {
+                        input.value = product.name;
+                        productIdInput.value = product.id;
+                        productList.style.display = 'none';
+                    });
+                    productList.appendChild(item);
+                });
+                productList.style.display = 'block';
+            } else {
+                productList.style.display = 'none';
+            }
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !productList.contains(e.target)) {
+                productList.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %} 

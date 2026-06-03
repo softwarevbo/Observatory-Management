@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.name }} — Notes{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'tasks:kb_create' project.pk %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Note
+    </a>
+    <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Project
+    </a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Project Theme ── */
+    {% if project.button_color %}
+    :root {
+        --accent: {{ project.button_color }};
+        --accent-hover: {{ project.button_color }}cc;
+        --accent-glow: {{ project.button_color }}26;
+    }
+    {% endif %}
+    {% if project.background_color and project.background_color != '#ffffff' %}
+    [data-theme="light"] {
+        --bg-primary: {{ project.background_color }};
+    }
+    {% endif %}
+
+    .kbl-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+    }
+
+    .kbl-breadcrumb a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .kbl-breadcrumb a:hover { text-decoration: underline; }
+
+    .kbl-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .kbl-subtitle {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding: 14px 16px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        align-items: center;
+    }
+
+    .notes-table-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    .notes-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .notes-table th {
+        background: var(--bg-secondary);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .notes-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg-card);
+        vertical-align: middle;
+    }
+
+    .notes-table tr:last-child td { border-bottom: none; }
+
+    .notes-table tbody tr {
+        transition: background 0.15s ease;
+    }
+
+    .notes-table tbody tr:hover td {
+        background: var(--bg-card-hover);
+    }
+
+    .note-title-link {
+        font-weight: 600;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: color 0.15s ease;
+    }
+
+    .note-title-link:hover { color: var(--accent); }
+
+    .empty-cell {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--bg-secondary);
+    }
+
+    .empty-cell i {
+        font-size: 40px;
+        color: var(--text-muted);
+        opacity: 0.4;
+        display: block;
+        margin-bottom: 14px;
+    }
+
+    .empty-cell h3 {
+        font-size: 16px;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+    }
+
+    .empty-cell p {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .empty-cell .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: auto;
+        min-width: 0;
+        padding: 6px 12px;
+        margin: 14px auto 0;
+        line-height: 1.2;
+    }
+
+    .empty-cell .btn i {
+        font-size: 11px;
+        margin: 0;
+    }
+
+    .stat-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .stat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: var(--transition);
+        cursor: default;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Stat Chips -->
+<div class="stat-chips">
+    <span class="stat-chip"><i class="fas fa-sticky-note" style="color:var(--accent)"></i> {{ notes.count }} Total</span>
+    {% if q %}<span class="stat-chip badge-blue" style="background:var(--accent-glow);color:var(--accent);border-color:var(--accent);"><i class="fas fa-filter"></i> Filtered</span>{% endif %}
+</div>
+
+<!-- Filters -->
+<form method="get" class="filter-bar">
+    <div class="search-wrap" style="flex:1;min-width:220px;">
+        <i class="fas fa-search"></i>
+        <input type="text" name="q" class="search-input" placeholder="Search notes..." value="{{ q }}">
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+    {% if q %}
+    <a href="{% url 'tasks:kb_list' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-times"></i> Clear
+    </a>
+    {% endif %}
+</form>
+
+<!-- Notes Table -->
+<div class="notes-table-card">
+    <table class="notes-table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Module</th>
+                <th>Last Updated</th>
+                <th>Created</th>
+                <th style="text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for note in notes %}
+            <tr>
+                <td style="border-left: 3px solid var(--accent);">
+                    <a href="{% url 'tasks:kb_detail' note.pk %}" class="note-title-link">
+                        <i class="fas fa-file-alt" style="color:var(--text-muted);"></i> {{ note.title }}
+                    </a>
+                </td>
+                <td>
+                    {% if note.author %}
+                    <div style="display:flex;align-items:center;gap:6px">
+                        {% include 'partials/user_avatar.html' with avatar_user=note.author size="28" radius="50%" font_size="11" %}
+                        <span style="font-size:13px">{{ note.author.display_name }}</span>
+                    </div>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-size:12px">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if note.module %}
+                    <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                        <i class="fas fa-cube" style="font-size:9px;"></i> {{ note.module.name }}
+                    </span>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-size:12px">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span style="font-size:12px;color:var(--text-muted);">
+                        {{ note.updated_at|date:"M d, Y H:i" }}
+                    </span>
+                </td>
+                <td>
+                    <span style="font-size:12px;color:var(--text-muted);">
+                        {{ note.created_at|date:"M d, Y" }}
+                    </span>
+                </td>
+                <td style="text-align:right;">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;">
+                        <a href="{% url 'tasks:kb_detail' note.pk %}" class="btn btn-secondary btn-icon btn-sm" title="View">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if request.user == note.author or request.user in project.managers.all or request.user == project.project_incharge or request.user.is_admin %}
+                        <a href="{% url 'tasks:kb_edit' note.pk %}" class="btn btn-secondary btn-icon btn-sm" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="empty-cell">
+                    <i class="fas fa-book"></i>
+                    <h3>No notes found</h3>
+                    <p>{% if q %}Try adjusting your search query.{% else %}No notes have been added to this project yet.{% endif %}</p>
+                    <a href="{% url 'tasks:kb_create' project.pk %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Create Note
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

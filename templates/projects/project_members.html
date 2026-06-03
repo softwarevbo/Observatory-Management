@@ -1,0 +1,401 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Members — {{ project.name }} — IIAP PM{% endblock %}
+{% block page_title %}Manage Members{% endblock %}
+
+{% block topbar_actions %}
+<div class="topbar-actions">
+    <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> <span>Back to Project</span>
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .members-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        align-items: start;
+        margin-top: 1rem;
+    }
+
+    .members-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 700px; /* Fixed height for consistency */
+        transition: var(--transition);
+        box-shadow: var(--shadow);
+    }
+
+    .card-header {
+        padding: 1.25rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .card-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .member-search-box {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .search-input-group {
+        position: relative;
+    }
+
+    .search-input-group i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .search-input-group input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        transition: var(--transition);
+    }
+
+    .search-input-group input:focus {
+        border-color: var(--accent);
+        background: var(--bg-card);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+        outline: none;
+    }
+
+    .members-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.75rem;
+    }
+
+    .user-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-sm);
+        transition: var(--transition);
+        margin-bottom: 0.5rem;
+        border: 1px solid transparent;
+    }
+
+    .user-item:hover {
+        background: var(--bg-secondary);
+        border-color: var(--border);
+    }
+
+    .user-item.is-added {
+        background: rgba(16, 185, 129, 0.03);
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: white;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .user-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .user-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text-primary);
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-meta {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .team-badge {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .action-btn:hover {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    .action-btn.btn-remove:hover {
+        background: var(--red-dim);
+        color: var(--red);
+        border-color: var(--red);
+    }
+
+    .action-btn.btn-add:hover {
+        background: var(--accent-glow);
+        color: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .section-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        padding: 1rem 1rem 0.5rem;
+        display: block;
+    }
+
+    .empty-members {
+        padding: 3rem 1.5rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .empty-members i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+
+    /* Custom Scrollbar */
+    .members-list::-webkit-scrollbar { width: 5px; }
+    .members-list::-webkit-scrollbar-track { background: transparent; }
+    .members-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    @media (max-width: 992px) {
+        .members-container {
+            grid-template-columns: 1fr;
+        }
+        .members-card {
+            height: 500px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="members-page">
+    <div class="page-header" style="margin-bottom: 2rem;">
+        <div class="page-info">
+            <h1 class="page-title">Project Members</h1>
+            <p class="page-subtitle">Manage access and roles for <span style="color:var(--accent); font-weight: 600;">{{ project.name }}</span></p>
+        </div>
+    </div>
+
+    <div class="members-container">
+        <!-- LEFT: CURRENT MEMBERS -->
+        <div class="members-card">
+            <div class="card-header">
+                <h3><i class="fas fa-users" style="color: var(--accent);"></i> Active Members</h3>
+                <span class="badge badge-secondary">{{ current_member_ids|length }}</span>
+            </div>
+            
+            <div class="member-search-box">
+                <div class="search-input-group">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="currentSearch" placeholder="Filter members...">
+                </div>
+            </div>
+
+            <div class="members-list" id="currentMembersList">
+                {% if project.managers.all %}
+                <span class="section-label">Project Management</span>
+                {% for m in project.managers.all %}
+                <div class="user-item current-member-row" data-name="{{ m.display_name|lower }} {{ m.username|lower }}">
+                    <div class="user-avatar" style="background: {{ m.avatar_color|default:'#4f46e5' }}">
+                        {{ m.initials }}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">{{ m.display_name }}</span>
+                        <div class="user-meta">
+                            <span class="team-badge">Manager</span>
+                            <span>@{{ m.username }}</span>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <div class="action-btn" title="Manager access cannot be removed here" style="opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <span class="section-label">Team Members</span>
+                {% for m in all_users %}
+                    {% if m.pk in current_member_ids and m not in project.managers.all %}
+                    <div class="user-item current-member-row" data-name="{{ m.display_name|lower }} {{ m.username|lower }}">
+                        <div class="user-avatar" style="background: {{ m.avatar_color|default:'#4f46e5' }}">
+                            {{ m.initials }}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ m.display_name }}</span>
+                            <div class="user-meta">
+                                <span class="team-badge">{{ m.get_team_display }}</span>
+                                <span>@{{ m.username }}</span>
+                            </div>
+                        </div>
+                        <div class="user-actions">
+                            <form method="post" onsubmit="return confirm('Remove {{ m.display_name }} from project?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ m.pk }}">
+                                <input type="hidden" name="action" value="remove">
+                                <button type="submit" class="action-btn btn-remove" title="Remove member">
+                                    <i class="fas fa-user-minus"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if current_member_ids|length == 0 %}
+                <div class="empty-members">
+                    <i class="fas fa-user-friends"></i>
+                    <p>No members added yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- RIGHT: ADD MEMBERS -->
+        <div class="members-card">
+            <div class="card-header">
+                <h3><i class="fas fa-user-plus" style="color: var(--green);"></i> Add Members</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Invite users to join project</p>
+            </div>
+
+            <div class="member-search-box">
+                <div class="search-input-group">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="addSearch" placeholder="Search by name or team...">
+                </div>
+            </div>
+
+            <div class="members-list" id="availableUsersList">
+                {% regroup all_users by get_team_display as team_groups %}
+                {% for team_group in team_groups %}
+                <div class="team-group-container" data-team="{{ team_group.grouper|lower }}">
+                    <span class="section-label">{{ team_group.grouper }}</span>
+                    {% for m in team_group.list %}
+                    <div class="user-item available-user-row {% if m.pk in current_member_ids %}is-added{% endif %}" 
+                         data-name="{{ m.display_name|lower }} {{ m.username|lower }} {{ m.get_team_display|lower }}">
+                        <div class="user-avatar" style="background: {{ m.avatar_color|default:'#94a3b8' }}; {% if m.pk in current_member_ids %}opacity: 0.5;{% endif %}">
+                            {{ m.initials }}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name" {% if m.pk in current_member_ids %}style="color: var(--text-muted);"{% endif %}>{{ m.display_name }}</span>
+                            <div class="user-meta">
+                                <span>@{{ m.username }}</span>
+                            </div>
+                        </div>
+                        <div class="user-actions">
+                            {% if m.pk in current_member_ids %}
+                            <span class="badge badge-green" style="font-size: 0.7rem;"><i class="fas fa-check"></i> Member</span>
+                            {% else %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ m.pk }}">
+                                <input type="hidden" name="action" value="add">
+                                <button type="submit" class="action-btn btn-add" title="Add to project">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Search for current members
+    document.getElementById('currentSearch').addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.current-member-row').forEach(row => {
+            const text = row.dataset.name || '';
+            row.style.display = text.includes(q) ? 'flex' : 'none';
+        });
+    });
+
+    // Search for available users to add
+    document.getElementById('addSearch').addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.available-user-row').forEach(row => {
+            const text = row.dataset.name || '';
+            row.style.display = text.includes(q) ? 'flex' : 'none';
+        });
+        
+        // Hide team labels if no users visible in that team
+        document.querySelectorAll('.team-group-container').forEach(container => {
+            const visibleCount = Array.from(container.querySelectorAll('.available-user-row'))
+                .filter(row => row.style.display !== 'none').length;
+            container.style.display = visibleCount > 0 ? 'block' : 'none';
+        });
+    });
+</script>
+{% endblock %}

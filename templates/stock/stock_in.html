@@ -1,0 +1,344 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Stock In Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Stock In Management
+</h1>
+
+
+
+<!-- Tab Navigation -->
+<div class="row justify-content-center mb-4">
+    <div class="col-lg-8 col-md-10">
+        <div class="card">
+            <ul class="nav nav-tabs nav-fill" id="stockInTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+                        Single Stock In
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab">
+                        Bulk Stock In
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Content -->
+<div class="tab-content" id="stockInTabsContent">
+    <!-- Single Stock In Tab -->
+    <div class="tab-pane fade show active" id="single" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-6 col-md-12">
+                <div class="card">
+                    <div class="text-center mb-4">
+                        
+                        <h2 class="mb-0">Add Stock In</h2>
+                        <p>Record new inventory received</p>
+                    </div>
+                    <form method="post" autocomplete="off">
+                        {% csrf_token %}
+                        <div class="mb-4 position-relative">
+                            <label for="product_search" class="form-label">Product Name</label>
+                            <input type="text" class="form-control" id="product_search" name="product" placeholder="Type to search products..." autocomplete="off" required>
+                            <input type="hidden" name="product_id" id="product_id">
+                            <div id="productList" class="list-group position-absolute w-100 mt-1 shadow" style="z-index: 1000; max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                        {% if branches %}
+                        <div class="mb-4">
+                            <label for="branch" class="form-label">Branch</label>
+                            <select class="form-select" id="branch" name="branch" required>
+                                <option value="" disabled {% if not current_branch_id %}selected{% endif %}>Select Branch</option>
+                                {% for b in branches %}
+                                <option value="{{ b.id }}" {% if current_branch_id == b.id|stringformat:"i" %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="mb-4">
+                            <label for="quantity" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" min="1" placeholder="Enter quantity" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="location_from" class="form-label">Location From</label>
+                            <input type="text" class="form-control" id="location_from" name="location_from" placeholder="Enter source location" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="location_to" class="form-label">Location To</label>
+                            <input type="text" class="form-control" id="location_to" name="location_to" placeholder="Enter destination location" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="2" placeholder="Extra details (optional)"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 py-3">
+                            Add Stock In
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 col-md-12">
+                <div class="card">
+                    <h2 class="section-title">
+                        Recent Stock In Entries
+                    </h2>
+                    
+                    {% if stock_in_entries %}
+                        <div class="table-wrap">
+                            <div class="table-responsive" style="overflow-x: auto;">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Serial Number</th>
+                                            <th>Quantity</th>
+                                            <th>Location From</th>
+                                            <th>Location To</th>
+                                            <th>Description</th>
+                                            <th class="d-none d-md-table-cell">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for entry in stock_in_entries %}
+                                        <tr>
+                                            <td>
+                                                <a href="{% url 'product-detail' entry.product.id %}" class="text-decoration-none product-link">
+                                                    <strong class="text-primary">{{ entry.product.name }}</strong>
+                                                    
+                                                </a>
+                                            </td>
+                                            <td><span class="badge bg-info">{{ entry.product.serial_number|default:"-" }}</span></td>
+                                            <td><span class="badge bg-success">{{ entry.quantity }}</span></td>
+                                            <td><span class="badge bg-secondary">{{ entry.location_from|default:"-" }}</span></td>
+                                            <td><span class="badge bg-secondary">{{ entry.location_to|default:"-" }}</span></td>
+                                            <td><span class="text-muted small">{{ entry.description|default:"-" }}</span></td>
+                                            <td class="d-none d-md-table-cell">{{ entry.timestamp|date:'M d, Y H:i' }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- Pagination Controls -->
+                        {% include 'pagination.html' %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            
+                            <p>No stock in entries found.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bulk Stock In Tab -->
+    <div class="tab-pane fade" id="bulk" role="tabpanel">
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-md-12">
+                <div class="card">
+                    <div class="text-center mb-4">
+                        
+                        <h2 class="mb-0">Bulk Stock In</h2>
+                        <p>Upload an Excel file to add stock for multiple products at once</p>
+                    </div>
+                    <div class="card mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5>Download Excel Template</h5>
+                                <p class="mb-0">Download the template to see the required column format for bulk stock in.</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{% url 'download-stock-in-template' %}" class="btn btn btn-primary">
+                                    Download Template
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <form method="post" enctype="multipart/form-data" id="bulkStockInForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="bulk">
+                        {% if current_branch_id %}<input type="hidden" name="branch" value="{{ current_branch_id }}">{% endif %}
+                        <div class="mb-4">
+                            <label for="excel_file" class="form-label">Excel File</label>
+                            <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xls,.xlsx" required>
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn btn-success">
+                                Upload Stock In
+                            </button>
+                        </div>
+                    </form>
+                    {% if bulk_results %}
+                    <div class="card mt-4">
+                        {% with first_result=bulk_results.0 %}
+                        {% if first_result.status == 'failed' %}
+                        <div class="alert alert-danger  mb-3">
+                            
+                            Some items failed to stock in. See the details below.
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                        <h5>Bulk Stock In Results</h5>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Quantity</th>
+                                        <th>Status</th>
+                                        <th>Message</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in bulk_results %}
+                                    <tr>
+                                        <td>{{ row.product_name }}</td>
+                                        <td>{{ row.quantity }}</td>
+                                        <td>
+                                            {% if row.status == 'success' %}
+                                                <span class="badge bg-success">Success</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ row.message }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const products = [{% for product in products %}{id: {{ product.id }}, name: "{{ product.name|escapejs }}", serial: "{{ product.serial_number|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+        const input = document.getElementById('product_search');
+        const productList = document.getElementById('productList');
+        const productIdInput = document.getElementById('product_id');
+        
+        input.addEventListener('input', function() {
+            const val = this.value.toLowerCase();
+            productList.innerHTML = '';
+            if (val.length === 0) return;
+            
+            const matches = products.filter(function(p) { 
+                return p.name.toLowerCase().includes(val) || p.serial.toLowerCase().includes(val); 
+            });
+            
+            matches.forEach(function(p) {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.style.background = 'rgba(255, 255, 255, 0.3)';
+                item.style.border = '1px solid rgba(255, 255, 255, 0.4)';
+                item.style.color = 'var(--text-primary)';
+                item.style.backdropFilter = 'blur(16px)';
+                item.style.webkitBackdropFilter = 'blur(16px)';
+                item.innerHTML = `<strong>${p.name}</strong>${p.serial ? `<br><small>SN: ${p.serial}</small>` : ''}`;
+                item.onclick = function() {
+                    input.value = p.name;
+                    productIdInput.value = p.id;
+                    productList.innerHTML = '';
+                };
+                productList.appendChild(item);
+            });
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !productList.contains(e.target)) {
+                productList.innerHTML = '';
+            }
+        });
+    });
+</script>
+
+<style>
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .card, .card {
+        padding: 1.5rem !important;
+    }
+    
+    .fa-3x {
+        font-size: 2.5rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .card, .card {
+        padding: 1rem !important;
+    }
+    
+    .fa-3x {
+        font-size: 2rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    .btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    
+    .table th, .table td {
+        padding: 0.5rem 0.3rem;
+    }
+}
+
+/* Add horizontal scroll bar for .table-responsive always visible */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #b3b3b3 #f5f5f5;
+}
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #b3b3b3;
+    border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.product-link {
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+    padding: 0.2rem 0.5rem;
+}
+.product-link:hover {
+    background: rgba(102, 126, 234, 0.08);
+    color: #764ba2 !important;
+    text-decoration: underline;
+}
+</style>
+{% endblock %}

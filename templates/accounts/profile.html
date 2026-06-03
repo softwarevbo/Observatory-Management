@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}My Profile — IIAP PM{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'accounts:change_password' %}" class="btn btn-secondary btn-sm"><i class="fas fa-lock"></i> Change Password</a>
+{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start">
+
+    <!-- Left -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="text-align:center;padding:28px 20px">
+            <div style="width:76px;height:76px;border-radius:16px;background:{{ profile_user.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;margin:0 auto 14px;overflow:hidden;">
+                {% if profile_user.profile_picture %}
+                    <img src="{{ profile_user.profile_picture.url }}" style="width:100%; height:100%; object-fit:cover;">
+                {% else %}
+                    {{ profile_user.initials }}
+                {% endif %}
+            </div>
+            <h2 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px">{{ profile_user.display_name }}</h2>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">@{{ profile_user.username }}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
+                <span class="badge {% if profile_user.role == 'admin' %}badge-red{% elif profile_user.role == 'project_manager' %}badge-blue{% else %}badge-gray{% endif %}">{{ profile_user.get_role_display }}</span>
+                <span class="badge {% if profile_user.team == 'electronics' %}badge-blue{% elif profile_user.team == 'software' %}badge-green{% elif profile_user.team == 'mechanical' %}badge-yellow{% elif profile_user.team == 'optics' %}badge-cyan{% elif profile_user.team == 'simulation' %}badge-purple{% else %}badge-gray{% endif %}">{{ profile_user.get_team_display }}</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title" style="margin-bottom:14px">My Details</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+                {% if profile_user.designation %}<div style="display:flex;gap:8px"><span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-briefcase" style="width:14px"></i></span><span>{{ profile_user.designation }}</span></div>{% endif %}
+                {% if profile_user.email %}<div style="display:flex;gap:8px"><span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-envelope" style="width:14px"></i></span><span style="word-break:break-all;font-size:12px">{{ profile_user.email }}</span></div>{% endif %}
+                {% if profile_user.phone %}<div style="display:flex;gap:8px"><span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-phone" style="width:14px"></i></span><span>{{ profile_user.phone }}</span></div>{% endif %}
+                <div style="display:flex;gap:8px"><span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-calendar" style="width:14px"></i></span><span>Joined {{ profile_user.date_joined|date:"d M Y" }}</span></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title" style="margin-bottom:12px">Account Actions</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                <a href="{% url 'accounts:change_password' %}" class="btn btn-secondary" style="width:100%;justify-content:flex-start">
+                    <i class="fas fa-lock"></i> Change Password
+                </a>
+                <a href="{% url 'accounts:logout' %}" class="btn btn-danger" style="width:100%;justify-content:flex-start">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+            <p style="font-size:11px;color:var(--text-muted);margin-top:12px">
+                <i class="fas fa-info-circle"></i> To update your profile info (name, email, role), contact your administrator.
+            </p>
+        </div>
+    </div>
+
+    <!-- Right -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Task Stats -->
+        <div class="grid-4" style="gap:12px">
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7"><i class="fas fa-tasks"></i></div><div><div class="stat-value">{{ task_stats.total }}</div><div class="stat-label">Total Tasks</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(245,158,11,0.12);color:#f59e0b"><i class="fas fa-spinner"></i></div><div><div class="stat-value">{{ task_stats.in_progress }}</div><div class="stat-label">In Progress</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,0.12);color:#22c55e"><i class="fas fa-check-circle"></i></div><div><div class="stat-value">{{ task_stats.done }}</div><div class="stat-label">Done</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(239,68,68,0.12);color:#ef4444"><i class="fas fa-exclamation-circle"></i></div><div><div class="stat-value">{{ task_stats.overdue }}</div><div class="stat-label">Overdue</div></div></div>
+        </div>
+
+        <!-- My Tasks -->
+        <div class="card" style="padding:0">
+            <div class="card-header" style="padding:16px 20px">
+                <div class="card-title"><i class="fas fa-check-square" style="color:var(--accent);margin-right:8px"></i>My Tasks</div>
+                <a href="{% url 'tasks:task_list' %}?mine=1" class="btn btn-secondary btn-sm">View All</a>
+            </div>
+            {% if my_tasks %}
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Task</th><th>Project</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead>
+                    <tbody>
+                        {% for task in my_tasks %}
+                        <tr>
+                            <td><a href="{% url 'tasks:task_detail' task.pk %}" style="color:var(--text-primary);text-decoration:none;font-weight:500;font-size:13px">{{ task.title|truncatewords:6 }}</a></td>
+                            <td><a href="{% url 'tasks:project_detail' task.project.pk %}" style="color:var(--accent);font-size:12px;text-decoration:none">{{ task.project.name|truncatewords:3 }}</a></td>
+                            <td><span class="{% if task.priority == 'critical' %}priority-critical{% elif task.priority == 'high' %}priority-high{% elif task.priority == 'medium' %}priority-medium{% else %}priority-low{% endif %}" style="font-size:12px;font-weight:600">● {{ task.get_priority_display }}</span></td>
+                            <td><span class="badge {% if task.status == 'done' %}badge-green{% elif task.status == 'in_progress' %}badge-blue{% elif task.status == 'blocked' %}badge-red{% else %}badge-gray{% endif %}" style="font-size:10px">{{ task.get_status_display }}</span></td>
+                            <td style="font-size:12px;color:{% if task.is_overdue %}var(--red){% else %}var(--text-muted){% endif %}">{{ task.due_date|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:30px"><i class="fas fa-check-square"></i><p>No tasks assigned to you.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- My Projects -->
+        {% if my_projects %}
+        <div class="card">
+            <div class="card-title" style="margin-bottom:14px"><i class="fas fa-folder" style="color:var(--yellow);margin-right:8px"></i>My Projects</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                {% for p in my_projects %}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-secondary);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                    <div>
+                        <a href="{% url 'tasks:project_detail' p.pk %}" style="color:var(--text-primary);text-decoration:none;font-weight:500;font-size:13px">{{ p.name }}</a>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">{{ p.get_module_display }} · {{ p.task_count }} tasks</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:13px;font-weight:700;color:var(--accent)">{{ p.progress }}%</div>
+                        <div class="progress-bar" style="width:80px;margin-top:4px"><div class="progress-fill" style="width:{{ p.progress }}%"></div></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Manage Access — {{ file.display_name }}{% endblock %}
+{% block page_title %}Manage Access{% endblock %}
+{% block topbar_actions %}
+    <a href="{% url 'files:file_detail' file.pk %}" class="btn btn-secondary btn-sm">Back to File</a>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Manage Access for {{ file.display_name }}</h1>
+        <p>Explicitly control who can view, edit, or delete this file.</p>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <h3>Current Explicit Rights</h3>
+        <ul style="list-style:none; padding:0; margin-top:10px;">
+            {% for ar in access_rights %}
+            <li style="padding: 12px 0; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <strong>{{ ar.user.display_name }}</strong>
+                    <div style="margin-top: 5px; display:flex; gap: 5px;">
+                        {% if ar.can_view %}<span class="badge badge-green">View</span>{% endif %}
+                        {% if ar.can_edit %}<span class="badge badge-blue">Edit</span>{% endif %}
+                        {% if ar.can_delete %}<span class="badge badge-red">Delete</span>{% endif %}
+                    </div>
+                </div>
+                <form method="post" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="remove">
+                    <input type="hidden" name="access_id" value="{{ ar.pk }}">
+                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-times"></i> Remove</button>
+                </form>
+            </li>
+            {% empty %}
+            <li style="color:var(--text-muted)">No explicit rights configured.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    
+    <div class="card">
+        <h3>Assign Rights</h3>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display:block;margin-bottom:5px;">Select User</label>
+                <select name="user_id" class="form-control" required>
+                    <option value="">— Select User —</option>
+                    {% for u in all_users %}
+                    <option value="{{ u.pk }}">{{ u.display_name }} ({{ u.team }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px; display:flex; gap: 15px;">
+                <label><input type="checkbox" name="can_view" checked> View</label>
+                <label><input type="checkbox" name="can_edit"> Edit</label>
+                <label><input type="checkbox" name="can_delete"> Delete</label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Rights</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.name }} — Bug Reports{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block topbar_actions %}
+    {% if is_pm %}
+    <a href="{% url 'tasks:bug_create' %}?project={{ project.pk }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Report Bug
+    </a>
+    {% endif %}
+    <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Project
+    </a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Project Theme ── */
+    {% if project.button_color %}
+    :root {
+        --accent: {{ project.button_color }};
+        --accent-hover: {{ project.button_color }}cc;
+        --accent-glow: {{ project.button_color }}26;
+    }
+    {% endif %}
+    {% if project.background_color and project.background_color != '#ffffff' %}
+    [data-theme="light"] {
+        --bg-primary: {{ project.background_color }};
+    }
+    {% endif %}
+
+    .pbl-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+    }
+    .pbl-breadcrumb a { color: var(--accent); text-decoration: none; }
+    .pbl-breadcrumb a:hover { text-decoration: underline; }
+
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding: 14px 16px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        align-items: center;
+    }
+
+    .bug-table-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    .bug-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .bug-table th {
+        background: var(--bg-secondary);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .bug-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg-card);
+        vertical-align: middle;
+    }
+
+    .bug-table tr:last-child td { border-bottom: none; }
+
+    .bug-table tbody tr { transition: background 0.15s ease; }
+    .bug-table tbody tr:hover td { background: var(--bg-card-hover); }
+
+    .bug-title-link {
+        font-weight: 600;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: block;
+        margin-bottom: 3px;
+        transition: color 0.15s ease;
+    }
+    .bug-title-link:hover { color: var(--accent); }
+
+    .bug-id-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+
+    .stat-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .stat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+    }
+
+    .empty-cell {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--bg-secondary);
+    }
+    .empty-cell i {
+        font-size: 40px;
+        color: var(--text-muted);
+        opacity: 0.4;
+        display: block;
+        margin-bottom: 14px;
+    }
+    .empty-cell h3 { font-size: 16px; color: var(--text-secondary); margin-bottom: 6px; }
+    .empty-cell p  { font-size: 13px; color: var(--text-muted); }
+
+    .empty-cell .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: auto;
+        min-width: 0;
+        padding: 6px 12px;
+        margin: 14px auto 0;
+        line-height: 1.2;
+    }
+
+    .empty-cell .btn i {
+        font-size: 11px;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Stat Chips -->
+<div class="stat-chips">
+    <span class="stat-chip"><i class="fas fa-bug" style="color:var(--red)"></i> {{ bugs.paginator.count }} Total</span>
+    {% if status_filter or severity_filter %}<span class="stat-chip" style="background:var(--accent-glow);color:var(--accent);border-color:var(--accent);"><i class="fas fa-filter"></i> Filtered</span>{% endif %}
+</div>
+
+<!-- Filters -->
+<form method="get" class="filter-bar">
+    <div class="search-wrap" style="flex:1;min-width:220px;">
+        <i class="fas fa-search"></i>
+        <input type="text" name="q" class="search-input" placeholder="Search bugs..." value="{{ search }}">
+    </div>
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        {% for val, label in bug_statuses %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="severity" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Severity</option>
+        {% for val, label in bug_severities %}
+        <option value="{{ val }}" {% if severity_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+    {% if search or status_filter or severity_filter %}
+    <a href="{% url 'tasks:project_bug_list' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-times"></i> Clear
+    </a>
+    {% endif %}
+</form>
+
+<!-- Bug Table -->
+<div class="bug-table-card">
+    <table class="bug-table">
+        <thead>
+            <tr>
+                <th>Bug Details</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Reported By</th>
+                <th>Assigned To</th>
+                <th>Date</th>
+                <th style="text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bug in bugs %}
+            <tr>
+                <td style="border-left: 3px solid
+                    {% if bug.severity == 'critical' %}var(--red)
+                    {% elif bug.severity == 'high' %}#f97316
+                    {% elif bug.severity == 'medium' %}var(--yellow)
+                    {% else %}var(--green){% endif %};">
+                    <div class="bug-id-label">#{{ bug.pk }}</div>
+                    <a href="{% url 'tasks:bug_detail' bug.pk %}" class="bug-title-link">{{ bug.title }}</a>
+                    {% if bug.linked_task %}
+                    <div style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:3px;margin-top:3px;">
+                        <i class="fas fa-link" style="font-size:9px;"></i>
+                        <a href="{% url 'tasks:task_detail' bug.linked_task.pk %}" style="color:var(--accent);text-decoration:none;">{{ bug.linked_task.title|truncatewords:5 }}</a>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if bug.severity == 'critical' %}badge-red{% elif bug.severity == 'high' %}badge-yellow{% elif bug.severity == 'medium' %}badge-blue{% else %}badge-gray{% endif %}">
+                        {{ bug.get_severity_display }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {% if bug.status == 'resolved' or bug.status == 'closed' %}badge-green{% elif bug.status == 'in_progress' %}badge-blue{% elif bug.status == 'wont_fix' %}badge-red{% else %}badge-gray{% endif %}">
+                        {{ bug.get_status_display }}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        {% include 'partials/user_avatar.html' with avatar_user=bug.reported_by size="24" radius="50%" font_size="9" %}
+                        <span style="font-size:12px;">{{ bug.reported_by.display_name }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                        {% for assignee in bug.assignees.all %}
+                        {% include 'partials/user_avatar.html' with avatar_user=assignee size="24" radius="50%" font_size="9" title=assignee.display_name %}
+                        {% empty %}
+                        <span style="color:var(--text-muted);font-size:12px;">Unassigned</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td>
+                    <span style="font-size:11px;color:var(--text-muted);">{{ bug.created_at|date:"M d, Y" }}</span>
+                </td>
+                <td style="text-align:right;">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;">
+                        <a href="{% url 'tasks:bug_detail' bug.pk %}" class="btn btn-secondary btn-icon btn-sm" title="View">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if is_pm or user == bug.reported_by %}
+                        <a href="{% url 'tasks:bug_edit' bug.pk %}" class="btn btn-secondary btn-icon btn-sm" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="empty-cell">
+                    <i class="fas fa-bug"></i>
+                    <h3>No bug reports found</h3>
+                    <p>{% if search or status_filter or severity_filter %}Try adjusting your filters.{% else %}No bugs have been reported for this project yet.{% endif %}</p>
+                    <a href="{% url 'tasks:bug_create' %}?project={{ project.pk }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Report First Bug
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'pagination.html' %}
+{% endblock %}

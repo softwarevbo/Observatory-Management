@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Event — IIAP PM{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 40px auto; text-align: center;">
+    <div class="card" style="padding: 40px; border-radius: 20px;">
+        <div style="width: 80px; height: 80px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 32px;">
+            <i class="fas fa-trash-alt"></i>
+        </div>
+        
+        <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; margin-bottom: 12px;">Delete Event?</h1>
+        <p style="color: var(--text-muted); margin-bottom: 30px;">
+            Are you sure you want to delete <strong>"{{ event.title }}"</strong>?<br>
+            This will also remove it from your connected Radicale/Google calendars.
+        </p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button type="submit" class="btn btn-danger btn-lg" style="min-width: 150px;">
+                    <i class="fas fa-trash-alt" style="margin-right: 8px;"></i> Yes, Delete
+                </button>
+                <a href="{% url 'tasks:event_edit' event.id %}" class="btn btn-ghost btn-lg">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

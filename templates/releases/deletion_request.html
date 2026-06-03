@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Request Release Deletion — IIAP PM{% endblock %}
+{% block page_title %}Request Deletion{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <div style="width: 40px; height: 40px; background: var(--red-dim); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--red);">
+                <i class="fas fa-trash-alt"></i>
+            </div>
+            <div>
+                <h2 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;">Request Release Deletion</h2>
+                <p style="font-size: 13px; color: var(--text-muted); margin: 0;">{{ release.name }} ({{ release.version }})</p>
+            </div>
+        </div>
+
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 15px; margin-bottom: 24px;">
+            <p style="font-size: 13px; color: var(--red); margin: 0; line-height: 1.5; font-weight: 600;">
+                <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i> 
+                Releases are immutable records. Deletion is only permitted in exceptional cases and requires administrative approval.
+            </p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                    Reason for Deletion
+                </label>
+                {{ form.reason }}
+                {% if form.reason.errors %}
+                    <div style="color: var(--red); font-size: 12px; margin-top: 4px;">{{ form.reason.errors }}</div>
+                {% endif %}
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                    Please provide a detailed justification for why this historical version should be removed.
+                </p>
+            </div>
+
+            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 24px;">
+                <div style="font-size: 11px; color: var(--text-muted);">
+                    <strong>Request Details:</strong><br>
+                    - Version: {{ release.version|default:"N/A" }}<br>
+                    - Requested By: {{ user.get_full_name|default:user.username }}<br>
+                    - Date: {% now "M d, Y" %}
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <a href="{% url 'tasks:release_detail' release.pk %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-paper-plane"></i> Submit Request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

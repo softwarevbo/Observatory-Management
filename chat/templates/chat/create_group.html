@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Group | Observatory Management System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="cg-container">
+  <div class="cg-card">
+    <div class="cg-head">
+      <h1 class="cg-title">Create New Group</h1>
+      <a href="{% url 'chat:home' %}" class="c-icon-btn" title="Cancel">
+        <i class="fas fa-times"></i>
+      </a>
+    </div>
+
+    <form action="{% url 'chat:create_group' %}" method="POST" id="createGroupForm">
+      {% csrf_token %}
+
+      <div class="cg-body">
+        <!-- Group Name Section -->
+        <div class="cg-input-group">
+          <label class="cg-label" for="groupName">Group Name</label>
+          <input type="text" id="groupName" name="name" class="cg-field" placeholder="e.g. Project Alpha Discussion"
+            required autocomplete="off">
+        </div>
+
+        <!-- Participants Section -->
+        <div class="cg-input-group">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
+            <label class="cg-label" style="margin-bottom:0;">Select Participants</label>
+            <span id="selectedCount" style="font-size:12px; font-weight:700; color:var(--c-accent);">0 selected</span>
+          </div>
+
+          <!-- Search participants -->
+          <div class="cg-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="userSearch" class="cg-search-field" placeholder="Search members by name or email..."
+              autocomplete="off">
+          </div>
+
+          <!-- User list -->
+          <div class="cg-user-list" id="userList">
+            {% for u in users %}
+            <label class="cg-user-item" data-name="{{ u.username|lower }}" data-email="{{ u.email|lower }}">
+              <input type="checkbox" name="participants" value="{{ u.id }}" style="display:none;"
+                class="participant-check">
+              <div class="cg-checkbox">
+                <i class="fas fa-check" style="font-size:10px;"></i>
+              </div>
+              <div class="cg-user-av">
+                {% if u.profile_picture %}
+                <img src="{{ u.profile_picture.url }}" alt="{{ u.username }}" style="width:100%; height:100%; object-fit:cover;">
+                {% else %}
+                {{ u.username|slice:":1"|upper }}
+                {% endif %}
+              </div>
+              <div class="cg-user-info">
+                <div class="cg-user-name">{{ u.username }}</div>
+                <div class="cg-user-meta">{{ u.email|default:"No email" }}</div>
+              </div>
+              {% if u.presence.is_online %}
+              <div style="width:8px; height:8px; border-radius:50%; background:var(--c-online); flex-shrink:0;"></div>
+              {% endif %}
+            </label>
+            {% empty %}
+            <div style="padding:40px 20px; text-align:center; color:var(--c-muted);">
+              <i class="fas fa-user-friends" style="font-size:32px; opacity:.2; display:block; margin-bottom:12px;"></i>
+              No other members found.
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="cg-foot">
+        <a href="{% url 'chat:home' %}" class="cg-btn cg-btn-secondary">Cancel</a>
+        <button type="submit" class="cg-btn cg-btn-primary" id="submitBtn">
+          <span>Create Group</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('createGroupForm');
+    const items = document.querySelectorAll('.cg-user-item');
+    const countDisplay = document.getElementById('selectedCount');
+    const searchInput = document.getElementById('userSearch');
+
+    // Handle selection
+    items.forEach(function (item) {
+      const cb = item.querySelector('.participant-check');
+
+      cb.addEventListener('change', function (e) {
+        if (this.checked) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+        updateCount();
+      });
+    });
+
+    function updateCount() {
+      const count = document.querySelectorAll('.participant-check:checked').length;
+      countDisplay.textContent = count + ' selected';
+    }
+
+    // Handle search
+    searchInput.addEventListener('input', function () {
+      const q = this.value.toLowerCase();
+      items.forEach(item => {
+        const name = item.getAttribute('data-name');
+        const email = item.getAttribute('data-email');
+        if (name.includes(q) || email.includes(q)) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

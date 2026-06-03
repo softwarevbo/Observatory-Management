@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile_user.display_name }} — IIAP PM{% endblock %}
+{% block page_title %}User Profile{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'accounts:user_edit' profile_user.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit</a>
+<a href="{% url 'accounts:user_reset_password' profile_user.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-key"></i> Reset Password</a>
+{% if profile_user != request.user %}
+<a href="{% url 'accounts:user_toggle' profile_user.pk %}" class="btn {% if profile_user.is_active %}btn-secondary{% else %}btn-success{% endif %} btn-sm"
+   onclick="return confirm('{% if profile_user.is_active %}Deactivate{% else %}Activate{% endif %} this user?')">
+    <i class="fas {% if profile_user.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+    {% if profile_user.is_active %}Deactivate{% else %}Activate{% endif %}
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start">
+
+    <!-- LEFT: User Card -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+        <!-- Avatar + Info -->
+        <div class="card" style="text-align:center;padding:28px 20px">
+            <div style="margin: 0 auto 14px;">
+                {% include 'partials/user_avatar.html' with avatar_user=profile_user size="80" radius="16px" font_size="30" %}
+            </div>
+            <h2 style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px">{{ profile_user.display_name }}</h2>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">@{{ profile_user.username }}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px">
+                <span class="badge {% if profile_user.role == 'admin' %}badge-red{% elif profile_user.role == 'project_manager' %}badge-blue{% else %}badge-gray{% endif %}">
+                    {{ profile_user.get_role_display }}
+                </span>
+                <span class="badge {% if profile_user.team == 'electronics' %}badge-blue{% elif profile_user.team == 'software' %}badge-green{% elif profile_user.team == 'mechanical' %}badge-yellow{% elif profile_user.team == 'optics' %}badge-cyan{% elif profile_user.team == 'simulation' %}badge-purple{% else %}badge-gray{% endif %}">
+                    {{ profile_user.get_team_display }}
+                </span>
+                <span class="badge {% if profile_user.is_active %}badge-green{% else %}badge-red{% endif %}">
+                    {% if profile_user.is_active %}Active{% else %}Inactive{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="card">
+            <div class="card-title" style="margin-bottom:14px">Account Details</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+                {% if profile_user.designation %}
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                    <span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-briefcase" style="width:14px"></i> Designation</span>
+                    <span style="color:var(--text-primary);text-align:right">{{ profile_user.designation }}</span>
+                </div>
+                {% endif %}
+                {% if profile_user.email %}
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                    <span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-envelope" style="width:14px"></i> Email</span>
+                    <span style="color:var(--accent);font-size:12px;text-align:right;word-break:break-all">{{ profile_user.email }}</span>
+                </div>
+                {% endif %}
+                {% if profile_user.phone %}
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                    <span style="color:var(--text-muted);flex-shrink:0"><i class="fas fa-phone" style="width:14px"></i> Phone</span>
+                    <span style="color:var(--text-primary)">{{ profile_user.phone }}</span>
+                </div>
+                {% endif %}
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                    <span style="color:var(--text-muted)"><i class="fas fa-calendar" style="width:14px"></i> Joined</span>
+                    <span style="color:var(--text-primary)">{{ profile_user.date_joined|date:"d M Y" }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                    <span style="color:var(--text-muted)"><i class="fas fa-clock" style="width:14px"></i> Last Login</span>
+                    <span style="color:var(--text-primary);font-size:12px">{{ profile_user.last_login|date:"d M Y H:i"|default:"Never" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Actions -->
+        <div class="card">
+            <div class="card-title" style="margin-bottom:12px">Admin Actions</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                <a href="{% url 'accounts:user_edit' profile_user.pk %}" class="btn btn-secondary" style="width:100%;justify-content:flex-start">
+                    <i class="fas fa-edit"></i> Edit Profile
+                </a>
+                <a href="{% url 'accounts:user_reset_password' profile_user.pk %}" class="btn btn-secondary" style="width:100%;justify-content:flex-start">
+                    <i class="fas fa-key"></i> Reset Password
+                </a>
+                {% if profile_user != request.user %}
+                <a href="{% url 'accounts:user_toggle' profile_user.pk %}"
+                   class="btn {% if profile_user.is_active %}btn-secondary{% else %}btn-success{% endif %}"
+                   style="width:100%;justify-content:flex-start"
+                   onclick="return confirm('{% if profile_user.is_active %}Deactivate{% else %}Activate{% endif %} this user?')">
+                    <i class="fas {% if profile_user.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                    {% if profile_user.is_active %}Deactivate User{% else %}Activate User{% endif %}
+                </a>
+                <a href="{% url 'accounts:user_delete' profile_user.pk %}"
+                   class="btn btn-danger" style="width:100%;justify-content:flex-start">
+                    <i class="fas fa-trash"></i> Delete User
+                </a>
+                {% endif %}
+                <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary" style="width:100%;justify-content:flex-start">
+                    <i class="fas fa-arrow-left"></i> Back to Users
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Stats + Tasks + Projects -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Task Stats -->
+        <div class="grid-4" style="gap:12px">
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7"><i class="fas fa-tasks"></i></div><div><div class="stat-value">{{ task_stats.total }}</div><div class="stat-label">Total Tasks</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(245,158,11,0.12);color:#f59e0b"><i class="fas fa-spinner"></i></div><div><div class="stat-value">{{ task_stats.in_progress }}</div><div class="stat-label">In Progress</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,0.12);color:#22c55e"><i class="fas fa-check-circle"></i></div><div><div class="stat-value">{{ task_stats.done }}</div><div class="stat-label">Completed</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(239,68,68,0.12);color:#ef4444"><i class="fas fa-exclamation-circle"></i></div><div><div class="stat-value">{{ task_stats.overdue }}</div><div class="stat-label">Overdue</div></div></div>
+        </div>
+
+        <!-- Assigned Tasks -->
+        <div class="card" style="padding:0">
+            <div class="card-header" style="padding:16px 20px">
+                <div class="card-title"><i class="fas fa-check-square" style="color:var(--accent);margin-right:8px"></i>Assigned Tasks</div>
+                <a href="{% url 'tasks:task_list' %}?assignee={{ profile_user.pk }}" class="btn btn-secondary btn-sm">View All</a>
+            </div>
+            {% if assigned_tasks %}
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Task</th><th>Project</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead>
+                    <tbody>
+                        {% for task in assigned_tasks %}
+                        <tr>
+                            <td><a href="{% url 'tasks:task_detail' task.pk %}" style="color:var(--text-primary);text-decoration:none;font-weight:500;font-size:13px">{{ task.title|truncatewords:6 }}</a></td>
+                            <td><a href="{% url 'tasks:project_detail' task.project.pk %}" style="color:var(--accent);font-size:12px;text-decoration:none">{{ task.project.name|truncatewords:3 }}</a></td>
+                            <td><span class="{% if task.priority == 'critical' %}priority-critical{% elif task.priority == 'high' %}priority-high{% elif task.priority == 'medium' %}priority-medium{% else %}priority-low{% endif %}" style="font-size:12px;font-weight:600">● {{ task.get_priority_display }}</span></td>
+                            <td><span class="badge {% if task.status == 'done' %}badge-green{% elif task.status == 'in_progress' %}badge-blue{% elif task.status == 'blocked' %}badge-red{% else %}badge-gray{% endif %}" style="font-size:10px">{{ task.get_status_display }}</span></td>
+                            <td style="font-size:12px;color:{% if task.is_overdue %}var(--red){% else %}var(--text-muted){% endif %}">{{ task.due_date|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:30px"><i class="fas fa-check-square"></i><p>No tasks assigned.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- Projects -->
+        {% if managed_projects or member_projects %}
+        <div class="card">
+            <div class="card-title" style="margin-bottom:14px"><i class="fas fa-folder" style="color:var(--yellow);margin-right:8px"></i>Projects</div>
+            {% if managed_projects %}
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Managing</div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+                {% for p in managed_projects %}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-secondary);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                    <a href="{% url 'tasks:project_detail' p.pk %}" style="color:var(--text-primary);text-decoration:none;font-size:13px;font-weight:500">{{ p.name }}</a>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="badge badge-blue" style="font-size:10px">Manager</span>
+                        <span style="font-size:11px;color:var(--text-muted)">{{ p.progress }}%</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if member_projects %}
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Member Of</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+                {% for p in member_projects %}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-secondary);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                    <a href="{% url 'tasks:project_detail' p.pk %}" style="color:var(--text-primary);text-decoration:none;font-size:13px">{{ p.name }}</a>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="badge {% if p.module == 'electronics' %}badge-blue{% elif p.module == 'software' %}badge-green{% elif p.module == 'mechanical' %}badge-yellow{% elif p.module == 'optics' %}badge-cyan{% else %}badge-purple{% endif %}" style="font-size:10px">{{ p.get_module_display }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

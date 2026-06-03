@@ -1,0 +1,1895 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Chat | Observatory Management System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+/* Reset global overrides caused by Bootstrap on main layout */
+body, .sidebar, .sidebar *, .btn-logout {
+  font-family: 'Inter', sans-serif !important;
+}
+.sidebar i, .sidebar [class*="fa-"] {
+  font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+  font-weight: 900 !important;
+}
+.logo-icon, .logo-text {
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+.sidebar a, .sidebar a:hover {
+  text-decoration: none !important;
+}
+.sidebar .nav-item {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 10px 20px !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+.sidebar .nav-item:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-card-hover) !important;
+}
+.sidebar .nav-item.active {
+  color: var(--accent) !important;
+  background: var(--accent-glow) !important;
+}
+.sidebar .nav-item.active i {
+  color: var(--accent) !important;
+}
+.sidebar .nav-item i {
+  width: 18px !important;
+  text-align: center !important;
+  font-size: 14px !important;
+}
+.btn-logout {
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: var(--red) !important;
+  background: transparent !important;
+}
+.btn-logout:hover {
+  background: var(--red-dim) !important;
+  border-color: var(--red) !important;
+}
+
+/* Fix topbar buttons styling clashing with Bootstrap */
+.topbar-actions .btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 8px 16px !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: 'Inter', sans-serif !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  height: auto !important;
+  width: auto !important;
+}
+.topbar-actions .btn-icon {
+  padding: 7px 9px !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+.topbar-actions .btn-secondary {
+  background: var(--bg-card) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+}
+.topbar-actions .btn-secondary:hover {
+  background: var(--bg-card-hover) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-light) !important;
+}
+
+/* ── Multi-select styles ── */
+.cht-bubble-row.selecting .cht-bw {
+  cursor: pointer;
+}
+.cht-bubble-row .cht-select-chk {
+  display: none;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--c-border);
+  background: var(--c-surface);
+  flex-shrink: 0;
+  align-self: center;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  margin: 0 6px;
+}
+.select-mode .cht-bubble-row .cht-select-chk { display: flex; align-items: center; justify-content: center; }
+.cht-bubble-row.selected .cht-select-chk {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+}
+.cht-bubble-row.selected .cht-select-chk::after {
+  content: '';
+  width: 6px; height: 10px;
+  border: 2px solid #fff;
+  border-top: none; border-left: none;
+  transform: rotate(45deg) translateY(-2px);
+}
+.cht-bubble-row.selected { background: rgba(99,102,241,.07); border-radius: 8px; }
+.select-mode .cht-actions { display: none !important; }
+
+/* Selection toolbar */
+#chtSelectToolbar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: #1e1b4b;
+  border-top: 2px solid #6366f1;
+  padding: 10px 14px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+  box-shadow: 0 -6px 24px rgba(99,102,241,.2);
+}
+#chtSelectToolbar.active { display: flex; }
+#chtSelectCount {
+  flex: 1;
+  font-weight: 700;
+  font-size: 13px;
+  color: #a5b4fc;        /* always visible on dark toolbar */
+}
+.cht-sel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 10px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .2s, transform .1s;
+  white-space: nowrap;
+  line-height: 1;
+}
+.cht-sel-btn:hover  { opacity: .88; }
+.cht-sel-btn:active { transform: scale(.95); }
+/* Delete — red */
+.cht-sel-btn.del    { background: #ef4444; color: #ffffff; }
+/* Forward — indigo */
+.cht-sel-btn.fwd    { background: #6366f1; color: #ffffff; }
+/* Select All — ghost indigo */
+.cht-sel-btn.all    { background: rgba(165,180,252,.15); color: #a5b4fc; border: 1px solid rgba(165,180,252,.35); }
+/* Cancel — subtle */
+.cht-sel-btn.cancel { background: rgba(255,255,255,.08); color: #cbd5e1; border: 1px solid rgba(255,255,255,.15); }
+
+@keyframes highlight-fade {
+  0% { background-color: rgba(99, 102, 241, 0.25); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+.highlight-msg {
+  animation: highlight-fade 2s ease-out;
+  border-radius: 8px;
+}
+.ticks-icon {
+  transition: color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Reaction picker styles */
+.cht-react-trigger {
+  position: relative;
+}
+.cht-react-picker {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 20px;
+  padding: 4px 8px;
+  display: none;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  white-space: nowrap;
+  z-index: 100;
+}
+.cht-react-trigger:hover .cht-react-picker {
+  display: flex;
+}
+.cht-react-picker span {
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.cht-react-picker span:hover {
+  transform: scale(1.3);
+}
+
+/* Pinned Chat & Message Styles */
+.cht-pin-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(156,163,175,.5); font-size: 11px;
+  padding: 4px 6px; border-radius: 6px; flex-shrink: 0;
+  transition: color .15s, background .15s; line-height: 1; opacity: 0;
+}
+.cht-room:hover .cht-pin-btn { opacity: 1; }
+.cht-pin-btn.pinned { opacity: 1; color: #f59e0b; }
+.cht-pin-btn.pinned:hover { color: #d97706; background: rgba(245,158,11,.12); }
+.cht-pin-btn:hover { color: #6366f1; background: rgba(99,102,241,.1); }
+
+.cht-pinned-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: #f59e0b; padding: 7px 14px 3px; display: none; align-items: center; gap: 5px;
+  border-bottom: 1px dashed rgba(245,158,11,.2); margin-bottom: 2px;
+}
+
+#chtPinnedMsgBanner {
+  background: var(--c-surface); border-bottom: 1px solid var(--c-border);
+  padding: 8px 16px; display: none; align-items: center; gap: 12px;
+  cursor: pointer; transition: background .2s; border-left: 3px solid var(--c-accent);
+}
+#chtPinnedMsgBanner.active { display: flex; }
+#chtPinnedMsgBanner:hover { background: var(--bg-card-hover, rgba(99,102,241,.05)); }
+#chtPinnedMsgBanner .icon { color: var(--c-accent); font-size: 14px; }
+#chtPinnedMsgBanner .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#chtPinnedMsgBanner .title { font-size: 11px; font-weight: 600; color: var(--c-accent); margin-bottom: 2px; }
+#chtPinnedMsgBanner .text { font-size: 13px; color: var(--text-primary, #e2e8f0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#chtPinnedMsgBanner .unpin-btn {
+  background: none; border: none; color: var(--c-muted); cursor: pointer;
+  padding: 6px; border-radius: 6px; transition: color .2s, background .2s;
+}
+#chtPinnedMsgBanner .unpin-btn:hover { color: #ef4444; background: rgba(239,68,68,.1); }
+/* Drag-and-drop overlay for chat panel */
+#chtDropOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(99,102,241,0.18);
+  border: 3px dashed var(--c-accent, #6366f1);
+  border-radius: 16px;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  color: #a5b4fc;
+  font-weight: 700;
+  font-size: 18px;
+  backdrop-filter: blur(4px);
+  /* ALWAYS pointer-events:none — overlay is purely visual, never intercepts drop */
+  pointer-events: none;
+}
+#chtDropOverlay i { font-size: 48px; opacity: 0.8; }
+#chtDropOverlay.active { display: flex; }
+
+/* Drag-and-drop file preview strip */
+#chtDropPreview {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(99,102,241,0.08);
+  border-top: 1px solid rgba(99,102,241,0.2);
+  flex-wrap: wrap;
+}
+#chtDropPreview.active { display: flex; }
+.cht-drop-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 20px; padding: 4px 10px;
+  font-size: 12px; font-weight: 600; color: #a5b4fc;
+}
+.cht-drop-chip .rm { cursor:pointer; opacity:0.6; margin-left:2px; font-size:11px; }
+.cht-drop-chip .rm:hover { opacity:1; color:#ef4444; }
+#chtSendDropBtn {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#chtSendDropBtn:hover { background: #4f46e5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cht-container">
+
+  <aside class="cht-sidebar" id="chtSidebar">
+
+    <div class="cht-sb-head">
+      <div class="cht-me-avatar" title="{{ user.get_full_name|default:user.username }}">{{ user.username|slice:":2"|upper }}</div>
+      <div class="cht-sb-btns">
+        <a href="{% url 'chat:create_group' %}" class="c-icon-btn" title="New Group"><i class="fas fa-plus"></i></a>
+        <div class="dropdown">
+          <button class="c-icon-btn" data-bs-toggle="dropdown" type="button" aria-expanded="false">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li><a class="dropdown-item" href="{% url 'chat:create_group' %}"><i class="fas fa-users me-2 text-primary"></i>New Group</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'accounts:settings' %}"><i class="fas fa-cog me-2"></i>Settings</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="cht-sb-search">
+      <div class="cht-search-input">
+        <i class="fas fa-search"></i>
+        <input id="chtSearch" type="text" placeholder="Search chats or people…" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="cht-rooms" id="chtRooms">
+      <div class="cht-section-label">Recent Chats</div>
+      <div id="recentRooms">
+      {% for room in rooms %}
+        {% if room.room_type == 'direct' %}
+          {% if room.participants.all|length == 1 %}
+            <!-- Self-chat room -->
+            {% with p=user %}
+            <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ p.username }} (You)" data-type="direct" onclick="Chat.open('{{ room.room_id }}','{{ p.username }} (You)','direct')">
+              <div class="cht-room-av">
+                {% if p.profile_picture %}
+                  <img src="{{ p.profile_picture.url }}" alt="{{ p.username }}">
+                {% else %}
+                  <img src="https://ui-avatars.com/api/?name={{ p.username }}&background=random&size=40&bold=true" alt="{{ p.username }}">
+                {% endif %}
+                <div class="presence-dot online" data-user-id="{{ p.id }}"></div>
+              </div>
+              <div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div class="cht-room-name" style="font-weight: 600; font-size: 14px;">{{ p.username }} (You)</div>
+                  <span class="cht-unread-badge {% if room.unread_count == 0 %}d-none{% endif %}" data-room-id="{{ room.room_id }}" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">{{ room.unread_count }}</span>
+                </div>
+                <div class="cht-room-sub">{{ room.last_msg.content|default:"No messages yet"|truncatechars:30 }}</div>
+              </div>
+            </div>
+            {% endwith %}
+          {% else %}
+            {% for p in room.participants.all %}
+              {% if p != user %}
+                <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ p.username }}" data-type="direct" onclick="Chat.open('{{ room.room_id }}','{{ p.username }}','direct')">
+                  <div class="cht-room-av">
+                    {% if p.profile_picture %}
+                      <img src="{{ p.profile_picture.url }}" alt="{{ p.username }}">
+                    {% else %}
+                      <img src="https://ui-avatars.com/api/?name={{ p.username }}&background=random&size=40&bold=true" alt="{{ p.username }}">
+                    {% endif %}
+                    <div class="presence-dot {% if p.presence.is_online %}online{% endif %}" data-user-id="{{ p.id }}"></div>
+                  </div>
+                  <div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                      <div class="cht-room-name" style="font-weight: 600; font-size: 14px;">{{ p.username }}</div>
+                      <span class="cht-unread-badge {% if room.unread_count == 0 %}d-none{% endif %}" data-room-id="{{ room.room_id }}" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">{{ room.unread_count }}</span>
+                    </div>
+                    <div class="cht-room-sub">{{ room.last_msg.content|default:"No messages yet"|truncatechars:30 }}</div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        {% else %}
+          <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ room.name }}" data-type="group" onclick="Chat.open('{{ room.room_id }}','{{ room.name }}','group')">
+            <div class="cht-room-av" style="background:rgba(99,102,241,.12); color:var(--c-accent); border-radius:10px;">
+              <i class="fas fa-users"></i>
+            </div>
+            <div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="cht-room-name" style="font-weight: 600; font-size: 14px;">{{ room.name }}</div>
+                <span class="cht-unread-badge {% if room.unread_count == 0 %}d-none{% endif %}" data-room-id="{{ room.room_id }}" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">{{ room.unread_count }}</span>
+              </div>
+              <div class="cht-room-sub">{{ room.last_msg.content|default:"No messages yet"|truncatechars:30 }}</div>
+            </div>
+          </div>
+        {% endif %}
+      {% empty %}
+        <div class="p-3 text-center text-muted small">No recent chats</div>
+      {% endfor %}
+      </div>
+
+      <div class="cht-section-label">Contacts</div>
+      <div id="contactRooms">
+      {% for u in users %}
+        <div class="cht-room" data-id="DM-{{ u.id }}" data-name="{{ u.username }}{% if u == user %} (You){% endif %}" data-type="direct" onclick="Chat.open('DM-{{ u.id }}','{{ u.username }}{% if u == user %} (You){% endif %}','direct')">
+          <div class="cht-room-av">
+            {% if u.profile_picture %}
+              <img src="{{ u.profile_picture.url }}" alt="{{ u.username }}">
+            {% else %}
+              <img src="https://ui-avatars.com/api/?name={{ u.username }}&background=random&size=40&bold=true" alt="{{ u.username }}">
+            {% endif %}
+            <div class="presence-dot {% if u.presence.is_online or u == user %}online{% endif %}" data-user-id="{{ u.id }}"></div>
+          </div>
+          <div class="cht-room-info">
+            <div class="cht-room-name">{{ u.username }}{% if u == user %} (You){% endif %}</div>
+            <div class="cht-room-sub">{% if u == user %}Note to self{% else %}Click to message{% endif %}</div>
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    </div>
+  </aside>
+
+  <main class="cht-main">
+
+    <div class="cht-empty" id="chtEmpty">
+      <div class="cht-empty-icon"><i class="fas fa-comments"></i></div>
+      <h4>Your Messages</h4>
+      <p>Select a conversation from the sidebar to start chatting.</p>
+      <a href="{% url 'chat:create_group' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>New Group Chat</a>
+    </div>
+
+    <div class="cht-panel hidden" id="chtPanel">
+
+      <div class="cht-panel-head">
+        <div class="cht-panel-head-left">
+          <button class="c-icon-btn d-md-none" onclick="Chat.toggleSidebar()" title="Back"><i class="fas fa-chevron-left"></i></button>
+          <div class="cht-room-av" id="panelAv" style="flex-shrink:0;"><i class="fas fa-comments"></i></div>
+          <div id="panelMeta" style="min-width:0; cursor:pointer;" onclick="Chat.showMembers()" title="View members">
+            <div class="cht-panel-name" id="panelName"></div>
+            <div class="cht-panel-status" id="panelStatus"></div>
+          </div>
+        </div>
+        <div class="cht-panel-head-right">
+          <button class="c-icon-btn" title="Select messages" id="chtSelectModeBtn" onclick="Chat.enterSelectMode()" style="display:none;"><i class="fas fa-check-square"></i></button>
+          <button class="c-icon-btn" title="Search in chat" onclick="Chat.toggleSearch(true)"><i class="fas fa-search"></i></button>
+          <div class="dropdown">
+            <button class="c-icon-btn" data-bs-toggle="dropdown" type="button" aria-expanded="false">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+              <li id="menuItemDeleteGroup" style="display:none;">
+                <a class="dropdown-item text-danger" href="#" onclick="Chat.deleteGroup(); return false;">
+                  <i class="fas fa-trash me-2"></i>Delete Group
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item text-danger" href="#" onclick="Chat.clearChat(); return false;">
+                  <i class="fas fa-eraser me-2"></i>Clear Chat
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="cht-panel-search hidden" id="panelSearchWrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="panelSearchInput" placeholder="Search messages..." autocomplete="off">
+          <button class="cht-search-close" onclick="Chat.toggleSearch(false)"><i class="fas fa-times"></i></button>
+          <div id="searchRes" class="cht-search-results hidden"></div>
+        </div>
+      </div>
+
+      <!-- Pinned Message Banner -->
+      <div id="chtPinnedMsgBanner">
+        <div class="icon"><i class="fas fa-thumbtack"></i></div>
+        <div class="content">
+          <div class="title">Pinned Message</div>
+          <div class="text" id="chtPinnedMsgText"></div>
+        </div>
+        <button class="unpin-btn" onclick="Chat.unpinMessage(event)" title="Unpin Message"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="cht-messages" id="chtMsgs"></div>
+
+      <!-- Multi-select floating toolbar -->
+      <div id="chtSelectToolbar">
+        <span id="chtSelectCount">0 selected</span>
+        <button class="cht-sel-btn all" onclick="Chat.selectAll()"><i class="fas fa-check-double"></i> All</button>
+        <button class="cht-sel-btn fwd" onclick="Chat.forwardSelected()"><i class="fas fa-share"></i> Forward</button>
+        <button class="cht-sel-btn del" onclick="Chat.deleteSelected()"><i class="fas fa-trash"></i> Delete</button>
+        <button class="cht-sel-btn cancel" onclick="Chat.exitSelectMode()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="cht-input-wrap">
+        <div class="cht-ctx hidden" id="chtCtx">
+          <div class="cht-ctx-body">
+            <div class="cht-ctx-label" id="ctxLabel"></div>
+            <div class="cht-ctx-text"  id="ctxText"></div>
+          </div>
+          <button class="cht-ctx-close" onclick="Chat.clearCtx()" title="Cancel"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- Drag-and-drop file preview strip -->
+        <div id="chtDropPreview">
+          <span style="font-size:12px; color:var(--c-muted); font-weight:600; white-space:nowrap;"><i class="fas fa-paperclip me-1"></i>Files to send:</span>
+          <div id="chtDropChips" style="display:flex; flex-wrap:wrap; gap:6px; flex:1;"></div>
+          <button id="chtSendDropBtn" onclick="Chat.sendDroppedFiles()"><i class="fas fa-paper-plane"></i> Send</button>
+        </div>
+
+        <div class="cht-input-row">
+          <button class="cht-ib" type="button" id="emojiBtn"><i class="far fa-smile"></i></button>
+          <input type="file" id="fileInp" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="Chat.uploadFile(this)" multiple>
+          <label for="fileInp" class="cht-ib" title="Attach file"><i class="fas fa-paperclip" id="attachIcon"></i></label>
+          <div class="cht-field-wrap">
+            <input type="text" class="cht-field" id="msgInput" placeholder="Type a message…" autocomplete="off">
+          </div>
+          <button class="cht-send" id="sendBtn" type="button" title="Send"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+
+
+<!-- Members Modal -->
+<div class="modal fade" id="membersModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content overflow-hidden" style="border-radius:28px; border:none; box-shadow:0 25px 80px rgba(0,0,0,.35); background:var(--c-surface); max-width:400px; margin:auto;">
+      <div class="modal-header border-0 p-4 pb-2" style="background: linear-gradient(to bottom, var(--c-accent-ghost), transparent);">
+        <div>
+          <h5 class="modal-title fw-bold" style="color:var(--c-text); font-size:20px; letter-spacing:-0.5px;">Group Info</h5>
+          <div id="memberCountLabel" style="font-size:13px; color:var(--c-muted); margin-top:-2px;"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="background-color:rgba(0,0,0,.05); border-radius:50%; padding:8px;"></button>
+      </div>
+      <div class="modal-body p-4 pt-2">
+        <div id="membersList" class="d-flex flex-column" style="max-height:450px; overflow-y:auto;">
+          <!-- Members will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Forward Modal -->
+<div class="modal fade" id="forwardModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content overflow-hidden" style="border-radius:24px; border:none; box-shadow:0 20px 60px rgba(0,0,0,.3); background:var(--c-surface); max-width:400px; margin:auto;">
+      <div class="modal-header border-0 p-4 pb-2" style="background: linear-gradient(to bottom, var(--c-accent-ghost), transparent);">
+        <h5 class="modal-title fw-bold" style="color:var(--c-text); font-size:18px; letter-spacing:-0.5px;">Forward Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="background-color:rgba(0,0,0,.05); border-radius:50%; padding:8px;"></button>
+      </div>
+      <div class="modal-body p-4 pt-2">
+        <div class="mb-3">
+          <input type="text" id="forwardSearch" class="form-control" placeholder="Search chats..." style="border-radius:12px; background:var(--c-bg); border:1px solid var(--c-border); color:var(--c-text); font-size:13px; padding:10px 16px;">
+        </div>
+        <div id="forwardList" class="d-flex flex-column" style="max-height:350px; overflow-y:auto; gap: 8px;">
+          <!-- Rooms/Contacts to forward to will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js" type="module"></script>
+<script>
+const Chat = (() => {
+  'use strict';
+
+  let ws=null, roomId=null, activeRoomUUID=null, replyId=null, editId=null, isTyping=false, typTimer=null, currentParticipants=[], currentRoomType=null, created_by=null;
+  let selectedMsgIds = new Set();
+  let inSelectMode = false;
+  let lastRenderedDate = null;
+  const ME = '{{ user.username }}';
+  let elEmpty,elPanel,elMsgs,elInput,elSend,elSearch,elCtx,elCtxLabel,elCtxText,elPanelName,elPanelStatus,elPanelAv, elSearchWrap, elSearchInput, elSearchRes;
+  
+  // Pin states
+  const QC_PINS_KEY = 'qc_pinned_rooms';
+  const MSG_PIN_PREFIX = 'cht_pinned_msg_';
+  let elPinBanner, elPinText;
+
+
+  function init() {
+    elEmpty       = document.getElementById('chtEmpty');
+    elPanel       = document.getElementById('chtPanel');
+    elMsgs        = document.getElementById('chtMsgs');
+    elInput       = document.getElementById('msgInput');
+    elSend        = document.getElementById('sendBtn');
+    elSearch      = document.getElementById('chtSearch');
+    elCtx         = document.getElementById('chtCtx');
+    elCtxLabel    = document.getElementById('ctxLabel');
+    elCtxText     = document.getElementById('ctxText');
+    elPanelName   = document.getElementById('panelName');
+    elPanelStatus = document.getElementById('panelStatus');
+    elPanelAv     = document.getElementById('panelAv');
+    elSearchWrap  = document.getElementById('panelSearchWrap');
+    elSearchInput = document.getElementById('panelSearchInput');
+    elSearchRes   = document.getElementById('searchRes');
+
+    // Pinned Message DOM
+    elPinBanner   = document.getElementById('chtPinnedMsgBanner');
+    elPinText     = document.getElementById('chtPinnedMsgText');
+    if (elPinBanner) {
+      elPinBanner.addEventListener('click', function(e) {
+        if (e.target.closest('.unpin-btn')) return;
+        const mid = elPinBanner.dataset.mid;
+        if (mid) scrollToMsg('cm-' + mid);
+      });
+    }
+
+    elSend.addEventListener('click', send);
+    elInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+      else onTyping();
+    });
+    elInput.addEventListener('paste', function(e) {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      const files = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            files.push(file);
+          }
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        uploadFilesDirect(files);
+      }
+    });
+    elSearch.addEventListener('input', filterRooms);
+    elSearchInput.addEventListener('input', debounce(performSearch, 400));
+    
+    // Emoji setup
+    const picker = document.createElement('emoji-picker');
+    picker.style.display = 'none';
+    picker.style.position = 'absolute';
+    picker.style.bottom = '80px';
+    picker.style.right = '20px';
+    document.body.appendChild(picker);
+    document.getElementById('emojiBtn').addEventListener('click', () => {
+        picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+    });
+    picker.addEventListener('emoji-click', e => {
+        elInput.value += e.detail.unicode;
+        picker.style.display = 'none';
+    });
+    
+    document.body.classList.add('chat-mode');
+    renderSidebarPins();
+
+    // ── Chat drag-and-drop init ──
+    initChatDrop();
+  }
+
+  // ── Pin Chats ──
+  function getPins() {
+    try { return JSON.parse(localStorage.getItem(QC_PINS_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+  function togglePin(id, event) {
+    if (event) event.stopPropagation();
+    var pins = getPins();
+    var idx = pins.indexOf(id);
+    if (idx > -1) pins.splice(idx, 1);
+    else pins.push(id);
+    localStorage.setItem(QC_PINS_KEY, JSON.stringify(pins));
+    renderSidebarPins();
+  }
+  function renderSidebarPins() {
+    var pins = getPins();
+    document.querySelectorAll('.cht-room').forEach(function(roomEl) {
+      const id = roomEl.dataset.id;
+      if (!roomEl.querySelector('.cht-pin-btn')) {
+        const btn = document.createElement('button');
+        btn.className = 'cht-pin-btn';
+        btn.innerHTML = '<i class="fas fa-thumbtack"></i>';
+        btn.onclick = function(e) { togglePin(id, e); };
+        btn.title = 'Pin/Unpin';
+        roomEl.appendChild(btn);
+      }
+      const btn = roomEl.querySelector('.cht-pin-btn');
+      if (pins.includes(id)) btn.classList.add('pinned');
+      else btn.classList.remove('pinned');
+    });
+
+    ['recentRooms', 'contactRooms'].forEach(function(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      let pinLabel = container.querySelector('.cht-pinned-label');
+      if (!pinLabel) {
+        pinLabel = document.createElement('div');
+        pinLabel.className = 'cht-pinned-label';
+        pinLabel.innerHTML = '<i class="fas fa-thumbtack"></i> Pinned';
+        container.insertBefore(pinLabel, container.firstChild);
+      }
+
+      const rooms = Array.from(container.querySelectorAll('.cht-room'));
+      if (rooms.length === 0) {
+        pinLabel.style.display = 'none';
+        return;
+      }
+
+      const pinnedRooms = rooms.filter(el => pins.includes(el.dataset.id));
+      const unpinnedRooms = rooms.filter(el => !pins.includes(el.dataset.id));
+
+      const reversedPins = [...pins].reverse();
+      pinnedRooms.sort(function(a, b) {
+        return reversedPins.indexOf(a.dataset.id) - reversedPins.indexOf(b.dataset.id);
+      });
+
+      if (pinnedRooms.length > 0) {
+        pinLabel.style.display = 'flex';
+      } else {
+        pinLabel.style.display = 'none';
+      }
+
+      // Re-append in correct order: pinLabel -> pinned -> unpinned
+      container.appendChild(pinLabel);
+      pinnedRooms.forEach(el => container.appendChild(el));
+      unpinnedRooms.forEach(el => container.appendChild(el));
+    });
+  }
+
+  // ── Pin Messages ──
+  function pinMessage(mid, text) {
+    if (!roomId) return;
+    localStorage.setItem(MSG_PIN_PREFIX + roomId, JSON.stringify({ mid: mid, text: text }));
+    loadPinnedMessage();
+  }
+  function unpinMessage(event) {
+    if (event) event.stopPropagation();
+    if (!roomId) return;
+    localStorage.removeItem(MSG_PIN_PREFIX + roomId);
+    loadPinnedMessage();
+  }
+  function loadPinnedMessage() {
+    if (!roomId || !elPinBanner) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(MSG_PIN_PREFIX + roomId));
+      if (stored && stored.mid && stored.text) {
+        elPinText.textContent = stored.text;
+        elPinBanner.dataset.mid = stored.mid;
+        elPinBanner.classList.add('active');
+      } else {
+        elPinBanner.classList.remove('active');
+        elPinBanner.dataset.mid = '';
+      }
+    } catch(e) {
+      elPinBanner.classList.remove('active');
+    }
+  }
+
+
+  function enterSelectMode() {
+    inSelectMode = true;
+    selectedMsgIds.clear();
+    document.getElementById('chtMsgs').classList.add('select-mode');
+    document.getElementById('chtSelectToolbar').classList.add('active');
+    updateSelectCount();
+  }
+
+  function exitSelectMode() {
+    inSelectMode = false;
+    selectedMsgIds.clear();
+    document.getElementById('chtMsgs').classList.remove('select-mode');
+    document.getElementById('chtSelectToolbar').classList.remove('active');
+    document.querySelectorAll('.cht-bubble-row.selected').forEach(r => r.classList.remove('selected'));
+  }
+
+  function toggleMsgSelect(mid) {
+    if (!inSelectMode) return;
+    var el = document.getElementById('cm-' + mid);
+    if (!el) return;
+    if (selectedMsgIds.has(mid)) { selectedMsgIds.delete(mid); el.classList.remove('selected'); }
+    else { selectedMsgIds.add(mid); el.classList.add('selected'); }
+    updateSelectCount();
+  }
+
+  function selectAll() {
+    document.querySelectorAll('#chtMsgs .cht-bubble-row[id^="cm-"]').forEach(function(row) {
+      var mid = row.id.replace('cm-', '');
+      selectedMsgIds.add(mid);
+      row.classList.add('selected');
+    });
+    updateSelectCount();
+  }
+
+  function updateSelectCount() {
+    document.getElementById('chtSelectCount').textContent = selectedMsgIds.size + ' selected';
+  }
+
+  function deleteSelected() {
+    if (!selectedMsgIds.size) return;
+    
+    const deletableIds = [];
+    const now = new Date();
+    selectedMsgIds.forEach(mid => {
+      const el = document.getElementById('cm-' + mid);
+      if (el && el.dataset.isme === 'true' && el.dataset.timestamp) {
+        const msgTime = new Date(el.dataset.timestamp);
+        const diff = (now - msgTime) / 1000 / 60;
+        if (diff < 10) {
+          deletableIds.push(mid);
+        }
+      }
+    });
+
+    if (deletableIds.length === 0) {
+      alert('None of the selected messages can be deleted. You can only delete your own messages sent within the last 10 minutes.');
+      return;
+    }
+
+    const confirmMsg = deletableIds.length === selectedMsgIds.size
+      ? 'Delete ' + deletableIds.length + ' message(s) for everyone?'
+      : 'Only ' + deletableIds.length + ' of the ' + selectedMsgIds.size + ' selected message(s) can be deleted (your own messages sent within the last 10 minutes). Delete them for everyone?';
+
+    if (!confirm(confirmMsg)) return;
+
+    fetch('/chat/api/bulk-delete/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      body: JSON.stringify({ message_ids: deletableIds })
+    }).then(r => r.json()).then(d => {
+      if (d.status === 'success') {
+        d.deleted_ids.forEach(function(id) { applyDelete(id); });
+        exitSelectMode();
+      } else alert(d.message || 'Delete failed');
+    });
+  }
+
+  function forwardSelected() {
+    if (!selectedMsgIds.size) { alert('Select at least one message.'); return; }
+    // Re-use the forward modal but track multiple IDs
+    activeForwardMsgIds = Array.from(selectedMsgIds);
+    openForwardModal(null);
+  }
+
+  function open(id, name, type, targetMsgId) {
+    if (!id) return;
+    
+    try {
+        roomId = id;
+        currentRoomType = type || 'direct';
+        
+        var badge = document.querySelector('.cht-unread-badge[data-room-id="' + CSS.escape(id) + '"]');
+        if (badge) {
+            badge.classList.add('d-none');
+            badge.textContent = '0';
+        }
+        
+        // Ensure UI elements exist
+        if (!elEmpty) elEmpty = document.getElementById('chtEmpty');
+        if (!elPanel) elPanel = document.getElementById('chtPanel');
+        if (!elPanelName) elPanelName = document.getElementById('panelName');
+        if (!elPanelStatus) elPanelStatus = document.getElementById('panelStatus');
+        if (!elPanelAv) elPanelAv = document.getElementById('panelAv');
+
+        if (elEmpty) elEmpty.classList.add('hidden');
+        if (elPanel) {
+            elPanel.classList.remove('hidden');
+            elPanel.style.display = 'flex';
+        }
+        exitSelectMode();
+        var selBtn = document.getElementById('chtSelectModeBtn');
+        if (selBtn) selBtn.style.display = 'block';
+
+        if (elPanelName) elPanelName.textContent = name || 'Chat';
+        
+        if (elPanelAv) {
+            if (type === 'direct') {
+              elPanelAv.style.borderRadius = '50%';
+              elPanelAv.style.background = 'transparent';
+              elPanelAv.innerHTML = '<img src="https://ui-avatars.com/api/?name=' + encodeURIComponent(name || 'U') + '&background=random&size=48&bold=true" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            } else {
+              elPanelAv.style.borderRadius = '10px';
+              elPanelAv.style.background = 'rgba(99,102,241,.12)';
+              elPanelAv.style.color = 'var(--c-accent)';
+              elPanelAv.innerHTML = '<i class="fas fa-users"></i>';
+            }
+        }
+
+        document.querySelectorAll('.cht-room').forEach(function(r) { r.classList.remove('active'); });
+        var roomEl = document.querySelector('.cht-room[data-id="' + CSS.escape(id) + '"]');
+        if (roomEl) roomEl.classList.add('active');
+
+        clearCtx();
+        loadPinnedMessage();
+        loadHistory(id, targetMsgId);
+        connectWS(id);
+
+        if (window.innerWidth <= 700) {
+            const sidebar = document.getElementById('chtSidebar');
+            if (sidebar) sidebar.classList.remove('open');
+        }
+    } catch (err) { console.error('Chat.open error:', err); }
+  }
+
+  function loadHistory(id, targetMsgId) {
+    elMsgs.innerHTML = '<div class="cht-loader"><div class="spinner-border text-primary" role="status"></div></div>';
+    fetch('/chat/api/messages/' + id + '/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        activeRoomUUID = data.room_id || null;
+        elMsgs.innerHTML = '';
+        lastRenderedDate = null;
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(function(m) { renderMsg(m); });
+        } else {
+          elMsgs.innerHTML = '<div style="text-align:center;color:var(--c-muted);padding:48px 0;font-size:13px;"><i class="fas fa-lock" style="font-size:32px;opacity:.25;display:block;margin-bottom:12px;"></i>No messages yet. Say hello!</div>';
+        }
+        currentParticipants = data.participants || [];
+        currentRoomType = data.room_type;
+        created_by = data.created_by || null;
+
+        const delGrpBtn = document.getElementById('menuItemDeleteGroup');
+        if (delGrpBtn) delGrpBtn.style.display = (currentRoomType === 'group' && created_by === ME) ? 'block' : 'none';
+
+        var elPanelMeta = document.getElementById('panelMeta');
+        if (elPanelMeta) {
+            if (currentRoomType === 'group' || currentRoomType === 'project') {
+                elPanelMeta.style.cursor = 'pointer';
+                elPanelMeta.setAttribute('title', 'View members');
+            } else {
+                elPanelMeta.style.cursor = 'default';
+                elPanelMeta.removeAttribute('title');
+            }
+        }
+        if (roomId.startsWith('DM-')) {
+           const other = currentParticipants.find(p => p.username !== ME);
+           if (other && other.profile_picture) {
+             elPanelAv.innerHTML = '<img src="' + other.profile_picture + '" style="width:100%;height:100%;object-fit:cover;">';
+           }
+        }
+        
+        // Update presence/online status in DM header
+        if (currentRoomType === 'direct') {
+            const other = currentParticipants.find(p => p.username !== ME);
+            if (elPanelStatus && other) {
+                elPanelStatus.innerHTML = other.is_online ? '<span style="color: #10b981; font-weight: 500;">Online</span>' : '<span style="color: var(--c-muted);">Offline</span>';
+            }
+        } else {
+            if (elPanelStatus) {
+                var statusParts = [];
+                statusParts.push(currentParticipants.length + ' member' + (currentParticipants.length !== 1 ? 's' : ''));
+                if (created_by) statusParts.push('Admin: ' + created_by);
+                elPanelStatus.textContent = statusParts.join(' • ');
+            }
+        }
+        
+        if (targetMsgId) {
+            setTimeout(function() { scrollToMsg('cm-' + targetMsgId); }, 300);
+        } else {
+            scrollBottom();
+        }
+      })
+      .catch(function(err) {
+        console.error('loadHistory:', err);
+      });
+  }
+
+  function connectWS(id) {
+    if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(proto + '//' + location.host + '/ws/chat/' + id + '/');
+    ws.onmessage = function(e) { handleWS(JSON.parse(e.data)); };
+    ws.onopen = function() {
+        // Automatically send a read receipt on open
+        wsSend({ type: 'read_receipt' });
+    };
+  }
+
+  function handleWS(data) {
+    if (data.type === 'presence_change') {
+        const dots = document.querySelectorAll('.presence-dot[data-user-id="' + data.user_id + '"]');
+        dots.forEach(dot => {
+            if (data.status === 'online') dot.classList.add('online');
+            else dot.classList.remove('online');
+        });
+        
+        // Update presence in active DM header if relevant
+        if (currentRoomType === 'direct' && currentParticipants.length) {
+            const other = currentParticipants.find(p => p.id == data.user_id && p.username !== ME);
+            if (other) {
+                other.is_online = (data.status === 'online');
+                if (elPanelStatus) {
+                    elPanelStatus.innerHTML = other.is_online ? '<span style="color: #10b981; font-weight: 500;">Online</span>' : '<span style="color: var(--c-muted);">Offline</span>';
+                }
+            }
+        }
+        return;
+    }
+
+    if (data.type === 'chat_message') {
+        var msgRoomId = data.room_id || roomId;
+        
+        // Resolve legacy DM ID to new room ID if they are the same room
+        if (roomId && roomId.startsWith('DM-')) {
+            let otherUsername = data.sender;
+            if (data.sender === ME && currentRoomType === 'direct') {
+                const otherPart = currentParticipants.find(p => p.username !== ME);
+                if (otherPart) otherUsername = otherPart.username;
+            }
+            if (otherUsername) {
+                let roomEl = document.querySelector('.cht-room[data-name="' + CSS.escape(otherUsername) + '"]');
+                if (roomEl && roomEl.getAttribute('data-id') === roomId) {
+                    // Update our active room references to the real room UUID!
+                    roomId = msgRoomId;
+                    activeRoomUUID = msgRoomId;
+                    roomEl.setAttribute('data-id', msgRoomId);
+                    roomEl.setAttribute('onclick', "Chat.open('" + msgRoomId + "','" + js(otherUsername) + "','direct')");
+                    const badge = roomEl.querySelector('.cht-unread-badge');
+                    if (badge) badge.setAttribute('data-room-id', msgRoomId);
+                    
+                    // Also update active class
+                    roomEl.classList.add('active');
+                }
+            }
+        }
+
+        var isActiveRoom = (msgRoomId === roomId) || (activeRoomUUID && msgRoomId === activeRoomUUID);
+        if (isActiveRoom) {
+            renderMsg(data);
+            scrollBottom();
+            updateRoomSnippet(data);
+            reorderRooms(msgRoomId, data);
+            
+            // If the message is from someone else, send a read receipt back immediately
+            if (data.sender !== ME) {
+                wsSend({ type: 'read_receipt' });
+            }
+        } else {
+            updateRoomSnippet(data);
+            reorderRooms(msgRoomId, data);
+            var badge = document.querySelector('.cht-unread-badge[data-room-id="' + CSS.escape(msgRoomId) + '"]');
+            if (badge) {
+                var currentCount = parseInt(badge.textContent || '0', 10);
+                badge.textContent = currentCount + 1;
+                badge.classList.remove('d-none');
+            }
+        }
+    } else if (data.type === 'messages_read') {
+        // If someone else read the messages in our active chat room, turn checkmarks blue!
+        if (data.user !== ME) {
+            document.querySelectorAll('.ticks-icon').forEach(function(icon) {
+                icon.style.color = '#34b7f1';
+                icon.style.opacity = '1';
+            });
+        }
+    } else if (data.type === 'message_edited') {
+        applyEdit(data);
+    } else if (data.type === 'message_deleted') {
+        applyDelete(data.message_id);
+    } else if (data.type === 'message_reaction') {
+        applyReaction(data);
+    } else if (data.type === 'typing') {
+        handleTyping(data);
+    }
+  }
+
+  function findOrCreateSidebarRoom(data) {
+    if (!data) return null;
+    const id = data.room_id || roomId;
+    if (!id) return null;
+    let roomEl = document.querySelector('.cht-room[data-id="' + CSS.escape(id) + '"]');
+    if (roomEl) return roomEl;
+
+    // If not found by UUID, maybe it's a DM and we can find it by username in Contacts
+    let otherUsername = data.sender;
+    if (data.sender === ME && currentRoomType === 'direct') {
+      const otherPart = currentParticipants.find(p => p.username !== ME);
+      if (otherPart) otherUsername = otherPart.username;
+    }
+
+    if (otherUsername) {
+      roomEl = document.querySelector('.cht-room[data-name="' + CSS.escape(otherUsername) + '"]');
+      if (roomEl) {
+        // Update its data-id and click handler to use the real room UUID!
+        roomEl.setAttribute('data-id', id);
+        roomEl.setAttribute('onclick', "Chat.open('" + id + "','" + js(otherUsername) + "','direct')");
+        const badge = roomEl.querySelector('.cht-unread-badge');
+        if (badge) badge.setAttribute('data-room-id', id);
+        return roomEl;
+      }
+    }
+
+    // If still not found (e.g. a new room we were added to), dynamically create the room element!
+    const container = document.getElementById('recentRooms');
+    if (container) {
+      roomEl = document.createElement('div');
+      roomEl.className = 'cht-room';
+      roomEl.setAttribute('data-id', id);
+      const displayName = data.room_name || data.sender || 'Chat';
+      roomEl.setAttribute('data-name', displayName);
+      const isGroup = data.room_type === 'group' || !data.sender_avatar;
+      roomEl.setAttribute('data-type', isGroup ? 'group' : 'direct');
+      roomEl.setAttribute('onclick', "Chat.open('" + id + "','" + js(displayName) + "','" + (isGroup ? 'group' : 'direct') + "')");
+
+      const avatarHtml = isGroup 
+        ? '<div class="cht-room-av" style="background:rgba(99,102,241,.12); color:var(--c-accent); border-radius:10px;"><i class="fas fa-users"></i></div>'
+        : '<div class="cht-room-av"><img src="' + (data.sender_avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=random&size=40&bold=true') + '" alt="' + h(displayName) + '"><div class="presence-dot online"></div></div>';
+
+      roomEl.innerHTML = avatarHtml + 
+        '<div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">' +
+          '<div style="display: flex; align-items: center; justify-content: space-between;">' +
+            '<div class="cht-room-name" style="font-weight: 600; font-size: 14px;">' + h(displayName) + '</div>' +
+            '<span class="cht-unread-badge d-none" data-room-id="' + id + '" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">0</span>' +
+          '</div>' +
+          '<div class="cht-room-sub"></div>' +
+        '</div>';
+
+      container.prepend(roomEl);
+      return roomEl;
+    }
+    return null;
+  }
+
+  function updateRoomSnippet(data) {
+    const id = data.room_id || roomId;
+    const roomEl = findOrCreateSidebarRoom(data);
+    if (roomEl) {
+      const sub = roomEl.querySelector('.cht-room-sub');
+      if (sub) sub.textContent = data.message || data.content || 'File';
+    }
+  }
+
+  function reorderRooms(id, data) {
+    const roomEl = findOrCreateSidebarRoom(data || { room_id: id });
+    const container = document.getElementById('recentRooms');
+    if (roomEl && container) {
+      container.prepend(roomEl);
+      const emptyPlaceholder = container.querySelector('.text-muted');
+      if (emptyPlaceholder) emptyPlaceholder.remove();
+      renderSidebarPins();
+    }
+  }
+
+  function send() {
+    var text = elInput.value.trim();
+    if (!text) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+       if (roomId) connectWS(roomId);
+       setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) send(); }, 500);
+       return;
+    }
+    if (editId) {
+      wsSend({ type:'edit_message', message_id:editId, message:text });
+      editId = null;
+    } else {
+      wsSend({ type:'chat_message', message:text, parent_id:replyId||null });
+    }
+    elInput.value = '';
+    clearCtx();
+    stopTyping();
+  }
+
+  function renderMsg(d) {
+    var mid   = d.id || d.message_id;
+    var isMe  = d.sender === ME;
+    var domId = 'cm-' + mid;
+
+    if (mid) {
+      var ex = document.getElementById(domId);
+      if (ex) { if (d.type === 'message_edited' || d.is_edited) applyEdit(d); return; }
+    }
+
+    if (d.raw_timestamp) {
+        try {
+            var msgDate = new Date(d.raw_timestamp);
+            var dateStr = formatDateHeader(msgDate);
+            if (dateStr !== lastRenderedDate) {
+                lastRenderedDate = dateStr;
+                var dateDivider = document.createElement('div');
+                dateDivider.className = 'cht-date-divider';
+                dateDivider.style.cssText = 'text-align: center; margin: 24px 0 16px 0; position: relative; display: flex; align-items: center; justify-content: center; width: 100%;';
+                dateDivider.innerHTML = '<span style="background: var(--c-surface); color: var(--c-muted); font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 12px; border: 1px solid var(--c-border); z-index: 1;">' + dateStr + '</span>' + 
+                                        '<div style="position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--c-border); z-index: 0; opacity: 0.5;"></div>';
+                elMsgs.appendChild(dateDivider);
+            }
+        } catch(e) {
+            console.error('Date rendering error:', e);
+        }
+    }
+
+    var row  = document.createElement('div');
+    row.className = 'cht-bubble-row ' + (isMe ? 'me' : 'them') + (d.is_deleted ? ' deleted' : '');
+    row.dataset.isme = isMe ? 'true' : 'false';
+    row.dataset.timestamp = d.raw_timestamp || '';
+    if (mid) row.id = domId;
+    row.addEventListener('click', function(e) {
+      if (inSelectMode && !e.target.closest('.cht-actions') && !e.target.closest('.cht-select-chk')) {
+        toggleMsgSelect(mid);
+      }
+    });
+
+    var html = '';
+
+    // Selection checkbox (shown in select-mode)
+    html += '<div class="cht-select-chk" onclick="event.stopPropagation(); Chat.toggleMsgSelect(\'' + mid + '\')"></div>';
+
+    if (!isMe && currentRoomType === 'group') {
+      var av = d.sender_avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(d.sender) + '&background=random&size=32&bold=true';
+      html += '<img src="' + av + '" class="cht-msg-av" title="' + h(d.sender) + '">';
+    }
+
+    html += '<div class="cht-bubble-content-wrap">';
+    
+    if (!isMe && currentRoomType === 'group' && d.sender) {
+      html += '<div class="cht-sender-name">' + h(d.sender) + '</div>';
+    }
+
+    html += '<div class="cht-bw">';
+    
+    if (!d.is_deleted && mid) {
+      var st  = js(d.content || d.message || '');
+      var ss  = js(d.sender || '');
+      
+      var canEdit = false;
+      if (isMe && d.raw_timestamp) {
+          var msgTime = new Date(d.raw_timestamp);
+          var now = new Date();
+          var diff = (now - msgTime) / 1000 / 60; 
+          if (diff < 10) canEdit = true;
+      }
+
+      html += '<div class="cht-actions">';
+      html += '<button type="button" class="cht-act-btn" title="Reply" onclick="event.preventDefault(); event.stopPropagation(); Chat.startReply(\'' + mid + '\',\'' + ss + '\',\'' + st.substring(0,60) + '\')"><i class="fas fa-reply"></i></button>';
+      html += '<button type="button" class="cht-act-btn" title="Forward" onclick="event.preventDefault(); event.stopPropagation(); Chat.openForwardModal(\'' + mid + '\')"><i class="fas fa-share"></i></button>';
+      html += '<button type="button" class="cht-act-btn cht-react-trigger" title="React">';
+      html += '<i class="far fa-smile"></i>';
+      html += '<div class="cht-react-picker">';
+      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'👍\')">👍</span>';
+      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'❤️\')">❤️</span>';
+      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😂\')">😂</span>';
+      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😮\')">😮</span>';
+      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😢\')">😢</span>';
+      html += '</div>';
+      html += '</button>';
+      html += '<button type="button" class="cht-act-btn" title="Pin Message" onclick="event.preventDefault(); event.stopPropagation(); Chat.pinMessage(\'' + mid + '\',\'' + st.substring(0,100).replace(/'/g, "\\'") + '\')"><i class="fas fa-thumbtack"></i></button>';
+      
+      if (canEdit) {
+        html += '<button type="button" class="cht-act-btn" title="Edit"   onclick="event.preventDefault(); event.stopPropagation(); Chat.startEdit(\'' + mid + '\',\'' + st + '\')"><i class="fas fa-pen"></i></button>';
+        html += '<button type="button" class="cht-act-btn del" title="Delete" onclick="event.preventDefault(); event.stopPropagation(); Chat.delMsg(\'' + mid + '\')"><i class="fas fa-trash"></i></button>';
+      }
+      html += '</div>';
+    }
+
+    html += '<div class="cht-b">';
+
+    if (d.parent_content) {
+      html += '<div class="cht-reply-preview" onclick="event.preventDefault(); event.stopPropagation(); Chat.scrollToMsg(\'cm-' + d.parent_id + '\')" style="cursor:pointer;"><div class="cht-reply-author">' + h(d.parent_sender||'') + '</div><div class="cht-reply-text">' + h(d.parent_content) + '</div></div>';
+    }
+
+    if (d.file_url && !d.is_deleted) {
+      if (d.file_type && d.file_type.startsWith('image/')) {
+        html += '<img class="cht-img" src="' + d.file_url + '" alt="image" onclick="window.open(\'' + d.file_url + '\',\'_blank\')">';
+      } else {
+        html += '<div class="cht-file-card"><div class="cht-file-icon"><i class="fas fa-file"></i></div><div style="min-width:0;"><div class="cht-file-name">' + h(d.file_name||'File') + '</div><a class="cht-file-dl" href="' + d.file_url + '" target="_blank" download>Download</a></div></div>';
+      }
+    }
+
+    var contentText = h(d.content || d.message || '');
+    html += '<div class="cht-text">' + (d.is_deleted ? '<em>This message was deleted</em>' : contentText) + '</div>';
+
+    html += '<div class="cht-reactions" id="rxn-' + mid + '">';
+    if (d.reactions && d.reactions.length) {
+      const groups = {};
+      d.reactions.forEach(function(r) {
+        if (!groups[r.emoji]) groups[r.emoji] = [];
+        groups[r.emoji].push(r.user);
+      });
+      for (const emoji in groups) {
+        const users = groups[emoji];
+        html += '<span class="cht-rxn-pill" title="' + h(users.join(', ')) + '" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'' + emoji + '\')">' + emoji + ' <span style="font-weight:600; opacity:0.8;">' + users.length + '</span></span>';
+      }
+    }
+    html += '</div>';
+
+    var ticksColor = d.is_seen ? 'color: #34b7f1;' : 'color: var(--c-muted); opacity: 0.5;';
+    var ticksSvg = '<svg class="ticks-icon ms-1" width="15" height="11" viewBox="0 0 15 11" fill="none" style="vertical-align: middle; margin-top: -3px; display: inline-block; ' + ticksColor + '" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M1 5.5L4 8.5L9.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M5.5 8.5L8.5 5.5L14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>';
+    var timeStr = 'now';
+    if (d.raw_timestamp) {
+      try {
+        var msgDate = new Date(d.raw_timestamp);
+        var hours = String(msgDate.getHours()).padStart(2, '0');
+        var minutes = String(msgDate.getMinutes()).padStart(2, '0');
+        timeStr = hours + ':' + minutes;
+      } catch(e) {
+        timeStr = d.timestamp || 'now';
+      }
+    } else {
+      timeStr = d.timestamp || 'now';
+    }
+    html += '<div class="cht-meta">' + (d.is_edited ? '<span class="cht-edited">edited \u00b7</span>' : '') + '<span>' + timeStr + '</span>' + (isMe ? ticksSvg : '') + '</div>';
+    html += '</div></div></div>';
+
+    row.innerHTML = html;
+    elMsgs.appendChild(row);
+  }
+
+  function applyEdit(d) {
+    var mid = d.message_id || d.id;
+    var el  = document.getElementById('cm-' + mid);
+    if (!el) return;
+    var t = el.querySelector('.cht-text');
+    if (t) t.innerHTML = h(d.message || d.content || '');
+    var meta = el.querySelector('.cht-meta');
+    if (meta && !el.querySelector('.cht-edited')) meta.insertAdjacentHTML('afterbegin', '<span class="cht-edited">edited \u00b7</span>');
+  }
+
+  function applyDelete(mid) {
+    var el = document.getElementById('cm-' + mid);
+    if (!el) return;
+    el.classList.add('deleted');
+    var t = el.querySelector('.cht-text');
+    if (t) t.innerHTML = '<em>This message was deleted</em>';
+    
+    // Remove image or file card if present
+    var img = el.querySelector('.cht-img');
+    if (img) img.remove();
+    var fileCard = el.querySelector('.cht-file-card');
+    if (fileCard) fileCard.remove();
+
+    var acts = el.querySelector('.cht-actions');
+    if (acts) acts.remove();
+  }
+
+  function applyReaction(d) {
+    var c = document.getElementById('rxn-' + d.message_id);
+    if (!c) return;
+    
+    var pills = c.querySelectorAll('.cht-rxn-pill');
+    var foundPill = false;
+    
+    pills.forEach(function(pill) {
+      if (pill.innerHTML.includes(d.emoji)) {
+        foundPill = true;
+        var title = pill.getAttribute('title') || '';
+        var users = title.split(',').map(function(u) { return u.trim(); }).filter(Boolean);
+        var userIdx = users.indexOf(d.user);
+        if (userIdx > -1) {
+          users.splice(userIdx, 1);
+        } else {
+          users.push(d.user);
+        }
+        
+        if (users.length === 0) {
+          pill.remove();
+        } else {
+          pill.setAttribute('title', users.join(', '));
+          var countSpan = pill.querySelector('span');
+          if (countSpan) {
+            countSpan.textContent = users.length;
+          } else {
+            pill.innerHTML = d.emoji + ' <span style="font-weight:600; opacity:0.8;">' + users.length + '</span>';
+          }
+        }
+      }
+    });
+    
+    if (!foundPill) {
+      var newPill = document.createElement('span');
+      newPill.className = 'cht-rxn-pill';
+      newPill.setAttribute('title', d.user);
+      newPill.setAttribute('onclick', "event.preventDefault(); event.stopPropagation(); Chat.react('" + d.message_id + "','" + d.emoji + "')");
+      newPill.innerHTML = d.emoji + ' <span style="font-weight:600; opacity:0.8;">1</span>';
+      c.appendChild(newPill);
+    }
+  }
+
+  function startReply(id, sender, text) {
+    replyId = id; editId = null;
+    elCtxLabel.textContent = 'Replying to ' + sender;
+    elCtxText.textContent  = text;
+    showCtx();
+  }
+
+  function startEdit(id, text) {
+    editId = id; replyId = null;
+    elCtxLabel.textContent = 'Editing message';
+    elCtxText.textContent  = text;
+    elInput.value = text;
+    elInput.placeholder = 'Edit message\u2026';
+    showCtx();
+  }
+
+  function showCtx()  { elCtx.classList.remove('hidden'); elInput.focus(); }
+
+  function clearCtx() {
+    replyId = null; editId = null;
+    elCtx.classList.add('hidden');
+    elCtxLabel.textContent = '';
+    elCtxText.textContent  = '';
+    elInput.placeholder = 'Type a message\u2026';
+  }
+
+  function delMsg(id) {
+    if (!confirm('Delete this message for everyone?')) return;
+    wsSend({ type:'delete_message', message_id:id });
+  }
+
+  function react(id, emoji) { wsSend({ type:'add_reaction', message_id:id, emoji:emoji }); }
+
+  function wsSend(obj) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+
+  function onTyping() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!isTyping) { isTyping = true; wsSend({ type:'typing', is_typing:true }); }
+    clearTimeout(typTimer);
+    typTimer = setTimeout(stopTyping, 2000);
+  }
+
+  function stopTyping() {
+    if (!isTyping) return;
+    isTyping = false;
+    wsSend({ type:'typing', is_typing:false });
+  }
+
+  function handleTyping(d) {
+    if (d.user === ME) return;
+    elPanelStatus.innerHTML = d.is_typing ? '<span class="cht-typing">' + h(d.user) + ' is typing\u2026</span>' : (currentRoomType === 'group' ? 'Group Chat' : 'Online');
+  }
+
+  // ── Drag-and-drop file upload for chat ──
+  let draggedFiles = [];
+  let dragCounter = 0;
+
+  function initChatDrop() {
+    // Insert overlay div directly into the panel (not via template clone)
+    const panel = document.getElementById('chtPanel');
+    if (!panel) return;
+    panel.style.position = 'relative';
+
+    // Remove any existing overlay first
+    const existing = document.getElementById('chtDropOverlay');
+    if (existing) existing.remove();
+
+    const ov = document.createElement('div');
+    ov.id = 'chtDropOverlay';
+    ov.innerHTML = '<i class="fas fa-file-upload"></i><span>Drop files to send</span><small style="font-size:13px;opacity:0.7;">Multiple files supported</small>';
+    panel.appendChild(ov);
+
+    // Track whether any drag is happening over the panel
+    let isDraggingOverPanel = false;
+
+    function showOverlay() {
+      if (!roomId) return;
+      ov.classList.add('active');
+      isDraggingOverPanel = true;
+    }
+    function hideOverlay() {
+      ov.classList.remove('active');
+      isDraggingOverPanel = false;
+    }
+
+    // Use dragenter/dragleave on the panel itself
+    // relatedTarget check: only hide when leaving panel entirely (not entering a child)
+    panel.addEventListener('dragenter', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      showOverlay();
+    });
+
+    panel.addEventListener('dragleave', function(e) {
+      // relatedTarget is where the cursor went — if it's still inside panel, ignore
+      if (e.relatedTarget && panel.contains(e.relatedTarget)) return;
+      hideOverlay();
+    });
+
+    panel.addEventListener('dragover', function(e) {
+      // Must preventDefault to allow drop
+      e.preventDefault();
+      e.stopPropagation();
+      if (roomId) e.dataTransfer.dropEffect = 'copy';
+    });
+
+    panel.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      hideOverlay();
+      if (!roomId) return;
+
+      const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
+      if (!files.length) return;
+
+      draggedFiles = draggedFiles.concat(Array.from(files));
+      renderDropChips();
+    });
+
+    // Safety: if user drags out of window, hide overlay
+    document.addEventListener('dragleave', function(e) {
+      if (!e.relatedTarget) hideOverlay();
+    });
+  }
+
+  function renderDropChips() {
+    const preview = document.getElementById('chtDropPreview');
+    const chips = document.getElementById('chtDropChips');
+    if (!preview || !chips) return;
+    chips.innerHTML = '';
+    if (!draggedFiles.length) { preview.classList.remove('active'); return; }
+    preview.classList.add('active');
+    draggedFiles.forEach(function(f, i) {
+      const chip = document.createElement('div');
+      chip.className = 'cht-drop-chip';
+      chip.innerHTML = `<i class="fas fa-file"></i><span title="${h(f.name)}">${h(f.name.length > 20 ? f.name.slice(0, 18) + '\u2026' : f.name)}</span>` +
+        `<span class="rm" onclick="Chat.removeDropFile(${i})"><i class="fas fa-times"></i></span>`;
+      chips.appendChild(chip);
+    });
+  }
+
+  function removeDropFile(idx) {
+    draggedFiles.splice(idx, 1);
+    renderDropChips();
+  }
+
+  function sendDroppedFiles() {
+    if (!draggedFiles.length || !roomId) return;
+    uploadFilesDirect(draggedFiles);
+    draggedFiles = [];
+    renderDropChips();
+  }
+
+  function uploadFilesDirect(files) {
+    if (!files || files.length === 0 || !roomId) return;
+    var icon = document.getElementById('attachIcon');
+    if (icon) icon.className = 'fas fa-spinner fa-spin';
+    
+    var fd = new FormData();
+    for (var i = 0; i < files.length; i++) {
+      fd.append('files', files[i]);
+    }
+    fd.append('room_id', roomId);
+    
+    fetch('{% url "chat:upload_file" %}', { 
+      method: 'POST', 
+      body: fd, 
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' } 
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status !== 'success') {
+          alert(d.message || 'Upload failed');
+        }
+      })
+      .catch(function(e) { 
+        console.error(e); 
+        alert('Upload failed.'); 
+      })
+      .finally(function() { 
+        if (icon) icon.className = 'fas fa-paperclip'; 
+      });
+  }
+
+  function uploadFile(inp) {
+    if (inp.files.length === 0) return;
+    uploadFilesDirect(inp.files);
+    inp.value = '';
+  }
+
+  function scrollBottom() { elMsgs.scrollTop = elMsgs.scrollHeight; }
+
+  function scrollToMsg(domId) {
+    var el = document.getElementById(domId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight-msg');
+      setTimeout(function() { el.classList.remove('highlight-msg'); }, 2000);
+    } else {
+      console.log('Message element not found: ' + domId);
+    }
+  }
+
+  function filterRooms() {
+    var q = elSearch.value.toLowerCase();
+    document.querySelectorAll('.cht-room').forEach(function(el) {
+      el.style.display = (el.dataset.name||'').toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  function toggleSidebar() { document.getElementById('chtSidebar').classList.toggle('open'); }
+
+  function h(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function js(s) {
+    return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\n/g,'\\n').replace(/\r/g,'');
+  }
+
+  function formatDateHeader(dateObj) {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const day = dateObj.getDate();
+    const month = months[dateObj.getMonth()];
+    const year = dateObj.getFullYear();
+    return day + " " + month + " " + year;
+  }
+
+  function clearChat() {
+    if (!roomId || !confirm('Clear your chat history for this room? This only affects your view.')) return;
+    fetch('/chat/api/clear/' + roomId + '/')
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'success') {
+          elMsgs.innerHTML = '<div style="text-align:center;color:var(--c-muted);padding:60px 0;font-size:13px;"><i class="fas fa-check-circle" style="font-size:40px;opacity:.15;display:block;margin-bottom:16px;"></i>Chat cleared for you.</div>';
+          lastRenderedDate = null;
+        } else alert(d.message || 'Failed to clear chat');
+      });
+  }
+
+  function deleteGroup() {
+    if (!roomId || currentRoomType !== 'group') return;
+    if (!confirm('Are you sure you want to delete this group? This action will hide it for all participants.')) return;
+    fetch('/chat/api/delete-group/' + roomId + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'success') {
+          window.location.reload();
+        } else alert(d.message || 'Failed to delete group');
+      });
+  }
+
+  function toggleSearch(show) {
+    if (show) {
+      elSearchWrap.classList.remove('hidden');
+      elSearchInput.focus();
+    } else {
+      elSearchWrap.classList.add('hidden');
+      elSearchInput.value = '';
+      elSearchRes.classList.add('hidden');
+    }
+  }
+
+  function performSearch() {
+    const q = elSearchInput.value.trim();
+    if (!q) { elSearchRes.classList.add('hidden'); return; }
+    
+    var url = '/chat/api/search/?q=' + encodeURIComponent(q);
+    if (roomId) {
+      url += '&room_id=' + encodeURIComponent(roomId);
+    }
+    
+    fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        elSearchRes.innerHTML = '';
+        elSearchRes.classList.remove('hidden');
+        if (d.results && d.results.length) {
+          d.results.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'cht-search-item';
+            div.innerHTML = `<div class="fw-bold" style="font-size:12px;">${h(m.sender)} <span class="text-muted fw-normal" style="float:right;">${m.timestamp}</span></div><div class="text-truncate" style="font-size:13px; margin-top:2px;">${h(m.content)}</div>`;
+            div.onclick = () => { open(m.room_id, m.room_name, m.room_type, m.id); toggleSearch(false); };
+            elSearchRes.appendChild(div);
+          });
+        } else {
+          elSearchRes.innerHTML = '<div class="p-3 text-center text-muted" style="font-size:12px;">No results found.</div>';
+        }
+      });
+  }
+
+  function debounce(fn, wait) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+  }
+
+  function updateStatusWithParticipants() {
+    if (!currentParticipants.length) return;
+    const names = currentParticipants.map(p => p.username);
+    if (names.length <= 3) {
+      elPanelStatus.textContent = names.join(', ');
+    } else {
+      elPanelStatus.textContent = names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' others';
+    }
+  }
+
+  function showMembers() {
+    if (currentRoomType === 'direct') return;
+    const list = document.getElementById('membersList');
+    const countLabel = document.getElementById('memberCountLabel');
+    list.innerHTML = '';
+    countLabel.textContent = currentParticipants.length + ' members';
+    
+    currentParticipants.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'd-flex align-items-center gap-3 py-3 border-bottom';
+      item.style.borderColor = 'var(--c-border)';
+      item.style.transition = 'all .2s';
+      item.style.cursor = 'default';
+      
+      const avatarUrl = p.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.username)}&background=random&size=100&bold=true`;
+      
+      item.innerHTML = `
+        <div class="position-relative">
+          <img src="${avatarUrl}" class="cg-user-av" style="width:44px; height:44px; object-fit:cover; border-radius:12px; border:2px solid var(--c-border);">
+          <span class="presence-dot ${p.is_online ? 'online' : ''}" data-user-id="${p.id}" style="position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; border:2.5px solid var(--c-surface);"></span>
+        </div>
+        <div class="flex-grow-1 min-w-0">
+          <div class="d-flex align-items-center justify-content-between">
+            <span style="font-size:15px; font-weight:600; color:var(--c-text);">
+              ${h(p.username)}
+              ${p.username === created_by ? '<span class="badge bg-primary ms-1" style="font-size:10px; font-weight:500;">Group Admin</span>' : ''}
+              ${p.username === ME ? '<span class="text-muted fw-normal ms-1" style="font-size:12px;">(You)</span>' : ''}
+            </span>
+            ${p.username !== ME ? `<button class="btn btn-sm btn-secondary py-1 px-2" style="font-size:11px;" onclick="bootstrap.Modal.getInstance(document.getElementById('membersModal')).hide(); Chat.open('DM-${p.id}', '${p.username}', 'direct')">Message</button>` : ''}
+          </div>
+          <div style="font-size:12px; color:var(--c-muted);">${p.is_online ? 'Online' : 'offline'}</div>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+    // Remove last border
+    if (list.lastElementChild) list.lastElementChild.style.borderBottom = 'none';
+    
+    const modal = new bootstrap.Modal(document.getElementById('membersModal'));
+    modal.show();
+  }
+
+  let activeForwardMsgId = null;
+  let activeForwardMsgIds = [];
+  let forwardModalInstance = null;
+
+  function openForwardModal(msgId) {
+    if (msgId !== null) { activeForwardMsgId = msgId; activeForwardMsgIds = []; }
+    const list = document.getElementById('forwardList');
+    const search = document.getElementById('forwardSearch');
+    if (!list) return;
+    list.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div></div>';
+    if (search) search.value = '';
+    
+    fetch('/chat/api/quick-chat-list/')
+      .then(r => r.json())
+      .then(data => {
+        renderForwardList(data.peoples, data.groups);
+        search.oninput = () => {
+          const q = search.value.toLowerCase();
+          const filteredPeoples = data.peoples.filter(p => p.display_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q));
+          const filteredGroups = data.groups.filter(g => g.name.toLowerCase().includes(q));
+          renderForwardList(filteredPeoples, filteredGroups);
+        };
+      })
+      .catch(err => {
+        console.error(err);
+        list.innerHTML = '<div class="text-center text-danger small py-3">Failed to load chats</div>';
+      });
+      
+    if (!forwardModalInstance) {
+      forwardModalInstance = new bootstrap.Modal(document.getElementById('forwardModal'));
+    }
+    forwardModalInstance.show();
+  }
+
+  function renderForwardList(peoples, groups) {
+    const list = document.getElementById('forwardList');
+    list.innerHTML = '';
+    
+    groups.forEach(g => {
+      const item = document.createElement('div');
+      item.className = 'd-flex align-items-center justify-content-between p-2 rounded';
+      item.style.background = 'var(--c-bg-card)';
+      item.style.border = '1px solid var(--c-border)';
+      item.style.marginBottom = '6px';
+      
+      item.innerHTML = `
+        <div class="d-flex align-items-center gap-2 min-w-0">
+          <img src="${g.avatar_url}" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
+          <span style="font-size:13px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(g.name)}</span>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="Chat.forwardTo('${g.room_id}', this)">Send</button>
+      `;
+      list.appendChild(item);
+    });
+
+    peoples.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'd-flex align-items-center justify-content-between p-2 rounded';
+      item.style.background = 'var(--c-bg-card)';
+      item.style.border = '1px solid var(--c-border)';
+      item.style.marginBottom = '6px';
+      
+      item.innerHTML = `
+        <div class="d-flex align-items-center gap-2 min-w-0">
+          <img src="${p.avatar_url}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+          <span style="font-size:13px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(p.display_name)}</span>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="Chat.forwardTo('${p.room_id}', this)">Send</button>
+      `;
+      list.appendChild(item);
+    });
+    
+    if (list.children.length === 0) {
+      list.innerHTML = '<div class="text-center text-muted small py-3">No chats found</div>';
+    }
+  }
+
+  function forwardTo(targetRoomId, btn) {
+    if (!activeForwardMsgId && !activeForwardMsgIds.length) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    var ids = activeForwardMsgIds.length ? activeForwardMsgIds : [activeForwardMsgId];
+    var promises = ids.map(function(mid) {
+      return fetch('/chat/api/forward/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ message_id: mid, room_id: targetRoomId })
+      }).then(function(r) { return r.json(); });
+    });
+
+    Promise.all(promises).then(function(results) {
+      var allOk = results.every(function(d) { return d.status === 'success'; });
+      if (allOk) {
+        btn.className = 'btn btn-sm btn-success';
+        btn.innerHTML = '<i class="fas fa-check"></i> Sent';
+        var last = results[results.length - 1];
+        updateRoomSnippet({ room_id: last.room_id || targetRoomId, message: last.content || 'Forwarded' });
+        reorderRooms(last.room_id || targetRoomId);
+        setTimeout(function() {
+          if (forwardModalInstance) forwardModalInstance.hide();
+          if (activeForwardMsgIds.length) exitSelectMode();
+        }, 700);
+      } else {
+        btn.disabled = false; btn.textContent = 'Retry';
+        alert('Some messages failed to forward.');
+      }
+    }).catch(function(err) { console.error(err); btn.disabled = false; btn.textContent = 'Retry'; });
+
+    // Legacy single-message flow kept for reference — overridden above
+    return;
+    fetch('/chat/api/forward/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      body: JSON.stringify({ message_id: activeForwardMsgId, room_id: targetRoomId })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'success') {
+        btn.className = 'btn btn-sm btn-success';
+        btn.innerHTML = '<i class="fas fa-check"></i> Sent';
+        // Live-update sidebar: snippet text + reorder to top
+        updateRoomSnippet({ room_id: d.room_id || targetRoomId, message: d.content || 'Forwarded' });
+        reorderRooms(d.room_id || targetRoomId);
+        setTimeout(() => {
+          if (forwardModalInstance) {
+            forwardModalInstance.hide();
+          }
+        }, 700);
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        alert('Failed to forward: ' + d.message);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = 'Retry';
+    });
+  }
+
+  function isRoomActive(targetRoomId) {
+    return roomId === targetRoomId || activeRoomUUID === targetRoomId;
+  }
+
+  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive };
+})();
+
+// Expose Chat globally so the Quick Chat global-notification WebSocket can call into it
+window.Chat = Chat;
+
+document.addEventListener('DOMContentLoaded', function() {
+  Chat.init();
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomParam = urlParams.get('room');
+  if (roomParam) {
+    // Wait a brief moment to make sure everything is initialized, then select the room
+    setTimeout(() => {
+      const roomEl = document.querySelector(`.cht-room[data-id="${roomParam}"]`);
+      if (roomEl) {
+        roomEl.click();
+      }
+    }, 100);
+  }
+});
+</script>
+{% endblock %}

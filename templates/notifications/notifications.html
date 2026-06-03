@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Notifications — IIAP PM{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block topbar_actions %}
+<a href="?mark_all=1" class="btn btn-secondary btn-sm"><i class="fas fa-check-double"></i> Mark All Read</a>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Notifications</h1>
+        <p>{{ notifications.count }} notification{{ notifications.count|pluralize }}</p>
+    </div>
+</div>
+
+<form method="get" style="display:flex; gap:10px; margin-bottom:24px; align-items:center; flex-wrap:wrap;">
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+        <option value="unread" {% if status_filter == 'unread' %}selected{% endif %}>Unread Only</option>
+        <option value="read" {% if status_filter == 'read' %}selected{% endif %}>Read</option>
+    </select>
+    <select name="type" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Types</option>
+        {% for val,label in type_choices %}
+        <option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="project_id" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Projects</option>
+        {% for proj in user_projects %}
+        <option value="{{ proj.id }}" {% if project_filter == proj.id|slugify %}selected{% endif %}>{{ proj.name }}</option>
+        {% endfor %}
+    </select>
+    <select name="sender_id" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Senders</option>
+        {% for usr in all_users %}
+        <option value="{{ usr.id }}" {% if sender_filter == usr.id|slugify %}selected{% endif %}>{{ usr.display_name }}</option>
+        {% endfor %}
+    </select>
+    <select name="timeframe" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Time</option>
+        <option value="today" {% if timeframe_filter == 'today' %}selected{% endif %}>Today</option>
+        <option value="week" {% if timeframe_filter == 'week' %}selected{% endif %}>Past Week</option>
+        <option value="month" {% if timeframe_filter == 'month' %}selected{% endif %}>Past Month</option>
+    </select>
+    <div style="position:relative; display:inline-block;">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Search title or content..." class="form-control form-control-sm" style="padding-left:30px; font-size:13px; height:36px; border:1px solid var(--border); border-radius:6px; background:var(--bg-card); color:var(--text-primary); min-width:200px;">
+        <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:12px;"></i>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" style="height:36px;"><i class="fas fa-filter"></i> Apply</button>
+    {% if status_filter != 'unread' or type_filter or project_filter or sender_filter or timeframe_filter or search_query %}
+    <a href="{% url 'tasks:notifications' %}" class="btn btn-secondary btn-sm" style="height:36px;"><i class="fas fa-times"></i> Clear</a>
+    {% endif %}
+</form>
+
+<div style="width: 100%;">
+    {% if notifications %}
+    <div class="card" style="padding:0; width: 100%;">
+        {% for n in notifications %}
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);{% if not n.is_read %}background:rgba(79,142,247,0.04){% endif %}">
+            <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                background:{% if n.notification_type == 'task_assigned' %}rgba(79,142,247,0.15){% elif n.notification_type == 'task_completed' %}rgba(34,197,94,0.15){% elif n.notification_type == 'overdue' %}rgba(239,68,68,0.15){% else %}rgba(245,158,11,0.15){% endif %};
+                color:{% if n.notification_type == 'task_assigned' %}#4f8ef7{% elif n.notification_type == 'task_completed' %}#22c55e{% elif n.notification_type == 'overdue' %}#ef4444{% else %}#f59e0b{% endif %}">
+                <i class="fas {% if n.notification_type == 'task_assigned' %}fa-user-check{% elif n.notification_type == 'task_completed' %}fa-check-circle{% elif n.notification_type == 'overdue' %}fa-exclamation-triangle{% elif n.notification_type == 'comment_added' %}fa-comment{% else %}fa-bell{% endif %}"></i>
+            </div>
+            <div style="flex:1">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ n.title }}</span>
+                    {% if not n.is_read %}<span style="width:7px;height:7px;background:var(--accent);border-radius:50%;display:inline-block"></span>{% endif %}
+                </div>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">{{ n.message }}</p>
+                <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-muted)">
+                    <span><i class="fas fa-clock"></i> {{ n.created_at|timesince }} ago</span>
+                    {% if n.sender %}<span>From: {{ n.sender.display_name }}</span>{% endif %}
+                </div>
+            </div>
+            <a href="{% url 'tasks:notification_read' n.pk %}" class="btn btn-secondary btn-sm">
+                {% if n.task or n.project %}View{% else %}Mark Read{% endif %}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty-state">
+            <i class="fas fa-bell-slash"></i>
+            <h3>No notifications</h3>
+            <p>You're all caught up!</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if notifications %}
+<div style="margin-top:20px;">
+    {% include 'pagination.html' %}
+</div>
+{% endif %}
+{% endblock %}

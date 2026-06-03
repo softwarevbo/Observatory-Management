@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-layout {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 900px) {
+        .form-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+    }
+    
+    .section-title i {
+        color: var(--accent);
+    }
+
+    .checkbox-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+        background: var(--bg-primary);
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--text-primary);
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: background 0.2s;
+    }
+
+    .checkbox-item:hover {
+        background: var(--bg-card-hover);
+    }
+
+    .checkbox-item input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .text-red { color: var(--red); }
+    
+    /* Font overrides to ensure perfect sync */
+    h1, .card-title, .section-title, .form-label {
+        font-family: 'Space Grotesk', sans-serif !important;
+    }
+    
+    body, .form-control, .checkbox-item, p, span {
+        font-family: 'Inter', sans-serif !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="form-layout">
+            <!-- Left Side: Main Content -->
+            <div class="card">
+                <div class="section-title">
+                    <i class="fas fa-edit"></i> Test Case Details
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Test Case Title <span class="text-red">*</span></label>
+                    {{ form.title }}
+                    {% if form.title.errors %}<div class="form-error">{{ form.title.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Test Scenario / Objective</label>
+                    {{ form.scenario }}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">Preconditions</label>
+                        {{ form.preconditions }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Expected Result <span class="text-red">*</span></label>
+                        {{ form.expected_result }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Test Steps <span class="text-red">*</span></label>
+                    {{ form.steps }}
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Attachments / Screenshots</label>
+                    <div style="border: 2px dashed var(--border); padding: 24px; border-radius: var(--radius-sm); background: var(--bg-primary); text-align: center;">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: var(--accent); margin-bottom: 12px; display: block;"></i>
+                        <input type="file" name="attachments" multiple class="form-control" style="font-size: 12px; max-width: 350px; margin: 0 auto; height: auto; padding: 6px;">
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Select multiple files (Images, Log files, Documents).</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Sidebar -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-tag"></i> Classification
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Related Task <span class="text-red">*</span></label>
+                        {{ form.task }}
+                        {% if form.task.errors %}<div class="form-error">{{ form.task.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label class="form-label">Priority</label>
+                            {{ form.priority }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Initial Status</label>
+                            {{ form.status }}
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Project</label>
+                        {{ form.project }}
+                        <div style="font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 4px;">{{ project.name }}</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-users"></i> Assigned Testers
+                    </div>
+                    <div class="checkbox-list">
+                        {% for choice in form.assigned_members %}
+                        <label class="checkbox-item">
+                            {{ choice.tag }}
+                            <span>{{ choice.choice_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if form.assigned_members.errors %}<div class="form-error">{{ form.assigned_members.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="card" style="border-top: 3px solid var(--accent);">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-weight: 700;">
+                            <i class="fas fa-save"></i> {{ action|upper }} TEST CASE
+                        </button>
+                        <a href="{% url 'tasks:project_detail' project.pk %}?view=test_cases" class="btn btn-secondary" style="width: 100%; justify-content: center; padding: 12px;">
+                            CANCEL
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

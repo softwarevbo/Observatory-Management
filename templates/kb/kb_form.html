@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — Knowledge Base — IIAP PM{% endblock %}
+{% block page_title %}Knowledge Base{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    /* ── Project Theme ── */
+    {% if project.button_color %}
+    :root {
+        --accent: {{ project.button_color }};
+        --accent-hover: {{ project.button_color }}cc;
+        --accent-glow: {{ project.button_color }}26;
+    }
+    {% endif %}
+    {% if project.background_color and project.background_color != '#ffffff' %}
+    [data-theme="light"] {
+        --bg-primary: {{ project.background_color }};
+    }
+    {% endif %}
+
+    .kb-form-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    .preview-panel {
+        position: sticky;
+        top: 20px;
+        height: 600px;
+        display: flex;
+        flex-direction: column;
+    }
+    .preview-content {
+        flex: 1;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        overflow-y: auto;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-primary);
+    }
+    #id_content {
+        height: 520px !important;
+        resize: none;
+    }
+    .preview-content h1, .preview-content h2, .preview-content h3 {
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+        color: var(--accent);
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .preview-content pre {
+        background: #0d1117;
+        color: #e6edf3;
+        padding: 16px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 1em 0;
+    }
+    .preview-content code {
+        font-family: 'Fira Code', monospace;
+    }
+    .preview-content blockquote {
+        border-left: 4px solid var(--accent);
+        margin: 1em 0;
+        padding-left: 16px;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    @media (max-width: 1000px) {
+        .kb-form-layout {
+            grid-template-columns: 1fr;
+        }
+        .preview-panel {
+            position: static;
+            height: 600px;
+            margin-top: 24px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>
+            {% if project %}
+            <a href="{% url 'tasks:kb_list' project.pk %}" style="text-decoration:none; color:var(--text-secondary)"><i class="fas fa-chevron-left"></i> KB Notes</a> / {{ title }}
+            {% else %}
+            <a href="{% url 'tasks:kb_overview' %}" style="text-decoration:none; color:var(--text-secondary)"><i class="fas fa-chevron-left"></i> KB Notes</a> / {{ title }}
+            {% endif %}
+        </h1>
+        <p>
+            {% if project %}
+            Note for project: {{ project.name }}
+            {% else %}
+            General note
+            {% endif %}
+            {% if module %}· Module: {{ module.name }}{% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="kb-form-layout">
+    <!-- EDITOR COL -->
+    <div class="card">
+        <form method="post" id="kbForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="markdownFileInput"><i class="fas fa-file-import"></i> Import markdown file</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="file" id="markdownFileInput" accept=".md,.markdown,.txt" style="display:none;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('markdownFileInput').click()">Choose File</button>
+                    <span id="fileNameDisplay" style="font-size:12px; color:var(--text-muted)">No file chosen</span>
+                </div>
+                <small class="form-text" style="color:var(--text-muted);font-size:11px;margin-top:6px;display:block;">
+                    Importing a file will overwrite current content in the editor.
+                </small>
+            </div>
+            
+            {% for field in form %}
+                <div class="form-group">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }} {% if field.field.required %}*{% endif %}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <small class="form-text" style="color:var(--text-muted);font-size:12px;margin-top:4px;display:block;">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <div style="color:var(--red);font-size:12px;margin-top:4px;">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+            
+            <div style="margin-top:24px;display:flex;gap:12px;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> {{ action }}</button>
+                <button type="button" class="btn btn-secondary" onclick="updatePreview()"><i class="fas fa-sync-alt"></i> Refresh Preview</button>
+                {% if project %}
+                <a href="{% url 'tasks:kb_list' project.pk %}" class="btn btn-secondary">Cancel</a>
+                {% else %}
+                <a href="{% url 'tasks:kb_overview' %}" class="btn btn-secondary">Cancel</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- PREVIEW COL -->
+    <div class="preview-panel">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:1px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-eye" style="color:var(--accent)"></i> Live Preview
+        </div>
+        <div class="preview-content markdown-body" id="previewArea">
+            <div style="color:var(--text-muted); display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
+                <i class="fas fa-pen-nib" style="font-size:32px; opacity:0.3"></i>
+                <p>Start typing to see your note here...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const fileInput = document.getElementById('markdownFileInput');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
+const contentField = document.getElementById('id_content');
+const previewArea = document.getElementById('previewArea');
+
+function updatePreview() {
+    const rawValue = contentField.value;
+    if (!rawValue.trim()) {
+        previewArea.innerHTML = `
+            <div style="color:var(--text-muted); display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
+                <i class="fas fa-pen-nib" style="font-size:32px; opacity:0.3"></i>
+                <p>Start typing to see your note here...</p>
+            </div>`;
+        return;
+    }
+    // Use marked to render markdown
+    previewArea.innerHTML = marked.parse(rawValue);
+
+    // Trigger KaTeX rendering for the preview area
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(previewArea, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false},
+                {left: '\\(', right: '\\)', display: false},
+                {left: '\\[', right: '\\]', display: true},
+                {left: '\\begin{equation}', right: '\\end{equation}', display: true},
+                {left: '\\begin{align}', right: '\\end{align}', display: true},
+                {left: '\\begin{alignat}', right: '\\end{alignat}', display: true},
+                {left: '\\begin{gather}', right: '\\end{gather}', display: true},
+                {left: '\\begin{CD}', right: '\\end{CD}', display: true}
+            ],
+            throwOnError : false
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (!contentField || !previewArea) return;
+
+    // Initial preview if editing
+    updatePreview();
+
+    // Auto-update on typing (debounced slightly)
+    let timeout = null;
+    contentField.addEventListener('input', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(updatePreview, 300);
+    });
+
+    // File import logic
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const file = this.files && this.files[0];
+            if (!file) return;
+            
+            fileNameDisplay.textContent = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result || '';
+                contentField.value = text;
+                updatePreview();
+            };
+            reader.readAsText(file);
+        });
+    }
+});
+</script>
+{% endblock %}

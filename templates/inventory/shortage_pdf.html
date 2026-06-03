@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Inventory Shortage Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+        }
+        h2 {
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 10px;
+            text-align: center;
+            word-wrap: break-word;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #eee;
+            font-size: 13px;
+        }
+        th:nth-child(1), td:nth-child(1) {
+            width: 45%;
+            text-align: left;
+        }
+        th:nth-child(2), td:nth-child(2),
+        th:nth-child(3), td:nth-child(3) {
+            width: 27.5%;
+        }
+    </style>
+</head>
+<body>
+    <h2>Inventory Shortage Report</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>In Quantity</th>
+                <th>Bought Qty</th> <!-- corrected spelling -->
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in shortage_items %}
+            <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.current_quantity }}</td>
+                <td></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

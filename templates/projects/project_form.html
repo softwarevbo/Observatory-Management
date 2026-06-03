@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .premium-form-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-bottom: 100px;
+    }
+
+    .form-glass-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: var(--shadow);
+        margin-bottom: 24px;
+        transition: var(--transition);
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .section-header i {
+        font-size: 16px;
+        color: var(--accent);
+        background: var(--accent-glow);
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+    }
+
+    .section-header h2 {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-primary);
+    }
+
+    .form-label-premium {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control-premium {
+        background: var(--bg-secondary) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text-primary) !important;
+        border-radius: var(--radius-sm) !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+        transition: var(--transition) !important;
+        width: 100%;
+        outline: none;
+    }
+
+    .form-control-premium:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 3px var(--accent-glow) !important;
+    }
+
+    .form-layout {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+        .form-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .selection-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 10px;
+        max-height: 350px;
+        overflow-y: auto;
+        padding: 12px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+    }
+
+    .selection-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .selection-item:hover {
+        border-color: var(--accent);
+        background: var(--bg-card-hover);
+    }
+
+    .selection-item.active {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+    }
+
+    .selection-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+    }
+
+    .preview-box {
+        width: 100%;
+        height: 180px;
+        border-radius: var(--radius-sm);
+        border: 2px dashed var(--border);
+        background: var(--bg-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        margin-top: 12px;
+    }
+
+    .preview-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .color-swatch {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+    }
+
+    .color-indicator {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: 1px solid var(--border-light);
+    }
+
+    .sticky-footer {
+        position: fixed;
+        bottom: 0;
+        left: var(--sidebar-width);
+        right: 0;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border);
+        padding: 16px 40px;
+        z-index: 1000;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        box-shadow: 0 -4px 10px rgba(0,0,0,0.03);
+    }
+
+    @media (max-width: 768px) {
+        .sticky-footer {
+            left: 0;
+        }
+    }
+
+    .team-badge {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-muted);
+        margin: 15px 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .team-badge:first-child {
+        margin-top: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="premium-form-container">
+    <div style="margin-bottom: 32px;">
+        <h1 class="page-title" style="margin-bottom: 8px !important;">{{ title }}</h1>
+        <p style="color: var(--text-muted); font-size: 14px;">Define project parameters, set visual branding, and assign the workspace team.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="premiumProjectForm">
+        {% csrf_token %}
+        <div class="form-layout">
+            
+            <div class="form-main">
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-info-circle"></i>
+                        <h2>Project Identity</h2>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label-premium">Project ID</label>
+                            {{ form.project_id }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Project Name <span class="text-danger">*</span></label>
+                            {{ form.name }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label-premium">Description</label>
+                        {{ form.description }}
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label class="form-label-premium">Module</label>
+                            {{ form.module }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Priority</label>
+                            {{ form.priority }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Visibility</label>
+                            {{ form.visibility }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h2>Timeline & Status</h2>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label class="form-label-premium">Current Status</label>
+                            {{ form.status }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Start Date</label>
+                            {{ form.start_date }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">End Date</label>
+                            {{ form.end_date }}
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label class="form-label-premium">Project Incharge</label>
+                        {{ form.project_incharge }}
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Assign a specific person in-charge of this project.</p>
+                    </div>
+                </div>
+
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-users"></i>
+                        <h2>Project Team</h2>
+                    </div>
+                    <div style="position: relative; margin-bottom: 15px;">
+                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 12px;"></i>
+                        <input type="text" id="memberSearch" placeholder="Search team members..." class="form-control-premium" style="padding-left: 35px !important;">
+                    </div>
+
+                    <div class="selection-grid" id="memberGrid">
+                        {% regroup form.members.field.queryset by get_team_display as team_groups %}
+                        {% for group in team_groups %}
+                        <div class="team-group-wrapper" style="grid-column: 1 / -1;">
+                            <div class="team-badge"><i class="fas fa-layer-group"></i> {{ group.grouper }}</div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                                {% for member in group.list %}
+                                <label class="selection-item member-node {% if member.pk|stringformat:'s' in form.members.value|stringformat:'s' %}active{% endif %}" data-search="{{ member.display_name|lower }}">
+                                    <input type="checkbox" name="members" value="{{ member.pk }}" {% if member.pk|stringformat:'s' in form.members.value|stringformat:'s' %}checked{% endif %} onchange="this.closest('.selection-item').classList.toggle('active', this.checked)">
+                                    <div class="avatar" style="background:{{ member.avatar_color }}; width:24px; height:24px; font-size:9px;">{{ member.initials }}</div>
+                                    <span style="font-size: 12px; font-weight: 500;">{{ member.display_name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-sidebar">
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-user-shield"></i>
+                        <h2>Management</h2>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label-premium">Authorized Managers</label>
+                        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px;">Select users with administrative rights for this project.</p>
+                        <div class="selection-grid" style="grid-template-columns: 1fr; background: transparent; padding: 0; border: none; max-height: 200px;">
+                        {% for manager in form.managers.field.queryset %}
+                        <label class="selection-item {% if manager.pk|stringformat:'s' in form.managers.value|stringformat:'s' %}active{% endif %}">
+                            <input type="checkbox" name="managers" value="{{ manager.pk }}" {% if manager.pk|stringformat:'s' in form.managers.value|stringformat:'s' %}checked{% endif %} onchange="this.closest('.selection-item').classList.toggle('active', this.checked)">
+                            <div class="avatar" style="background:{{ manager.avatar_color }}; width:28px; height:28px; font-size:10px;">{{ manager.initials }}</div>
+                            <div>
+                                <div style="font-size: 13px; font-weight: 600;">{{ manager.display_name }}</div>
+                                <div style="font-size: 10px; color: var(--text-muted);">{{ manager.get_role_display }}</div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="form-glass-card">
+                    <div class="section-header">
+                        <i class="fas fa-palette"></i>
+                        <h2>Branding</h2>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label-premium">Cover Image</label>
+                        <div style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px;">
+                            {{ form.image }}
+                        </div>
+                        <div class="preview-box" id="artworkPreview">
+                            {% if project.image %}
+                                <img src="{{ project.image.url }}" alt="Branding">
+                            {% else %}
+                                <div style="text-align: center; color: var(--text-muted);">
+                                    <i class="fas fa-image fa-2x" style="opacity: 0.2; margin-bottom: 8px; display: block;"></i>
+                                    <span style="font-size: 11px;">Preview Area</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label-premium">Background Color</label>
+                        <div class="color-swatch">
+                            <div class="color-indicator" id="bgIndicator" style="background: {{ form.background_color.value|default:'#f4f6f8' }}"></div>
+                            {{ form.background_color }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label-premium">Accent Color</label>
+                        <div class="color-swatch">
+                            <div class="color-indicator" id="btnIndicator" style="background: {{ form.button_color.value|default:'#4f8ef7' }}"></div>
+                            {{ form.button_color }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sticky-footer">
+            <a href="{% url 'tasks:project_list' %}" class="btn btn-secondary">Discard</a>
+            <button type="submit" class="btn btn-primary" style="padding-left: 30px; padding-right: 30px;">
+                <i class="fas fa-check-circle"></i> Save Project
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Premium class injection
+    document.querySelectorAll('#premiumProjectForm input:not([type="checkbox"]):not([type="file"]):not([type="color"]), #premiumProjectForm select, #premiumProjectForm textarea').forEach(el => {
+        el.classList.add('form-control-premium');
+    });
+
+    // Artwork preview
+    const imgInp = document.getElementById('id_image');
+    const prvBox = document.getElementById('artworkPreview');
+    if(imgInp) {
+        imgInp.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => prvBox.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+
+    // Color indicators
+    const bgInp = document.getElementById('id_background_color');
+    const btnInp = document.getElementById('id_button_color');
+    const bgInd = document.getElementById('bgIndicator');
+    const btnInd = document.getElementById('btnIndicator');
+
+    if(bgInp) bgInp.addEventListener('input', e => bgInd.style.background = e.target.value);
+    if(btnInp) btnInp.addEventListener('input', e => btnInd.style.background = e.target.value);
+
+    // Member search
+    const searchInp = document.getElementById('memberSearch');
+    if(searchInp) {
+        searchInp.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('.member-node').forEach(node => {
+                const text = node.getAttribute('data-search');
+                node.style.display = text.includes(q) ? 'flex' : 'none';
+            });
+        });
+    }
+</script>
+{% endblock %}

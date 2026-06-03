@@ -1,0 +1,255 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Procurement Upload{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Procurement Center</h1>
+
+<datalist id="productList">
+    {% for p in products %}
+    <option value="{{ p.name }}"></option>
+    {% endfor %}
+</datalist>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <h2 class="card-title">Manual Request</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="manual">
+                <div class="mb-3">
+                    <label for="product_name" class="form-label">Product Name</label>
+                    <input type="text" class="form-control" id="product_name" name="product_name" list="productList" autocomplete="off" required>
+                </div>
+                <div class="mb-3">
+                    <label for="requested_qty" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="requested_qty" name="requested_qty" min="1" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Request</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <h2 class="card-title">BOM Excel Upload</h2>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="bulk">
+                <div class="mb-3">
+                    <label for="excel_file" class="form-label">Upload Excel File</label>
+                    <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx,.xls" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload</button>
+                <a href="{% url 'download-procurement-template' %}" class="btn btn-outline-secondary ms-2">Download Sample Excel</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if results %}
+<div class="card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="section-title mb-0">Procurement Report</h2>
+        <button id="sendAllAlertsBtn" class="btn btn-warning">Send All Alerts</button>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Requested Quantity</th>
+                    <th>Current Stock</th>
+                    <th>Rack Number</th>
+                    <th>Shelf Number</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                <tr{% if row.alert %} class="table-warning"{% endif %}>
+                    <td>{{ row.product_name }}</td>
+                    <td>{{ row.requested_qty }}</td>
+                    <td>{{ row.current_stock }}</td>
+                    <td>{{ row.rack_number }}</td>
+                    <td>{{ row.shelf_number }}</td>
+                    <td>
+                        {% if row.status == 'out_of_stock' %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                        {% elif row.status == 'insufficient' %}
+                            <span class="badge bg-warning">Insufficient</span>
+                        {% elif row.status == 'invalid' %}
+                            <span class="badge bg-secondary">Invalid</span>
+                        {% else %}
+                            <span class="badge bg-success">OK</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.status == 'insufficient' %}
+                        <form method="post" action="{% url 'procurement-restock' %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ row.product_id }}">
+                            <input type="hidden" name="requested_qty" value="{{ row.requested_qty }}">
+                            <button type="submit" class="btn btn-sm btn-success">Add</button>
+                        </form>
+                        {% elif row.status == 'out_of_stock' %}
+                        <form method="post" action="{% url 'procurement-restock' %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ row.product_id }}">
+                            <input type="number" name="restock_qty" min="1" class="form-control d-inline-block" style="width:90px;" placeholder="Qty" required>
+                            <button type="submit" class="btn btn-sm btn-success ms-1">Add</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+document.getElementById('sendAllAlertsBtn').onclick = function() {
+    if (!confirm('Send alerts for all insufficient or out-of-stock products?')) return;
+    const alerts = [];
+    {% for row in results %}
+    {% if row.alert %}
+    alerts.push({product_id: {{ row.product_id|default:'null' }}, requested_qty: {{ row.requested_qty|default:'null' }}, current_stock: {{ row.current_stock|default:'null' }}});
+    {% endif %}
+    {% endfor %}
+    fetch('{% url "send-all-alerts" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({alerts: alerts})
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('Sent ' + data.alert_count + ' alerts!');
+        location.reload();
+    })
+    .catch(() => alert('Failed to send alerts.'));
+};
+</script>
+{% endif %}
+
+<div class="card mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="section-title mb-0">Saved Procurement Requests</h2>
+        <form method="get" class="d-flex gap-2 flex-wrap">
+            <input type="text" name="search" class="form-control" placeholder="Search product..." value="{{ search }}">
+            <select name="status" class="form-select">
+                <option value="">All Status</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+        </form>
+    </div>
+    {% if recent_requests %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Request ID</th>
+                    <th>Requester</th>
+                    <th>Product</th>
+                    <th>Requested Qty</th>
+                    <th>Live Stock</th>
+                    <th>Rack</th>
+                    <th>Shelf</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in recent_requests %}
+                <tr>
+                    <td>#{{ req.id }}</td>
+                    <td>{{ req.requester.username|default:'System' }}</td>
+                    <td>{{ req.product_name }}</td>
+                    <td>{{ req.requested_quantity }}</td>
+                    <td>{{ req.live_stock }}</td>
+                    <td>{{ req.rack_number|default:'-' }}</td>
+                    <td>{{ req.shelf_number|default:'-' }}</td>
+                    <td>
+                        {% if req.status == 'pending' %}
+                            <span class="badge bg-warning">Pending</span>
+                        {% elif req.status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% else %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#requestModal{{ req.id }}">View</button>
+                        {% if request.user.is_admin and req.status == 'pending' %}
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="approve_request">
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ req.id }}">Reject</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                <div class="modal fade" id="requestModal{{ req.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Procurement Request #{{ req.id }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6"><strong>Requester:</strong> {{ req.requester.username|default:'System' }}</div>
+                                    <div class="col-md-6"><strong>Product:</strong> {{ req.product_name }}</div>
+                                    <div class="col-md-6"><strong>Requested Qty:</strong> {{ req.requested_quantity }}</div>
+                                    <div class="col-md-6"><strong>Current Stock:</strong> {{ req.current_stock }}</div>
+                                    <div class="col-md-6"><strong>Rack:</strong> {{ req.rack_number|default:'-' }}</div>
+                                    <div class="col-md-6"><strong>Shelf:</strong> {{ req.shelf_number|default:'-' }}</div>
+                                    <div class="col-md-6"><strong>Status:</strong> {{ req.status|title }}</div>
+                                    <div class="col-md-6"><strong>Created:</strong> {{ req.created_at|date:"M d, Y H:i" }}</div>
+                                    <div class="col-12"><strong>Decision Reason:</strong> {{ req.decision_reason|default:'-' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% if request.user.is_admin %}
+                <div class="modal fade" id="rejectModal{{ req.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Reject Request #{{ req.id }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="action" value="reject_request">
+                                    <input type="hidden" name="request_id" value="{{ req.id }}">
+                                    <label class="form-label">Reason</label>
+                                    <textarea name="decision_reason" class="form-control" rows="4" required></textarea>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-danger">Reject</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">No procurement requests available yet.</p>
+    {% endif %}
+</div>
+{% endblock %} 

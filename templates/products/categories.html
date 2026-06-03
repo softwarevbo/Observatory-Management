@@ -1,0 +1,99 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Product Categories - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title mb-0">
+        Product Categories
+    </h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'add-category' %}" class="btn btn-primary">
+            Add Category
+        </a>
+        <a href="{% url 'products' %}" class="btn btn-secondary">
+            Products
+        </a>
+        <a href="/" class="btn btn-secondary">
+            Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="section-title mb-0">
+            All Categories ({{ categories|length }})
+        </h2>
+    </div>
+
+    {% if categories %}
+    <div class="row g-4">
+        {% for category in categories %}
+        <div class="col-md-4 col-lg-3">
+            <div class="card text-center" style="border: 1px solid var(--border); box-shadow: none;">
+
+                <h4 class="mb-2" style="font-family: 'Space Grotesk', sans-serif;">{{ category.name }}</h4>
+                <p class="text-muted mb-3">
+                    {{ category.description|truncatechars:30|default:"No description" }}
+                </p>
+                <div class="d-flex justify-content-center gap-2">
+                    <span class="badge bg-primary">{{ category.products.count }} items</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+
+        <h3 class="mb-3" style="font-family: 'Space Grotesk', sans-serif;">No Categories Found</h3>
+        <p class="text-muted mb-4">Categories will be created automatically when you add products.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card mt-4">
+    <h2 class="section-title">
+        Products by Category
+    </h2>
+
+    {% if products %}
+    <div class="table-wrap">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Brand</th>
+                        <th>Description</th>
+                        <th>SKU</th>
+                        <th>Price</th>
+                        <th>Category</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td><strong>{{ product.name }}</strong></td>
+                        <td>{{ product.brand|default:"-" }}</td>
+                        <td>{{ product.description|truncatechars:50|default:"-" }}</td>
+                        <td><code>{{ product.sku }}</code></td>
+                        <td><span class="badge bg-success">₹{{ product.price }}</span></td>
+                        <td><span class="badge bg-info">{{ product.category.name }}</span></td>
+                        <td>{{ product.created_at|date:'M d, Y' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-4">
+
+        <p class="text-white-75">No products found.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

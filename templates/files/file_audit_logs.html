@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}File Audit Logs — IIAP PM{% endblock %}
+{% block page_title %}File Audit Logs{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="margin-bottom: 20px;">
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700;">File Movement & Deletion Logs</h2>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">Tracking of all file and folder movements and deletions across projects.</p>
+    </div>
+
+    <table class="table" style="width:100%; text-align:left; border-collapse:collapse;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--border); font-size:12px; color:var(--text-muted); text-transform:uppercase;">
+                <th style="padding:12px 16px;">Time</th>
+                <th style="padding:12px 16px;">User</th>
+                <th style="padding:12px 16px;">Action</th>
+                <th style="padding:12px 16px;">Type</th>
+                <th style="padding:12px 16px;">Item Name</th>
+                <th style="padding:12px 16px;">Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr style="border-bottom: 1px solid var(--border); font-size:13px;">
+                <td style="padding:12px 16px; white-space:nowrap;">{{ log.timestamp|date:"d M Y H:i" }}</td>
+                <td style="padding:12px 16px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        {% if log.user %}
+                        {% include 'partials/user_avatar.html' with avatar_user=log.user size="24" radius="6px" font_size="10" %}
+                        {{ log.user.display_name }}
+                        {% else %}
+                        <span style="color:var(--text-muted);">System</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td style="padding:12px 16px;">
+                    {% if log.action_type == 'delete' %}
+                        <span class="badge badge-red" style="font-size:10px;">{{ log.action_type|upper }}</span>
+                    {% elif log.action_type == 'move' %}
+                        <span class="badge badge-blue" style="font-size:10px;">{{ log.action_type|upper }}</span>
+                    {% else %}
+                        <span class="badge badge-gray" style="font-size:10px;">{{ log.action_type|upper }}</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px;">
+                    <span style="text-transform:capitalize;">{{ log.module }}</span>
+                </td>
+                <td style="padding:12px 16px; font-weight:500;">
+                    {{ log.entity_name }}
+                </td>
+                <td style="padding:12px 16px; color:var(--text-muted);">
+                    {{ log.details }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding:30px; text-align:center; color:var(--text-muted);">No logs found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

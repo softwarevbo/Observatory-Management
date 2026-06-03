@@ -1,0 +1,159 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}{{ product.name }} - Product Details{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="page-title mb-0">{{ product.name }}</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'edit-product' product.pk %}" class="btn btn-secondary">Edit Product</a>
+        <a href="{% url 'products' %}" class="btn btn-secondary">Back</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <div class="card p-3 h-100">
+            {% if product.image %}
+            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded mb-3" style="max-height:220px;object-fit:cover;">
+            {% endif %}
+            <div class="alert alert-info py-2 px-3 mb-3" style="background: var(--bg-secondary); border-left: 4px solid var(--accent);">
+                <div class="small text-muted mb-1">Location Context: {{ highlighted_info.branch_name }}</div>
+                <div class="d-flex justify-content-between">
+                    <span><strong>Stock:</strong> {{ highlighted_stock }}</span>
+                    <span><strong>Loc:</strong> {{ highlighted_info.rack }}/{{ highlighted_info.shelf }}</span>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mb-2"><span>Total Stock</span><strong>{{ total_stock }} {{ product.unit }}</strong></div>
+            <div class="d-flex justify-content-between mb-2"><span>Active Rental Qty</span><strong>{{ rental_quantity }}</strong></div>
+            <div class="d-flex justify-content-between mb-2"><span>Total Rentals</span><strong>{{ rental_count }}</strong></div>
+            <div class="d-flex justify-content-between"><span>Price</span><strong>₹{{ product.price|floatformat:2 }}</strong></div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-3 h-100">
+            <h5 class="mb-3">Product Information</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Brand:</strong> {{ product.brand|default:"-" }}</p>
+                    <p><strong>Primary Branch:</strong> <span class="badge bg-primary">{{ product.branch.name|default:"Global / None" }}</span></p>
+                    <p><strong>SKU:</strong> {{ highlighted_info.local_sku|default:product.sku|default:"-" }}</p>
+                    <p><strong>Serial Number:</strong> {{ product.serial_number|default:"-" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Category:</strong> {{ product.category.name|default:"-" }}</p>
+                    <p><strong>Status:</strong> 
+                        {% if product.status == 'in_stock' %}
+                            <span class="badge bg-success">In Stock</span>
+                        {% elif product.status == 'low_stock' %}
+                            <span class="badge bg-warning text-dark">Low Stock</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ product.status|title }}</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Created:</strong> {{ product.created_at|date:'M d, Y H:i' }}</p>
+                    <p><strong>Datasheet:</strong>
+                        {% if product.datasheet %}
+                        <a href="{{ product.datasheet.url }}" target="_blank" rel="noopener">Open Datasheet</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% if product.description %}
+            <p class="mb-0 mt-2"><strong>Description:</strong> {{ product.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card p-3">
+            <h5 class="mb-3">Storage Locations & Stock</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Branch</th>
+                            <th>Quantity</th>
+                            <th>Local SKU</th>
+                            <th>Rack Number</th>
+                            <th>Shelf Number</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bs in branch_stocks %}
+                        <tr {% if bs.branch.id == priority_branch_id or bs.branch == user.branch %}style="background: rgba(var(--accent-rgb), 0.05); border-left: 3px solid var(--accent);"{% endif %}>
+                            <td>{{ bs.branch.name }}</td>
+                            <td>{{ bs.current_quantity }}</td>
+                            <td>{{ bs.local_sku|default:"-" }}</td>
+                            <td>{{ bs.rack_number|default:"-" }}</td>
+                            <td>{{ bs.shelf_number|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">No branch stock records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if request.user.is_admin %}
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Quick Stock Entry</h5>
+    <form method="post" class="row g-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="stock_adjustment">
+        <div class="col-md-3">
+            <select class="form-select" name="adjustment_type" required>
+                <option value="">Select Type</option>
+                <option value="in">Stock In (Add)</option>
+                <option value="out">Stock Out (Remove)</option>
+            </select>
+        </div>
+        {% if branches %}
+        <div class="col-md-3">
+            <select class="form-select" name="branch" required>
+                <option value="">Select Branch</option>
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if b.id == priority_branch_id or b.id == user.branch.id %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="col-md-2"><input type="number" name="quantity" min="1" class="form-control" placeholder="Qty" required></div>
+        <div class="col-md-5"><input type="text" name="reason" class="form-control" placeholder="Reason/Notes"></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Update Stock</button></div>
+    </form>
+</div>
+{% endif %}
+
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Recent Activity Log</h5>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>User</th></tr></thead>
+            <tbody>
+                {% for entry in recent_stock_entries %}
+                <tr>
+                    <td>{{ entry.timestamp|date:'M d, Y H:i' }}</td>
+                    <td>
+                        <span class="badge {% if entry.entry_type == 'in' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ entry.get_entry_type_display }}
+                        </span>
+                    </td>
+                    <td>{{ entry.quantity }}</td>
+                    <td>{{ entry.created_by.username|default:"System" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted">No recent activity found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Delete Requirement — {{ requirement.name }} — IIAP PM{% endblock %}
+{% block page_title %}Delete Requirement{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'tasks:project_detail' project.pk %}?view=requirements" class="btn btn-secondary btn-sm">
+    <i class="fas fa-arrow-left"></i> Back to Requirements
+</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px;">
+    <div class="card" style="border: 1px solid rgba(239,68,68,0.3); box-shadow: 0 4px 16px rgba(239,68,68,0.08);">
+
+        <!-- Header -->
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:24px; padding-bottom:20px; border-bottom:1px solid var(--border);">
+            <div style="background: rgba(239,68,68,0.1); color:var(--red); width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <h2 style="margin:0; font-size:18px; font-weight:700; color:var(--red);">Confirm Requirement Deletion</h2>
+                <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">This action is permanent and cannot be undone.</p>
+            </div>
+        </div>
+
+        <!-- Requirement Info -->
+        <div style="background: var(--bg-secondary); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; border: 1px solid var(--border);">
+            <p style="margin:0 0 10px; font-size:13px; color:var(--text-muted);">You are about to delete:</p>
+            <div style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700; color:var(--text-primary);">
+                <i class="fas fa-file-contract" style="color:var(--accent);"></i>
+                {{ requirement.name }}
+            </div>
+            {% if requirement.req_id %}
+            <div style="margin-top:8px; font-size:12px; color:var(--text-muted);">
+                ID: <code style="background:var(--bg-card); padding:2px 6px; border-radius:4px;">{{ requirement.req_id }}</code>
+                &middot; Project: <strong>{{ project.name }}</strong>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Dependency Impact -->
+        {% if linked_tasks_count > 0 or linked_tests_count > 0 %}
+        <div style="background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--radius); padding: 20px; margin-bottom: 24px;">
+            <h4 style="font-size:14px; font-weight:700; margin:0 0 14px; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-link" style="color:#f59e0b;"></i> Cascading Impact
+            </h4>
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;">
+                Deleting this requirement will also move the following related items to the trash:
+            </p>
+            <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;">
+                {% if linked_tasks_count > 0 %}
+                <li style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                    <i class="fas fa-tasks" style="color:var(--accent); width:18px; text-align:center;"></i>
+                    <strong>{{ linked_tasks_count }}</strong> linked task{{ linked_tasks_count|pluralize }}
+                </li>
+                {% endif %}
+                {% if linked_tests_count > 0 %}
+                <li style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                    <i class="fas fa-vial" style="color:var(--green); width:18px; text-align:center;"></i>
+                    <strong>{{ linked_tests_count }}</strong> linked test case{{ linked_tests_count|pluralize }}
+                </li>
+                {% endif %}
+            </ul>
+            
+            {% if linked_tasks %}
+            <div style="margin-top:15px; padding-top:15px; border-top:1px solid rgba(0,0,0,0.05);">
+                <div style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Affected Tasks:</div>
+                <div style="max-height:150px; overflow-y:auto; font-size:12px; color:var(--text-primary);">
+                    {% for task in linked_tasks %}
+                    <div style="padding:4px 0; display:flex; justify-content:space-between;">
+                        <span>{{ task.title }}</span>
+                        <span class="badge badge-gray" style="font-size:10px;">{{ task.task_id }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Warning -->
+        <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); border-radius: var(--radius); padding: 16px; margin-bottom: 28px; display:flex; align-items:flex-start; gap:12px;">
+            <i class="fas fa-trash-restore" style="color:var(--red); margin-top:2px;"></i>
+            <div style="font-size:12px; color:var(--text-secondary); line-height:1.6;">
+                These items will be moved to the <strong>Trash</strong>. You can restore them later, but they will be removed from all active project views immediately.
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:20px; border-top:1px solid var(--border);">
+            <a href="{% url 'tasks:project_detail' project.pk %}?view=requirements" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+            <form method="POST" action="{% url 'tasks:requirement_delete' requirement.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger" onclick="this.disabled=true; this.form.submit();">
+                    <i class="fas fa-trash-alt"></i> Yes, Delete Requirement
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

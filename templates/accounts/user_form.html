@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block content %}
+<div style="max-width:700px">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>{{ title }}</h1>
+            <p>{% if action == 'Create User' %}All fields marked * are required. The user will login with the username and password you set.{% else %}Update this user's profile information.{% endif %}</p>
+        </div>
+        <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
+
+    <div class="card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Personal Info Section -->
+            <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px">
+                    <i class="fas fa-user" style="margin-right:6px;color:var(--accent)"></i>Personal Information
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}<div class="form-error">{{ form.first_name.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}<div class="form-error">{{ form.last_name.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<div class="form-error">{{ form.email.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        {{ form.phone }}
+                    </div>
+                    <div class="form-group" style="grid-column:span 2">
+                        <label class="form-label">Designation</label>
+                        {{ form.designation }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Section -->
+            <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px">
+                    <i class="fas fa-shield-alt" style="margin-right:6px;color:var(--accent)"></i>Account & Role
+                </div>
+                <div class="grid-2">
+                    {% if form.username %}
+                    <div class="form-group">
+                        <label class="form-label">Username <span style="color:var(--red)">*</span></label>
+                        {{ form.username }}
+                        {% if form.username.errors %}<div class="form-error">{{ form.username.errors.0 }}</div>{% endif %}
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Used to login. Cannot be changed later.</div>
+                    </div>
+                    {% endif %}
+                    <div class="form-group">
+                        <label class="form-label">Role <span style="color:var(--red)">*</span></label>
+                        {{ form.role }}
+                        {% if form.role.errors %}<div class="form-error">{{ form.role.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Team <span style="color:var(--red)">*</span></label>
+                        {{ form.team }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Avatar Color</label>
+                        {{ form.avatar_color }}
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Shown on the user's avatar circle.</div>
+                    </div>
+                    {% if form.is_active %}
+                    <div class="form-group">
+                        <label class="form-label">Account Status</label>
+                        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                            {{ form.is_active }}
+                            <span style="font-size:13px;color:var(--text-secondary)">Account is active (user can login)</span>
+                        </div>
+                        {% if form.is_active.errors %}<div class="form-error">{{ form.is_active.errors.0 }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- System Access Section -->
+            <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px">
+                    <i class="fas fa-universal-access" style="margin-right:6px;color:var(--accent)"></i>System Access Permissions
+                </div>
+                <div class="grid-3" style="gap:15px; margin-bottom: 15px;">
+                    <div class="form-group" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                        {{ form.can_access_pm }}
+                        <span style="font-size:13px;color:var(--text-secondary)">Project Management</span>
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                        {{ form.can_access_inventory }}
+                        <span style="font-size:13px;color:var(--text-secondary)">Inventory</span>
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                        {{ form.can_access_telescope }}
+                        <span style="font-size:13px;color:var(--text-secondary)">Telescope Control</span>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Inventory Branch Assignment</label>
+                        {{ form.inventory_branch }}
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Assign user to a specific branch for inventory isolation.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Section (create only) -->
+            {% if form.password1 %}
+            <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px">
+                    <i class="fas fa-lock" style="margin-right:6px;color:var(--accent)"></i>Login Credentials
+                </div>
+                <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.2);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--text-secondary)">
+                    <i class="fas fa-info-circle" style="color:var(--accent);margin-right:6px"></i>
+                    Set a temporary password. Ask the user to change it after first login via their Profile page.
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Password <span style="color:var(--red)">*</span></label>
+                        {{ form.password1 }}
+                        {% if form.password1.errors %}<div class="form-error">{{ form.password1.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm Password <span style="color:var(--red)">*</span></label>
+                        {{ form.password2 }}
+                        {% if form.password2.errors %}<div class="form-error">{{ form.password2.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="display:flex;gap:10px">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> {{ action }}
+                </button>
+                <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

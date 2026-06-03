@@ -1,0 +1,177 @@
+{% extends 'inventory_base.html' %}
+{% load inventory_extras %}
+
+{% block title %}System Settings - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title mb-0">System Settings</h1>
+    {% if is_global %}
+    <span class="badge bg-primary px-3 py-2">Global Mode</span>
+    {% else %}
+    <span class="badge bg-success px-3 py-2">Branch Mode: {{ request.user.branch.name }}</span>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <h2 class="card-title mb-4">General Configuration</h2>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                {% if is_global %}
+                <div class="mb-4">
+                    <label class="form-label">Managing Settings For:</label>
+                    <select name="branch_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Global (Default)</option>
+                        {% for b in branches %}
+                        <option value="{{ b.id }}" {% if settings.branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="site_name" class="form-label">System Name</label>
+                        <input type="text" class="form-control" id="site_name" name="site_name" value="{{ settings.site_name }}" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="contact_email" class="form-label">Contact Email</label>
+                        <input type="email" class="form-control" id="contact_email" name="contact_email" value="{{ settings.contact_email }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="site_logo" class="form-label">System Logo</label>
+                    {% if settings.site_logo %}
+                    <div class="mb-2">
+                        <img src="{{ settings.site_logo.url }}" alt="Logo" class="img-thumbnail" style="max-height: 100px;">
+                    </div>
+                    {% endif %}
+                    <input type="file" class="form-control" id="site_logo" name="site_logo" accept="image/*">
+                </div>
+
+                <hr class="my-4">
+
+                <h3 class="h5 mb-3">Feature Controls</h3>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="enable_notifications" name="enable_notifications" {% if settings.enable_notifications %}checked{% endif %}>
+                    <label class="form-check-label" for="enable_notifications">Enable In-App Notifications</label>
+                </div>
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" id="enable_low_stock_alerts" name="enable_low_stock_alerts" {% if settings.enable_low_stock_alerts %}checked{% endif %}>
+                    <label class="form-check-label" for="enable_low_stock_alerts">Enable Low Stock Email Alerts</label>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-primary px-5">Save Settings</button>
+                </div>
+            </form>
+        </div>
+
+        {% if is_global and inventory_users %}
+        <div class="card">
+            <h2 class="card-title h5 mb-4">User Permission Management</h2>
+            <p class="text-muted small mb-4">Configure granular feature access for each system user.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_controls">
+                <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light sticky-top" style="z-index: 10;">
+                            <tr>
+                                <th>User</th>
+                                {% for _, label in permission_fields %}
+                                <th class="text-center small" style="min-width: 80px; font-size: 0.7rem;">{{ label }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i_user in inventory_users %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar-sm me-2" style="background: {{ i_user.avatar_color }}; width: 24px; height: 24px; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white;">
+                                            {{ i_user.initials }}
+                                        </div>
+                                        <span class="small font-weight-bold">{{ i_user.username }}</span>
+                                    </div>
+                                </td>
+                                {% for field, _ in permission_fields %}
+                                <td class="text-center">
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" name="{{ field }}_{{ i_user.id }}" 
+                                            {% if i_user|getattr:field %}checked{% endif %}
+                                            {% if i_user.is_super_admin %}disabled checked{% endif %}>
+                                    </div>
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3 text-end">
+                    <button type="submit" class="btn btn-primary btn-sm px-4">Update Permissions</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <h2 class="card-title h5">System Info</h2>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Version
+                    <span class="badge bg-secondary rounded-pill">v3.0.0</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Environment
+                    <span class="badge bg-info rounded-pill">Production</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Last Updated
+                    <span class="small text-muted">{{ settings.updated_at|date:"M d, Y H:i" }}</span>
+                </li>
+            </ul>
+        </div>
+
+        {% if is_global %}
+        <div class="card border-danger mb-4">
+            <h2 class="card-title h5 text-danger">Maintenance</h2>
+            <p class="small text-muted">Perform critical system maintenance tasks.</p>
+            
+            <div class="mb-4">
+                <h3 class="h6 mb-3">Database Backup</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="export">
+                    <button type="submit" class="btn btn-outline-danger w-100">
+                        <i class="fas fa-download me-2"></i>Export Backup (.json)
+                    </button>
+                </form>
+            </div>
+
+            <div class="mb-2">
+                <h3 class="h6 mb-3">Restore Database</h3>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="import">
+                    <div class="mb-2">
+                        <input type="file" name="backup_file" class="form-control form-control-sm" accept=".json" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100" onclick="return confirm('WARNING: This will overwrite current data. Are you sure?')">
+                        <i class="fas fa-upload me-2"></i>Upload & Restore
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

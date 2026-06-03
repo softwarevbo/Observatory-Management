@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.name }} — Tasks{% endblock %}
+{% block page_title %}{{ project.name }} / Tasks{% endblock %}
+
+{% block topbar_actions %}
+    {% if is_pm %}
+    <a href="{% url 'tasks:task_bulk_create' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-layer-group"></i> Bulk Add
+    </a>
+    <a href="{% url 'tasks:task_create' %}?project={{ project.pk }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Task
+    </a>
+    {% endif %}
+    <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Project
+    </a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Project Theme ── */
+    {% if project.button_color %}
+    :root {
+        --accent: {{ project.button_color }};
+        --accent-hover: {{ project.button_color }}cc;
+        --accent-glow: {{ project.button_color }}26;
+    }
+    {% endif %}
+    {% if project.background_color and project.background_color != '#ffffff' %}
+    [data-theme="light"] {
+        --bg-primary: {{ project.background_color }};
+    }
+    {% endif %}
+
+    .ptl-header {
+        display: none;
+    }
+
+    .ptl-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+    }
+
+    .ptl-breadcrumb a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .ptl-breadcrumb a:hover { text-decoration: underline; }
+
+    .ptl-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .ptl-subtitle {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding: 14px 16px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        align-items: center;
+    }
+
+    .task-table-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    .task-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .task-table th {
+        background: var(--bg-secondary);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .task-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg-card);
+        vertical-align: middle;
+    }
+
+    .task-table tr:last-child td { border-bottom: none; }
+
+    .task-table tbody tr {
+        transition: background 0.15s ease;
+    }
+
+    .task-table tbody tr:hover td {
+        background: var(--bg-card-hover);
+    }
+
+    .task-title-link {
+        font-weight: 600;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: block;
+        margin-bottom: 3px;
+        transition: color 0.15s ease;
+    }
+
+    .task-title-link:hover { color: var(--accent); }
+
+    .task-id-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+
+    .priority-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .priority-dot::before {
+        content: '●';
+        font-size: 8px;
+    }
+
+    .empty-cell {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--bg-secondary);
+    }
+
+    .empty-cell i {
+        font-size: 40px;
+        color: var(--text-muted);
+        opacity: 0.4;
+        display: block;
+        margin-bottom: 14px;
+    }
+
+    .empty-cell h3 {
+        font-size: 16px;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+    }
+
+    .empty-cell p {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .empty-cell .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: auto;
+        min-width: 0;
+        padding: 6px 12px;
+        margin: 14px auto 0;
+        line-height: 1.2;
+    }
+
+    .empty-cell .btn i {
+        font-size: 11px;
+        margin: 0;
+    }
+
+    .stat-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .stat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: var(--transition);
+        cursor: default;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="ptl-header">
+    <div>
+        <div class="ptl-breadcrumb">
+            <a href="{% url 'tasks:project_list' %}"><i class="fas fa-briefcase"></i> Projects</a>
+            <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <a href="{% url 'tasks:project_detail' project.pk %}">{{ project.name }}</a>
+            <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <span>Tasks</span>
+        </div>
+        <h1 class="ptl-title">Task List</h1>
+        <p class="ptl-subtitle">
+            {{ tasks.paginator.count }} task{{ tasks.paginator.count|pluralize }} in <strong>{{ project.name }}</strong>
+        </p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Back to Project
+        </a>
+    </div>
+</div>
+
+<!-- Stat Chips -->
+{% with total=tasks.paginator.count %}
+<div class="stat-chips">
+    <span class="stat-chip"><i class="fas fa-tasks" style="color:var(--accent)"></i> {{ total }} Total</span>
+    {% if status_filter %}<span class="stat-chip badge-blue" style="background:var(--accent-glow);color:var(--accent);border-color:var(--accent);"><i class="fas fa-filter"></i> Filtered</span>{% endif %}
+</div>
+{% endwith %}
+
+<!-- Filters -->
+<form method="get" class="filter-bar">
+    <div class="search-wrap" style="flex:1;min-width:220px;">
+        <i class="fas fa-search"></i>
+        <input type="text" name="q" class="search-input" placeholder="Search tasks..." value="{{ search }}">
+    </div>
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="priority" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Priority</option>
+        {% for val, label in priority_choices %}
+        <option value="{{ val }}" {% if priority_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="type" class="filter-select" onchange="this.form.submit()">
+        <option value="">All Types</option>
+        {% for val, label in type_choices %}
+        <option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+    {% if search or status_filter or priority_filter or type_filter %}
+    <a href="{% url 'tasks:project_task_list' project.pk %}" class="btn btn-secondary">
+        <i class="fas fa-times"></i> Clear
+    </a>
+    {% endif %}
+</form>
+
+<!-- Tasks Table -->
+<div class="task-table-card">
+    <table class="task-table">
+        <thead>
+            <tr>
+                <th>Task Details</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Deadline</th>
+                <th>Assigned To</th>
+                <th style="text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td style="border-left: 3px solid
+                    {% if task.priority == 'critical' %}var(--red)
+                    {% elif task.priority == 'high' %}#f97316
+                    {% elif task.priority == 'medium' %}var(--yellow)
+                    {% else %}var(--green){% endif %};">
+                    <div class="task-id-label">#{{ task.task_id|default:task.pk }}</div>
+                    <a href="{% url 'tasks:task_detail' task.pk %}" class="task-title-link">{{ task.title }}</a>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;">
+                        <span class="badge {% if task.task_type == 'bug' %}badge-red{% elif task.task_type == 'feature' %}badge-purple{% else %}badge-gray{% endif %}" style="font-size:9px;">
+                            {{ task.get_task_type_display }}
+                        </span>
+                        {% if task.module %}
+                        <span style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:3px;">
+                            <i class="fas fa-cube" style="font-size:9px;"></i> {{ task.module.name }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    <span class="priority-dot {% if task.priority == 'critical' %}priority-critical{% elif task.priority == 'high' %}priority-high{% elif task.priority == 'medium' %}priority-medium{% else %}priority-low{% endif %}">
+                        {{ task.get_priority_display }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {% if task.status == 'done' %}badge-green{% elif task.status == 'in_progress' %}badge-blue{% elif task.status == 'blocked' %}badge-red{% elif task.status == 'review' %}badge-yellow{% else %}badge-gray{% endif %}">
+                        {{ task.get_status_display }}
+                    </span>
+                </td>
+                <td>
+                    {% if task.deadline %}
+                    <span style="font-size:11px; font-weight:600;
+                        color:{% if task.deadline < today %}var(--red){% else %}var(--text-muted){% endif %};">
+                        <i class="fas fa-calendar-alt"></i> {{ task.deadline|date:"M d, Y" }}
+                    </span>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-size:12px;">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                        {% for assignee in task.assignees.all %}
+                        {% include 'partials/user_avatar.html' with avatar_user=assignee size="26" radius="50%" font_size="10" title=assignee.display_name %}
+                        {% empty %}
+                        <span style="color:var(--text-muted);font-size:12px;">Unassigned</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td style="text-align:right;">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;">
+                        <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-secondary btn-icon btn-sm" title="View">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if is_pm or user == task.created_by %}
+                        <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-secondary btn-icon btn-sm" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="empty-cell">
+                    <i class="fas fa-check-square"></i>
+                    <h3>No tasks found</h3>
+                    <p>{% if search or status_filter or priority_filter or type_filter %}Try adjusting your filters.{% else %}No tasks have been created for this project yet.{% endif %}</p>
+                    {% if is_pm %}
+                    <a href="{% url 'tasks:task_create' %}?project={{ project.pk }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Add First Task
+                    </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'pagination.html' %}
+{% endblock %}

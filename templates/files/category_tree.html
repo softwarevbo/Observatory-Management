@@ -1,0 +1,39 @@
+{% for cat in categories|dictsort:"name" %}
+{% if cat.parent == parent_cat and not cat.is_in_trash %}
+<div class="tree-item folder-item">
+    <div class="tree-row" onclick="toggleFolder(this)">
+        <i class="fas fa-chevron-right chevron"></i>
+        <i class="fas fa-folder folder-icon"></i>
+        <span class="tree-label">{{ cat.name }}</span>
+        <div class="actions-group" onclick="event.stopPropagation();">
+            <a href="{% url 'files:download_folder' cat.pk %}" class="add-folder-btn" title="Download ZIP"><i class="fas fa-download"></i></a>
+            {% if user.is_admin or user.is_project_manager or user in cat.project.managers.all or user in cat.project.members.all %}
+            <a href="{% url 'files:category_create' cat.project.pk %}?parent_id={{ cat.pk }}" class="add-folder-btn" title="New Subfolder"><i class="fas fa-plus"></i></a>
+            <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}&next={{ request.get_full_path|urlencode }}" class="add-folder-btn" style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase;">
+                Manage
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="tree-children" style="display:none;">
+        {% if cat.children.exists %}
+            {% include 'files/category_tree.html' with categories=cat.children.all parent_cat=cat project=project %}
+        {% endif %}
+        
+        {% for file in cat.latest_files %}
+        <div class="tree-row file-row" onclick="window.location='{% url 'files:file_detail' file.pk %}'">
+            <i class="fas fa-fw" style="width:14px;display:inline-block;"></i>
+            <i class="fas {{ file.icon_class }} file-icon" style="color:{{ file.icon_color }};"></i>
+            <span class="tree-label">{{ file.display_name }}</span>
+            <div class="actions-group" onclick="event.stopPropagation();">
+                <a href="{% url 'files:manage_resource' %}?type=file&id={{ file.pk }}&next={{ request.get_full_path|urlencode }}" class="add-folder-btn" style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase;">
+                    Manage
+                </a>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted);margin-left:auto;">{{ file.file_size_display }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endfor %}

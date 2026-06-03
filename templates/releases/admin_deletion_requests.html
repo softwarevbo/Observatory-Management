@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Admin: Release Deletion Requests — IIAP PM{% endblock %}
+{% block page_title %}Release Governance Panel{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+        <div style="width: 48px; height: 48px; background: var(--warning-dim); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--warning); font-size: 20px;">
+            <i class="fas fa-shield-alt"></i>
+        </div>
+        <div>
+            <h2 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">Pending Deletion Requests</h2>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Administrative oversight for immutable release records.</p>
+        </div>
+    </div>
+
+    {% if release_requests or project_requests %}
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        {% if project_requests %}
+        <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 10px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Project Deletion Requests</h3>
+        {% for req in project_requests %}
+        <div class="card" style="background: var(--bg-secondary); border: 1px solid var(--border); padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                <div>
+                    <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--text-primary);">
+                        Project: {{ req.project.name }}
+                    </h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">
+                        Requested by <strong>{{ req.requested_by.username }}</strong> on {{ req.created_at|date:"M d, Y H:i" }}
+                    </p>
+                </div>
+                <span class="badge" style="background: var(--warning-dim); color: var(--warning);">Pending Approval</span>
+            </div>
+
+            <div style="background: var(--bg-primary); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; font-weight: 700;">Reason for Deletion</div>
+                <p style="font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.6;">{{ req.reason }}</p>
+            </div>
+
+            <form action="{% url 'tasks:resolve_deletion_request' 'project' req.pk %}" method="post">
+                {% csrf_token %}
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Admin Notes (Visible in Audit Log)</label>
+                    <textarea name="admin_notes" class="form-control" rows="2" placeholder="Explain the decision..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="submit" name="action" value="reject" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Reject Request
+                    </button>
+                    <button type="submit" name="action" value="approve" class="btn btn-danger" onclick="return confirm('EXTREME CAUTION: Approving this will PERMANENTLY DELETE the project and ALL its resources. This action cannot be undone. Proceed?')">
+                        <i class="fas fa-check"></i> Approve & Destroy Project
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if release_requests %}
+        <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 20px 0 10px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Release Deletion Requests</h3>
+        {% for req in release_requests %}
+        <div class="card" style="background: var(--bg-secondary); border: 1px solid var(--border); padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                <div>
+                    <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--text-primary);">
+                        Release: {{ req.release.name }} ({{ req.release.version }})
+                    </h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">
+                        Requested by <strong>{{ req.requested_by.username }}</strong> on {{ req.created_at|date:"M d, Y H:i" }}
+                    </p>
+                </div>
+                <span class="badge" style="background: var(--warning-dim); color: var(--warning);">Pending Approval</span>
+            </div>
+
+            <div style="background: var(--bg-primary); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; font-weight: 700;">Reason for Deletion</div>
+                <p style="font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.6;">{{ req.reason }}</p>
+            </div>
+
+            <form action="{% url 'tasks:resolve_deletion_request' 'release' req.pk %}" method="post">
+                {% csrf_token %}
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Admin Notes (Visible in Audit Log)</label>
+                    <textarea name="admin_notes" class="form-control" rows="2" placeholder="Explain the decision..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="submit" name="action" value="reject" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Reject Request
+                    </button>
+                    <button type="submit" name="action" value="approve" class="btn btn-danger" onclick="return confirm('EXTREME CAUTION: Approving this will PERMANENTLY DELETE the release and all its snapshots. This action cannot be undone. Proceed?')">
+                        <i class="fas fa-check"></i> Approve & Destroy Release
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 60px 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px dashed var(--border);">
+        <i class="fas fa-check-double" style="font-size: 40px; color: var(--green); opacity: 0.3; margin-bottom: 15px;"></i>
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin: 0;">No Pending Requests</h3>
+        <p style="font-size: 14px; color: var(--text-muted); margin-top: 8px;">All deletion requests have been processed. Great job!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

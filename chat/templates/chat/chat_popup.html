@@ -1,0 +1,2425 @@
+{% load static %}
+<!-- Quick Chat CSS Styles -->
+<style>
+  /* Floating Trigger Button */
+  .qc-trigger {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+  }
+  .qc-trigger:hover {
+    transform: scale(1.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+  
+  /* Quick Chat Container Window */
+  .qc-window {
+    position: fixed;
+    bottom: 96px;
+    right: 24px;
+    width: 380px;
+    height: 520px;
+    border-radius: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  .qc-window.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+  }
+  
+  /* Header */
+  .qc-header {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, var(--accent), #6366f1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .qc-header-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    cursor: pointer;
+    flex: 1;
+  }
+  .qc-header-title {
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qc-header-subtitle {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  .qc-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .qc-header-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.2s, background-color 0.2s;
+  }
+  .qc-header-btn:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+  
+  /* Tabs Area */
+  .qc-tabs {
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
+  }
+  .qc-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-top: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .qc-tab:hover {
+    background-color: var(--bg-card-hover);
+  }
+  .qc-tab.active {
+    color: var(--accent);
+    border-top-color: var(--accent);
+    background: var(--bg-card);
+  }
+  
+  /* List Views */
+  .qc-list-container {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg-card);
+  }
+  .qc-list {
+    display: none;
+    padding: 8px 0;
+  }
+  .qc-list.active {
+    display: block;
+  }
+  
+  /* Items in list */
+  .qc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative;  /* needed for children to not overflow */
+  }
+  .qc-item:hover {
+    background-color: var(--bg-card-hover, rgba(99,102,241,.06));
+  }
+  .qc-item-av {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: rgba(99, 102, 241, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qc-item-av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .qc-item-av i {
+    font-size: 16px;
+    color: var(--accent);
+  }
+  .qc-item-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .qc-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qc-item-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  
+  .qc-status-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-card);
+    background: #94a3b8;
+  }
+  .qc-status-dot.online {
+    background: #22c55e;
+  }
+  
+  /* Chat Window (Visible when room is active) */
+  .qc-chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    overflow: hidden;
+  }
+  .qc-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .qc-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+  .qc-messages::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  
+  /* Message Bubble design */
+  .qc-msg-row {
+    display: flex;
+    max-width: 85%;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 2px;
+  }
+  .qc-msg-row.me {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+  .qc-msg-row.them {
+    align-self: flex-start;
+  }
+  
+  .qc-msg-av {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .qc-msg-bubble-wrap {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+  }
+  .qc-msg-sender {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    margin-left: 4px;
+  }
+  .qc-msg-bubble {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .me .qc-msg-bubble {
+    background: var(--accent);
+    color: white;
+    border-bottom-right-radius: 3px;
+  }
+  .them .qc-msg-bubble {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-bottom-left-radius: 3px;
+  }
+  
+  .qc-msg-meta {
+    font-size: 9px;
+    opacity: 0.7;
+    margin-top: 3px;
+    text-align: right;
+  }
+  .me .qc-msg-meta {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  .them .qc-msg-meta {
+    color: var(--text-muted);
+  }
+  
+  /* Input Area */
+  .qc-input-area {
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .qc-input {
+    flex: 1;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .qc-input:focus {
+    border-color: var(--accent);
+  }
+  .qc-send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+  .qc-send-btn:hover {
+    transform: scale(1.05);
+    background: var(--accent-hover);
+  }
+  .qc-send-btn:active {
+    transform: scale(0.95);
+  }
+  
+  /* Search input inside List container */
+  .qc-search-wrap {
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+  }
+  .qc-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 6px 12px;
+  }
+  .qc-search-box i {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .qc-search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  
+  /* Empty state */
+  .qc-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .qc-empty i {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+  .qc-empty-text {
+    font-size: 13px;
+  }
+
+  /* Emoji Picker styling */
+  .qc-emoji-picker {
+    position: absolute;
+    bottom: 56px;
+    left: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    width: 220px;
+  }
+  .qc-emoji-picker span {
+    font-size: 20px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.15s;
+    user-select: none;
+  }
+  .qc-emoji-picker span:hover {
+    transform: scale(1.25);
+  }
+
+  /* File attachment preview */
+  .qc-img {
+    max-width: 100%;
+    max-height: 150px;
+    border-radius: 8px;
+    margin-top: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .qc-img:hover {
+    opacity: 0.9;
+  }
+  .qc-file-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-top: 4px;
+    max-width: 100%;
+    min-width: 180px;
+    color: var(--text-primary);
+  }
+  .me .qc-file-card {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+
+  /* Trigger notification badge */
+  .qc-trigger-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 2px solid var(--bg-card);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+
+  /* Item unread badge */
+  .qc-item-badge {
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+    align-self: center;
+  }
+
+  /* Files list item styling */
+  .qc-file-item {
+    display: flex;
+    align-items: flex-start;    /* align to top so sender row doesn't clip */
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .qc-file-item:hover { background: var(--bg-card-hover, rgba(99,102,241,.05)); }
+  .qc-file-item-icon {
+    width: 38px; height: 38px; flex-shrink: 0; margin-top: 1px;
+    border-radius: 9px;
+    background: rgba(99,102,241,.12);
+    color: #6366f1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .qc-file-item-icon.img-thumb { background: none; padding: 0; overflow: hidden; }
+  .qc-file-item-icon.img-thumb img { width: 38px; height: 38px; object-fit: cover; border-radius: 9px; }
+  .qc-file-item-info {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .qc-file-item-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .qc-file-item-sender {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  .qc-file-sender-av {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .qc-file-item-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .qc-file-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .qc-file-item-download, .qc-file-item-preview-btn {
+    color: var(--text-muted);
+    font-size: 13px;
+    transition: color 0.2s, background .2s;
+    padding: 5px 6px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .qc-file-item-download:hover,
+  .qc-file-item-preview-btn:hover { color: #6366f1; background: rgba(99,102,241,.1); }
+
+  /* Pin chat styles */
+  .qc-pin-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(156,163,175,.5);   /* subtle grey always visible */
+    font-size: 11px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    transition: color .15s, background .15s;
+    line-height: 1;
+  }
+  .qc-pin-btn:hover {
+    color: #6366f1;
+    background: rgba(99,102,241,.1);
+  }
+  .qc-pin-btn.pinned {
+    color: #f59e0b;   /* golden — always visible when pinned */
+  }
+  .qc-pin-btn.pinned:hover {
+    color: #d97706;
+    background: rgba(245,158,11,.12);
+  }
+  .qc-pinned-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: #f59e0b;
+    padding: 7px 14px 3px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-bottom: 1px dashed rgba(245,158,11,.2);
+    margin-bottom: 2px;
+  }
+
+  /* Tab badges */
+  .qc-tab-badge {
+    position: absolute;
+    top: 4px;
+    right: 25%;
+    background: #ef4444;
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 8px;
+    line-height: 1;
+    display: none;
+    box-shadow: 0 0 0 2px var(--c-surface);
+  }
+  
+  #qcPinnedMsgBanner {
+    background: var(--c-surface); border-bottom: 1px solid var(--c-border);
+    padding: 8px 12px; display: none; align-items: center; gap: 8px;
+    cursor: pointer; transition: background .2s; border-left: 3px solid var(--c-accent);
+  }
+  #qcPinnedMsgBanner.active { display: flex; }
+  #qcPinnedMsgBanner:hover { background: var(--bg-card-hover, rgba(99,102,241,.05)); }
+  #qcPinnedMsgBanner .icon { color: var(--c-accent); font-size: 13px; }
+  #qcPinnedMsgBanner .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #qcPinnedMsgBanner .title { font-size: 10px; font-weight: 600; color: var(--c-accent); margin-bottom: 2px; }
+  #qcPinnedMsgBanner .text { font-size: 12px; color: var(--text-primary, #e2e8f0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #qcPinnedMsgBanner .unpin-btn {
+    background: none; border: none; color: var(--c-muted); cursor: pointer;
+    padding: 4px; border-radius: 6px; transition: color .2s, background .2s;
+  }
+  #qcPinnedMsgBanner .unpin-btn:hover { color: #ef4444; background: rgba(239,68,68,.1); }
+
+  /* Context/Reply floating banner */
+
+
+
+  /* File Preview Modal styling */
+  .qc-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2500;
+  }
+  .qc-modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    animation: qcModalOpen 0.25s ease;
+  }
+  @keyframes qcModalOpen {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .qc-modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-primary);
+  }
+  .qc-modal-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 80%;
+  }
+  .qc-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .qc-modal-close:hover {
+    color: var(--text-primary);
+  }
+  .qc-modal-body {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+  }
+
+  /* Reply preview inside bubble */
+  .qc-reply-block {
+    background: rgba(0, 0, 0, 0.05);
+    border-left: 2px solid var(--accent);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: left;
+    max-width: 100%;
+  }
+  .me .qc-reply-block {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+  .qc-reply-block-sender {
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  /* Hover Actions Bar on message row */
+  .qc-msg-bubble-wrap {
+    position: relative;
+  }
+  .qc-msg-actions {
+    position: absolute;
+    top: -24px;
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 6px;
+    gap: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 10;
+  }
+  .me .qc-msg-actions {
+    right: 12px;
+  }
+  .them .qc-msg-actions {
+    left: 12px;
+  }
+  .qc-msg-bubble-wrap:hover .qc-msg-actions {
+    display: flex;
+    align-items: center;
+  }
+  .qc-msg-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    transition: color 0.15s;
+  }
+  .qc-msg-action-btn:hover {
+    color: var(--accent);
+  }
+
+  /* Emoji reaction picker on hover */
+  .qc-msg-react-trigger {
+    position: relative;
+  }
+  .qc-msg-react-picker {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 8px;
+    display: none;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    white-space: nowrap;
+    z-index: 100;
+  }
+  .qc-msg-react-trigger:hover .qc-msg-react-picker {
+    display: flex;
+  }
+  .qc-msg-react-picker span {
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .qc-msg-react-picker span:hover {
+    transform: scale(1.3);
+  }
+
+  /* Message reactions list rendering */
+  .qc-reactions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .qc-rxn-pill {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .qc-rxn-pill:hover {
+    background: var(--bg-card-hover);
+  }
+
+  /* Responsive Design */
+  @media (max-width: 480px) {
+    .qc-window { width: calc(100% - 32px); height: calc(100% - 100px); right: 16px; bottom: 80px; }
+    .qc-trigger { bottom: 16px; right: 16px; width: 52px; height: 52px; font-size: 20px; }
+  }
+
+  /* Multi-select */
+  .qc-msg-row .qc-sel-chk {
+    display: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg-card);
+    flex-shrink: 0;
+    align-self: center;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    margin: 0 6px;
+  }
+  .qc-select-mode .qc-msg-row .qc-sel-chk {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qc-msg-row.qc-selected .qc-sel-chk {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .qc-msg-row.qc-selected .qc-sel-chk::after {
+    content: '';
+    width: 5px; height: 9px;
+    border: 2px solid #fff;
+    border-top: none; border-left: none;
+    transform: rotate(45deg) translateY(-1px);
+    display: block;
+  }
+  .qc-msg-row.qc-selected {
+    background: rgba(99,102,241,.1);
+    border-radius: 8px;
+    transition: background .2s;
+  }
+  .qc-select-mode .qc-msg-actions { display: none !important; }
+
+  /* Select toolbar — replaces input bar */
+  #qcSelectToolbar {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 8px 10px;
+    background: #1e1b4b;          /* solid dark indigo — always readable */
+    border-top: 2px solid #6366f1;
+    box-shadow: 0 -4px 16px rgba(99,102,241,.25);
+  }
+  #qcSelectToolbar.active { display: flex; }
+  #qcSelCount {
+    flex: 1;
+    font-weight: 700;
+    font-size: 12px;
+    color: #a5b4fc;               /* light indigo — visible on dark bg */
+  }
+  .qc-sel-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 9px;
+    border-radius: 8px;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .qc-sel-action:hover  { opacity: .85; }
+  .qc-sel-action:active { transform: scale(0.95); }
+  /* Delete */
+  .qc-sel-action.del    { background: #ef4444; color: #ffffff; }
+  /* Forward */
+  .qc-sel-action.fwd    { background: #6366f1; color: #ffffff; }
+  /* Select All — ghost */
+  .qc-sel-action.all    { background: rgba(165,180,252,.18); color: #c7d2fe; border: 1px solid rgba(165,180,252,.3); }
+  /* Cancel */
+  .qc-sel-action.cancel { background: rgba(255,255,255,.08); color: #cbd5e1; border: 1px solid rgba(255,255,255,.15); padding: 5px 8px; }
+
+
+  /* Forward mode banner */
+  #qcFwdBanner {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+    animation: qcBannerIn .2s ease;
+  }
+  #qcFwdBanner.active { display: flex; }
+  @keyframes qcBannerIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #qcFwdBanner .qc-fwd-cancel {
+    margin-left: auto; background: rgba(255,255,255,.2); border: none;
+    color: white; border-radius: 6px; padding: 3px 8px; cursor: pointer;
+    font-size: 11px; font-weight: 600;
+  }
+</style>
+
+<!-- Trigger Button -->
+<div class="qc-trigger" id="qcTrigger" title="Quick Chat">
+  <i class="fas fa-comments"></i>
+  <span class="qc-trigger-badge" id="qcTriggerBadge" style="display: none;">0</span>
+</div>
+
+<!-- Quick Chat Window -->
+<div class="qc-window" id="qcWindow">
+  <!-- Header -->
+  <div class="qc-header">
+    <div class="qc-header-info" id="qcHeaderInfo" title="Open full chat page">
+      <button class="qc-header-btn" id="qcBackBtn" style="display: none; margin-right: 4px;" title="Back to lists">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <div class="position-relative" id="qcHeaderAvatarContainer" style="display: none;">
+        <img id="qcHeaderAvatar" src="" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+        <span id="qcHeaderStatus" class="qc-status-dot online" style="display: none; width: 9px; height: 9px; border-width: 1.5px;"></span>
+      </div>
+      <div style="min-width: 0;">
+        <div class="qc-header-title" id="qcHeaderTitle">Quick Chat</div>
+        <div class="qc-header-subtitle" id="qcHeaderSubtitle" style="display: none;">Online</div>
+      </div>
+    </div>
+    <div class="qc-header-actions">
+      <button class="qc-header-btn" id="qcExternalBtn" style="display: none;" title="Go to main chat window">
+        <i class="fas fa-external-link-alt"></i>
+      </button>
+      <button class="qc-header-btn" id="qcCloseBtn" title="Close Quick Chat">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Contacts and Groups List View -->
+  <div id="qcListViews" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+    <!-- Search Box -->
+    <div class="qc-search-wrap">
+      <div class="qc-search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="qcSearchInput" placeholder="Search..." oninput="qcFilterLists()">
+      </div>
+    </div>
+
+    <!-- List container -->
+    <div class="qc-list-container">
+      <!-- Peoples List -->
+      <div class="qc-list active" id="qcListPeoples">
+        <div class="qc-empty"><i class="fas fa-spinner fa-spin"></i><div class="qc-empty-text">Loading contacts...</div></div>
+      </div>
+      <!-- Groups List -->
+      <div class="qc-list" id="qcListGroups">
+        <div class="qc-empty"><i class="fas fa-spinner fa-spin"></i><div class="qc-empty-text">Loading groups...</div></div>
+      </div>
+      <!-- Files List -->
+      <div class="qc-list" id="qcListFiles">
+        <div class="qc-empty"><i class="fas fa-spinner fa-spin"></i><div class="qc-empty-text">Loading files...</div></div>
+      </div>
+    </div>
+
+    <!-- Tabs at the bottom -->
+    <div class="qc-tabs">
+      <div class="qc-tab active" id="qcTabPeoples" onclick="qcSwitchTab('peoples')">
+        <i class="fas fa-user"></i>
+        <div style="font-size: 10px; margin-top: 2px;">Users</div>
+        <span class="qc-tab-badge" id="qcTabBadgePeoples" style="display: none;">0</span>
+      </div>
+      <div class="qc-tab" id="qcTabGroups" onclick="qcSwitchTab('groups')">
+        <i class="fas fa-comments"></i>
+        <div style="font-size: 10px; margin-top: 2px;">Chat List</div>
+        <span class="qc-tab-badge" id="qcTabBadgeGroups" style="display: none;">0</span>
+      </div>
+      <div class="qc-tab" id="qcTabFiles" onclick="qcSwitchTab('files')">
+        <i class="fas fa-file-alt"></i>
+        <div style="font-size: 10px; margin-top: 2px;">Files List</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Chat Room Panel -->
+  <div class="qc-chat-panel" id="qcChatPanel" style="display: none; flex-direction: column;">
+
+    <!-- Forward mode indicator banner -->
+    <div id="qcFwdBanner">
+      <i class="fas fa-share"></i>
+      <span id="qcFwdBannerText">Forwarding 0 message(s) — pick a chat below</span>
+      <button class="qc-fwd-cancel" onclick="qcCancelForwardMode()">✕ Cancel</button>
+    </div>
+
+    <!-- Messages Scroll Area -->
+    <div class="qc-messages" id="qcMessagesArea"></div>
+
+    <!-- Emoji Picker Popup -->
+    <div class="qc-emoji-picker" id="qcEmojiPicker" style="display: none;">
+      <span onclick="qcAddEmoji('😀')">😀</span>
+      <span onclick="qcAddEmoji('😂')">😂</span>
+      <span onclick="qcAddEmoji('😍')">😍</span>
+      <span onclick="qcAddEmoji('😊')">😊</span>
+      <span onclick="qcAddEmoji('👍')">👍</span>
+      <span onclick="qcAddEmoji('❤️')">❤️</span>
+      <span onclick="qcAddEmoji('🔥')">🔥</span>
+      <span onclick="qcAddEmoji('🎉')">🎉</span>
+      <span onclick="qcAddEmoji('👏')">👏</span>
+      <span onclick="qcAddEmoji('🙌')">🙌</span>
+      <span onclick="qcAddEmoji('💡')">💡</span>
+      <span onclick="qcAddEmoji('🚀')">🚀</span>
+      <span onclick="qcAddEmoji('✨')">✨</span>
+      <span onclick="qcAddEmoji('🤔')">🤔</span>
+      <span onclick="qcAddEmoji('😎')">😎</span>
+      <span onclick="qcAddEmoji('🙏')">🙏</span>
+    </div>
+
+    <!-- Reply Preview area above input -->
+    <div id="qcReplyPreview" style="display: none; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(0, 0, 0, 0.05); border-left: 3px solid var(--accent); border-bottom: 1px solid var(--border); font-size: 11px; width: 100%; border-top: 1px solid var(--border);">
+      <div style="min-width: 0; flex: 1; text-align: left;">
+        <div style="font-weight: 700; color: var(--accent);" id="qcReplyPreviewSender"></div>
+        <div style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--text-muted);" id="qcReplyPreviewText"></div>
+      </div>
+      <button onclick="qcCancelReply()" style="background: none; border: none; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 4px; font-weight: bold; line-height: 1;">&times;</button>
+    </div>
+
+    <!-- Normal Input Area -->
+    <div class="qc-input-area" id="qcInputArea">
+      <button class="qc-header-btn" id="qcEmojiBtn" title="Choose emoji" style="color: var(--text-muted); font-size: 16px; padding: 4px;">
+        <i class="far fa-smile"></i>
+      </button>
+      <input type="file" id="qcFileInput" multiple style="display: none;">
+      <button class="qc-header-btn" id="qcAttachBtn" title="Attach files" style="color: var(--text-muted); font-size: 16px; padding: 4px;">
+        <i class="fas fa-paperclip"></i>
+      </button>
+      <input type="text" class="qc-input" id="qcMessageInput" placeholder="Type a message..." autocomplete="off">
+      <!-- Select mode toggle inside input row -->
+      <button class="qc-header-btn" id="qcSelModeBtn" title="Select messages"
+        onclick="qcEnterSelectMode()"
+        style="color: var(--text-muted); font-size: 15px; padding: 4px; flex-shrink:0;">
+        <i class="fas fa-tasks"></i>
+      </button>
+      <button class="qc-send-btn" id="qcSendBtn" title="Send message">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+
+    <!-- Multi-select toolbar (replaces input bar when active) -->
+    <div id="qcSelectToolbar">
+      <i class="fas fa-check-square" style="color:var(--accent); font-size:14px;"></i>
+      <span id="qcSelCount">0 selected</span>
+      <button class="qc-sel-action all" onclick="qcSelectAll()">
+        <i class="fas fa-check-double"></i> All
+      </button>
+      <button class="qc-sel-action fwd" onclick="qcForwardSelected()">
+        <i class="fas fa-share"></i> Forward
+      </button>
+      <button class="qc-sel-action del" onclick="qcDeleteSelected()">
+        <i class="fas fa-trash"></i> Delete
+      </button>
+      <button class="qc-sel-action cancel" onclick="qcExitSelectMode()" title="Cancel">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- File Preview Modal -->
+<div class="qc-modal" id="qcPreviewModal" style="display: none;">
+  <div class="qc-modal-content">
+    <div class="qc-modal-header">
+      <div class="qc-modal-title" id="qcPreviewTitle">File Preview</div>
+      <button class="qc-modal-close" onclick="qcClosePreview()">&times;</button>
+    </div>
+    <div class="qc-modal-body" id="qcPreviewBody"></div>
+  </div>
+</div>
+
+<!-- Forward Message Modal -->
+<div class="qc-modal" id="qcForwardModal" style="display: none;">
+  <div class="qc-modal-content" style="max-width: 380px;">
+    <div class="qc-modal-header">
+      <div class="qc-modal-title">Forward Message</div>
+      <button class="qc-modal-close" onclick="qcCloseForward()">&times;</button>
+    </div>
+    <div class="qc-modal-body" style="flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 12px; padding: 16px;">
+      <div>
+        <input type="text" id="qcForwardSearch" placeholder="Search chats..." style="width: 100%; border-radius: 18px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); font-size: 12px; padding: 8px 16px; outline: none;">
+      </div>
+      <div id="qcForwardList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        <!-- Chats will be listed here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Chat Logic -->
+<script>
+(function() {
+  'use strict';
+  
+  const ME = "{{ request.user.username }}";
+  let activeRoomId = null;
+  let activeRoomName = "";
+  let activeRoomType = "";
+  let qcWS = null;
+  let cachedPeoples = [];
+  let cachedGroups = [];
+  let cachedFiles = [];
+  let currentTab = 'peoples';
+  let qcReplyId = null;
+  let qcSelectedIds = new Set();
+  let qcInSelectMode = false;
+  
+  const elTrigger = document.getElementById('qcTrigger');
+  const elWindow = document.getElementById('qcWindow');
+  const elClose = document.getElementById('qcCloseBtn');
+  const elBack = document.getElementById('qcBackBtn');
+  const elHeaderInfo = document.getElementById('qcHeaderInfo');
+  const elExternal = document.getElementById('qcExternalBtn');
+  const elListViews = document.getElementById('qcListViews');
+  const elChatPanel = document.getElementById('qcChatPanel');
+  const elMessagesArea = document.getElementById('qcMessagesArea');
+  const elMessageInput = document.getElementById('qcMessageInput');
+  const elSendBtn = document.getElementById('qcSendBtn');
+  const elSearchInput = document.getElementById('qcSearchInput');
+  
+  const elEmojiBtn = document.getElementById('qcEmojiBtn');
+  const elEmojiPicker = document.getElementById('qcEmojiPicker');
+  const elFileInput = document.getElementById('qcFileInput');
+  const elAttachBtn = document.getElementById('qcAttachBtn');
+  
+  const elHeaderTitle = document.getElementById('qcHeaderTitle');
+  const elHeaderSubtitle = document.getElementById('qcHeaderSubtitle');
+  const elHeaderAvatar = document.getElementById('qcHeaderAvatar');
+  const elHeaderAvatarContainer = document.getElementById('qcHeaderAvatarContainer');
+  const elHeaderStatus = document.getElementById('qcHeaderStatus');
+  
+  const elListPeoples = document.getElementById('qcListPeoples');
+  const elListGroups = document.getElementById('qcListGroups');
+  const elListFiles = document.getElementById('qcListFiles');
+  
+  const elTriggerBadge = document.getElementById('qcTriggerBadge');
+  const elTabBadgePeoples = document.getElementById('qcTabBadgePeoples');
+  const elTabBadgeGroups = document.getElementById('qcTabBadgeGroups');
+  
+  // Hide trigger and window if we are on the main chat pages to avoid layout overlap
+  const path = window.location.pathname;
+  if (path === '/chat/' || path === '/chat/home/' || path.startsWith('/chat/project/')) {
+    if (elTrigger) elTrigger.style.display = 'none';
+    if (elWindow) elWindow.style.display = 'none';
+  }
+
+  // Emoji Picker toggle
+  elEmojiBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isShowing = elEmojiPicker.style.display === 'grid';
+    elEmojiPicker.style.display = isShowing ? 'none' : 'grid';
+  });
+  
+  // Close emoji picker when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!elEmojiPicker.contains(e.target) && e.target !== elEmojiBtn && !elEmojiBtn.contains(e.target)) {
+      elEmojiPicker.style.display = 'none';
+    }
+  });
+
+  // Global helper for emoji click
+  window.qcAddEmoji = function(emoji) {
+    elMessageInput.value += emoji;
+    elMessageInput.focus();
+    elEmojiPicker.style.display = 'none';
+  };
+
+  // Multiple File Attachment triggers
+  elAttachBtn.addEventListener('click', () => {
+    elFileInput.click();
+  });
+  
+  elFileInput.addEventListener('change', () => {
+    if (elFileInput.files.length === 0) return;
+    qcUploadFiles(elFileInput.files);
+    elFileInput.value = '';
+  });
+
+  function qcUploadFiles(files) {
+    if (!files || files.length === 0 || !activeRoomId) return;
+    
+    // Change paperclip icon to a loader
+    const originalIcon = elAttachBtn.innerHTML;
+    elAttachBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    elAttachBtn.disabled = true;
+    
+    const fd = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      fd.append('files', files[i]);
+    }
+    fd.append('room_id', activeRoomId);
+    
+    fetch('/chat/api/upload/', {
+      method: 'POST',
+      body: fd,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status !== 'success') {
+        alert(data.message || 'Upload failed');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Upload failed');
+    })
+    .finally(() => {
+      elAttachBtn.innerHTML = originalIcon;
+      elAttachBtn.disabled = false;
+    });
+  }
+  
+  // Toggle Quick Chat Window
+  elTrigger.addEventListener('click', () => {
+    const isShowing = elWindow.classList.toggle('active');
+    if (isShowing) {
+      qcFetchData();
+    }
+  });
+  
+  elClose.addEventListener('click', (e) => {
+    e.stopPropagation();
+    elWindow.classList.remove('active');
+  });
+  
+  // Back to Lists
+  elBack.addEventListener('click', (e) => {
+    e.stopPropagation();
+    qcLeaveRoom();
+  });
+  
+  // Redirect to full chat page when header or external button is clicked
+  const qcRedirectToMain = () => {
+    if (activeRoomId) {
+      window.location.href = `/chat/?room=${activeRoomId}`;
+    } else {
+      window.location.href = '/chat/';
+    }
+  };
+  elHeaderInfo.addEventListener('click', (e) => {
+    // If not in lists mode (i.e. we are in a chat room), redirect
+    if (activeRoomId && e.target !== elBack && !elBack.contains(e.target)) {
+      qcRedirectToMain();
+    }
+  });
+  elExternal.addEventListener('click', (e) => {
+    e.stopPropagation();
+    qcRedirectToMain();
+  });
+  
+  // Send Action
+  elSendBtn.addEventListener('click', qcSendMessage);
+  elMessageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      qcSendMessage();
+    }
+  });
+  
+  // Update Notification Count Badges
+  function qcUpdateBadges(totalUnread, peoples, groups) {
+    if (totalUnread > 0) {
+      elTriggerBadge.textContent = totalUnread;
+      elTriggerBadge.style.display = 'block';
+    } else {
+      elTriggerBadge.style.display = 'none';
+    }
+    
+    const peoplesUnread = peoples.reduce((sum, p) => sum + (p.unread_count || 0), 0);
+    if (peoplesUnread > 0) {
+      elTabBadgePeoples.textContent = peoplesUnread;
+      elTabBadgePeoples.style.display = 'inline-block';
+    } else {
+      elTabBadgePeoples.style.display = 'none';
+    }
+    
+    const groupsUnread = groups.reduce((sum, g) => sum + (g.unread_count || 0), 0);
+    if (groupsUnread > 0) {
+      elTabBadgeGroups.textContent = groupsUnread;
+      elTabBadgeGroups.style.display = 'inline-block';
+    } else {
+      elTabBadgeGroups.style.display = 'none';
+    }
+  }
+
+  // Fetch lists of contacts, groups and files
+  function qcFetchData() {
+    fetch('/chat/api/quick-chat-list/')
+      .then(res => res.json())
+      .then(data => {
+        cachedPeoples = (data.peoples || []).map(p => {
+          p._last_msg_time_obj = p.last_msg_time ? new Date(p.last_msg_time) : null;
+          return p;
+        });
+        cachedGroups = (data.groups || []).map(g => {
+          g._last_msg_time_obj = g.last_msg_time ? new Date(g.last_msg_time) : null;
+          return g;
+        });
+        cachedFiles = data.files || [];
+        
+        qcRenderPeoples(cachedPeoples);
+        qcRenderGroups(cachedGroups);
+        qcRenderFilesList(cachedFiles);
+        qcUpdateBadges(data.total_unread, cachedPeoples, cachedGroups);
+      })
+      .catch(err => {
+        console.error("Failed to load quick chat data", err);
+        elListPeoples.innerHTML = '<div class="qc-empty"><i class="fas fa-exclamation-circle text-danger"></i><div class="qc-empty-text">Error loading contacts.</div></div>';
+        elListGroups.innerHTML = '<div class="qc-empty"><i class="fas fa-exclamation-circle text-danger"></i><div class="qc-empty-text">Error loading groups.</div></div>';
+        elListFiles.innerHTML = '<div class="qc-empty"><i class="fas fa-exclamation-circle text-danger"></i><div class="qc-empty-text">Error loading files.</div></div>';
+      });
+  }
+
+  function qcHandleNewMessage(data) {
+    if (!data || !data.room_id) return;
+    const msgTime = data.raw_timestamp ? new Date(data.raw_timestamp) : new Date();
+    let updated = false;
+    let isGroup = false;
+
+    let group = cachedGroups.find(g => g.room_id === data.room_id);
+    let person = cachedPeoples.find(p => p.room_id === data.room_id);
+
+    if (!group && !person) {
+      const otherUsername = data.sender === ME ? activeRoomName : data.sender;
+      person = cachedPeoples.find(p => p.username === otherUsername);
+    }
+
+    if (group) {
+      isGroup = true;
+      group.last_msg_time = msgTime.toISOString();
+      group._last_msg_time_obj = msgTime;
+      if (data.sender !== ME && activeRoomId !== data.room_id) {
+        group.unread_count = (group.unread_count || 0) + 1;
+      }
+      updated = true;
+    } else if (person) {
+      person.room_id = data.room_id;
+      person.last_msg_time = msgTime.toISOString();
+      person._last_msg_time_obj = msgTime;
+      if (data.sender !== ME && activeRoomId !== data.room_id) {
+        person.unread_count = (person.unread_count || 0) + 1;
+      }
+      updated = true;
+    }
+
+    if (updated) {
+      const pins = qcGetPins();
+      if (!isGroup) {
+        cachedPeoples.sort((a, b) => {
+          const aPinned = pins.includes(a.room_id);
+          const bPinned = pins.includes(b.room_id);
+          if (aPinned && !bPinned) return -1;
+          if (!aPinned && bPinned) return 1;
+          const aTime = a._last_msg_time_obj ? new Date(a._last_msg_time_obj).getTime() : 0;
+          const bTime = b._last_msg_time_obj ? new Date(b._last_msg_time_obj).getTime() : 0;
+          if (aTime !== bTime) return bTime - aTime;
+          if (a.is_online && !b.is_online) return -1;
+          if (!a.is_online && b.is_online) return 1;
+          return a.username.localeCompare(b.username);
+        });
+        qcRenderPeoples(cachedPeoples);
+      } else {
+        cachedGroups.sort((a, b) => {
+          const aPinned = pins.includes(a.room_id);
+          const bPinned = pins.includes(b.room_id);
+          if (aPinned && !bPinned) return -1;
+          if (!aPinned && bPinned) return 1;
+          const aTime = a._last_msg_time_obj ? new Date(a._last_msg_time_obj).getTime() : 0;
+          const bTime = b._last_msg_time_obj ? new Date(b._last_msg_time_obj).getTime() : 0;
+          return bTime - aTime;
+        });
+        qcRenderGroups(cachedGroups);
+      }
+      let totalUnread = 0;
+      cachedPeoples.forEach(p => { totalUnread += (p.unread_count || 0); });
+      cachedGroups.forEach(g => { totalUnread += (g.unread_count || 0); });
+      qcUpdateBadges(totalUnread, cachedPeoples, cachedGroups);
+    }
+  }
+  
+  // Switch tabs
+  window.qcSwitchTab = function(tab) {
+    currentTab = tab;
+    document.getElementById('qcTabPeoples').classList.toggle('active', tab === 'peoples');
+    document.getElementById('qcTabGroups').classList.toggle('active', tab === 'groups');
+    document.getElementById('qcTabFiles').classList.toggle('active', tab === 'files');
+    
+    elListPeoples.classList.toggle('active', tab === 'peoples');
+    elListGroups.classList.toggle('active', tab === 'groups');
+    elListFiles.classList.toggle('active', tab === 'files');
+    
+    qcFilterLists();
+  };
+  
+  // Render Peoples List
+  // ── Pin helpers (localStorage) ──
+  const QC_PINS_KEY = 'qc_pinned_rooms';
+
+  function qcGetPins() {
+    try { return JSON.parse(localStorage.getItem(QC_PINS_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+
+  window.qcTogglePin = function(roomId, event) {
+    event.stopPropagation();
+    var pins = qcGetPins();
+    var idx = pins.indexOf(roomId);
+    if (idx > -1) pins.splice(idx, 1);
+    else pins.push(roomId);
+    localStorage.setItem(QC_PINS_KEY, JSON.stringify(pins));
+    // Re-render current tab
+    if (currentTab === 'peoples') qcRenderPeoples(cachedPeoples);
+    else if (currentTab === 'groups') qcRenderGroups(cachedGroups);
+  };
+
+  function qcRenderPeoples(peoples) {
+    if (peoples.length === 0) {
+      elListPeoples.innerHTML = '<div class="qc-empty"><i class="fas fa-user-friends"></i><div class="qc-empty-text">No contacts found</div></div>';
+      return;
+    }
+    const pins = qcGetPins();
+    const pinned = peoples.filter(p => pins.includes(p.room_id));
+    const rest   = peoples.filter(p => !pins.includes(p.room_id));
+    const sorted = [...pinned, ...rest];
+
+    let html = '';
+    if (pinned.length) {
+      html += `<div class="qc-pinned-label"><i class="fas fa-thumbtack"></i> Pinned</div>`;
+    }
+    html += sorted.map(p => {
+      const isPinned = pins.includes(p.room_id);
+      const badgeHtml = p.unread_count > 0 ? `<span class="qc-item-badge">${p.unread_count}</span>` : '';
+      const pinIcon = isPinned ? 'fa-thumbtack' : 'fa-thumbtack';
+      const pinClass = isPinned ? 'pinned' : '';
+      return `
+        <div class="qc-item" onclick="qcOpenRoom('${p.room_id}', '${escapeJS(p.display_name)}', 'direct', '${p.avatar_url}', ${p.is_online})">
+          <div class="qc-item-av">
+            <img src="${p.avatar_url}" alt="${p.username}">
+            <span class="qc-status-dot ${p.is_online ? 'online' : ''}"></span>
+          </div>
+          <div class="qc-item-info">
+            <div class="qc-item-name">
+              ${isPinned ? '<i class="fas fa-thumbtack" style="font-size:9px;color:#f59e0b;margin-right:4px;vertical-align:middle;"></i>' : ''}
+              ${escapeHTML(p.display_name)}
+            </div>
+            <div class="qc-item-sub">${p.is_online ? 'Online' : 'Offline'}</div>
+          </div>
+          ${badgeHtml}
+          <button class="qc-pin-btn ${pinClass}" onclick="qcTogglePin('${p.room_id}', event)" title="${isPinned ? 'Unpin' : 'Pin'}">
+            <i class="fas fa-thumbtack"></i>
+          </button>
+        </div>
+      `;
+    }).join('');
+    elListPeoples.innerHTML = html;
+  }
+  
+  // Render Groups List
+  function qcRenderGroups(groups) {
+    if (groups.length === 0) {
+      elListGroups.innerHTML = '<div class="qc-empty"><i class="fas fa-users"></i><div class="qc-empty-text">No groups found</div></div>';
+      return;
+    }
+    const pins = qcGetPins();
+    const pinned = groups.filter(g => pins.includes(g.room_id));
+    const rest   = groups.filter(g => !pins.includes(g.room_id));
+    const sorted = [...pinned, ...rest];
+
+    let html = '';
+    if (pinned.length) {
+      html += `<div class="qc-pinned-label"><i class="fas fa-thumbtack"></i> Pinned</div>`;
+    }
+    html += sorted.map(g => {
+      const isPinned = pins.includes(g.room_id);
+      const badgeHtml = g.unread_count > 0 ? `<span class="qc-item-badge">${g.unread_count}</span>` : '';
+      return `
+        <div class="qc-item" onclick="qcOpenRoom('${g.room_id}', '${escapeJS(g.name)}', '${g.room_type}', '${g.avatar_url}')">
+          <div class="qc-item-av">
+            ${g.avatar_url.includes('ui-avatars') ? `<i class="fas fa-users"></i>` : `<img src="${g.avatar_url}" alt="${g.name}">`}
+          </div>
+          <div class="qc-item-info">
+            <div class="qc-item-name">
+              ${isPinned ? '<i class="fas fa-thumbtack" style="font-size:9px;color:#f59e0b;margin-right:4px;vertical-align:middle;"></i>' : ''}
+              ${escapeHTML(g.name)}
+            </div>
+            <div class="qc-item-sub">Group Chat</div>
+          </div>
+          ${badgeHtml}
+          <button class="qc-pin-btn ${isPinned ? 'pinned' : ''}" onclick="qcTogglePin('${g.room_id}', event)" title="${isPinned ? 'Unpin' : 'Pin'}">
+            <i class="fas fa-thumbtack"></i>
+          </button>
+        </div>
+      `;
+    }).join('');
+    elListGroups.innerHTML = html;
+  }
+
+  // Render Files List
+  function qcRenderFilesList(files) {
+    if (files.length === 0) {
+      elListFiles.innerHTML = '<div class="qc-empty"><i class="fas fa-file-alt"></i><div class="qc-empty-text">No files shared yet</div></div>';
+      return;
+    }
+    elListFiles.innerHTML = files.map(file => {
+      const isImg  = file.file_type && file.file_type.startsWith('image/');
+      const sizeStr = file.file_size ? (file.file_size / 1024 < 1024
+        ? (file.file_size / 1024).toFixed(1) + ' KB'
+        : (file.file_size / 1024 / 1024).toFixed(1) + ' MB') : '';
+
+      // Pick icon based on type
+      let iconClass = 'fa-file-alt';
+      if (isImg) iconClass = 'fa-file-image';
+      else if (file.file_type === 'application/pdf') iconClass = 'fa-file-pdf';
+      else if (file.file_type && file.file_type.includes('word')) iconClass = 'fa-file-word';
+      else if (file.file_type && file.file_type.includes('sheet')) iconClass = 'fa-file-excel';
+      else if (file.file_type && file.file_type.includes('zip')) iconClass = 'fa-file-archive';
+      else if (file.file_type && file.file_type.startsWith('video/')) iconClass = 'fa-file-video';
+      else if (file.file_type && file.file_type.startsWith('audio/')) iconClass = 'fa-file-audio';
+
+      const senderAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(file.sender)}&background=random&size=32&bold=true`;
+
+      const iconHtml = isImg
+        ? `<div class="qc-file-item-icon img-thumb"><img src="${file.file_url}" alt="thumb" onerror="this.parentElement.innerHTML='<i class=&quot;fas fa-file-image&quot;></i>'; this.parentElement.classList.remove('img-thumb');"></div>`
+        : `<div class="qc-file-item-icon"><i class="fas ${iconClass}"></i></div>`;
+
+      return `
+        <div class="qc-file-item">
+          ${iconHtml}
+          <div class="qc-file-item-info">
+            <div class="qc-file-item-name" title="${escapeHTML(file.file_name)}">${escapeHTML(file.file_name)}</div>
+            <div class="qc-file-item-sender">
+              <img class="qc-file-sender-av" src="${senderAvatar}" alt="${escapeHTML(file.sender)}">
+              <span class="qc-file-item-meta">
+                <strong style="color: var(--text-primary); font-weight:600;">${escapeHTML(file.sender)}</strong>
+                &nbsp;&middot;&nbsp;${escapeHTML(file.room_name)}
+                ${sizeStr ? `&nbsp;&middot;&nbsp;${sizeStr}` : ''}
+                ${file.timestamp ? `&nbsp;&middot;&nbsp;${escapeHTML(file.timestamp)}` : ''}
+              </span>
+            </div>
+          </div>
+          <div class="qc-file-item-actions">
+            <button class="qc-file-item-preview-btn" onclick="qcPreviewFile('${file.file_url}', '${escapeJS(file.file_name)}', '${file.file_type}', ${file.file_size || 0})" title="Preview">
+              <i class="fas fa-eye"></i>
+            </button>
+            <a class="qc-file-item-download" href="${file.file_url}" target="_blank" download title="Download">
+              <i class="fas fa-download"></i>
+            </a>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  // Filter lists based on search
+  window.qcFilterLists = function() {
+    const query = elSearchInput.value.toLowerCase().trim();
+    if (currentTab === 'peoples') {
+      const filtered = cachedPeoples.filter(p => p.display_name.toLowerCase().includes(query) || p.username.toLowerCase().includes(query));
+      qcRenderPeoples(filtered);
+    } else if (currentTab === 'groups') {
+      const filtered = cachedGroups.filter(g => g.name.toLowerCase().includes(query));
+      qcRenderGroups(filtered);
+    } else {
+      const filtered = cachedFiles.filter(f => f.file_name.toLowerCase().includes(query) || f.sender.toLowerCase().includes(query) || f.room_name.toLowerCase().includes(query));
+      qcRenderFilesList(filtered);
+    }
+  };
+  
+  // Open Room
+  window.qcOpenRoom = function(roomId, name, type, avatarUrl, isOnline = false) {
+    // ── If we are in forward mode, forward to this room instead of opening it ──
+    if (qcFwdSelectedIds.length > 0) {
+      const ids = [...qcFwdSelectedIds];
+      const banner = document.getElementById('qcFwdBanner');
+      const bannerText = document.getElementById('qcFwdBannerText');
+      if (bannerText) bannerText.textContent = 'Forwarding to ' + name + '…';
+
+      Promise.all(ids.map(function(mid) {
+        return fetch('/chat/api/forward/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+          body: JSON.stringify({ message_id: mid, room_id: roomId })
+        }).then(r => r.json());
+      })).then(function(results) {
+        var allOk = results.every(d => d.status === 'success');
+        if (allOk) {
+          if (bannerText) bannerText.textContent = '✓ Forwarded ' + ids.length + ' message(s) to ' + name;
+          if (banner) banner.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
+          qcFwdSelectedIds = [];
+          // Update sidebar snippets if on main chat
+          if (window.Chat && typeof window.Chat.updateRoomSnippet === 'function') {
+            var last = results[results.length - 1];
+            if (last) { window.Chat.updateRoomSnippet({ room_id: last.room_id, content: last.content }); window.Chat.reorderRooms(last.room_id); }
+          }
+          setTimeout(function() {
+            if (banner) { banner.classList.remove('active'); banner.style.background = ''; }
+            qcFetchData();
+          }, 1500);
+        } else {
+          if (bannerText) bannerText.textContent = '✗ Some messages failed to forward';
+          setTimeout(function() { if (banner) banner.classList.remove('active'); qcFwdSelectedIds = []; }, 2000);
+        }
+      }).catch(function() {
+        if (bannerText) bannerText.textContent = '✗ Forward failed';
+        setTimeout(function() { if (banner) banner.classList.remove('active'); qcFwdSelectedIds = []; }, 2000);
+      });
+      return; // don't open the room
+    }
+
+    activeRoomId = roomId;
+    activeRoomName = name;
+    activeRoomType = type;
+
+    // Update Header UI
+    elBack.style.display = 'block';
+    elExternal.style.display = 'block';
+    elHeaderAvatarContainer.style.display = 'block';
+    elHeaderAvatar.src = avatarUrl;
+
+    if (type === 'direct') {
+      elHeaderStatus.style.display = 'block';
+      elHeaderStatus.className = `qc-status-dot ${isOnline ? 'online' : ''}`;
+      elHeaderSubtitle.style.display = 'block';
+      elHeaderSubtitle.innerHTML = isOnline ? '<span style="color:#22c55e;">Online</span>' : 'Offline';
+    } else {
+      elHeaderStatus.style.display = 'none';
+      elHeaderSubtitle.style.display = 'block';
+      elHeaderSubtitle.textContent = 'Group Chat';
+    }
+
+    elHeaderTitle.textContent = name;
+
+    // Switch panels
+    elListViews.style.display = 'none';
+    elChatPanel.style.display = 'flex';
+
+    // Load pinned msg and history
+    qcLoadPinnedMessage();
+    qcLoadHistory(roomId);
+    qcConnectWS(roomId);
+  };
+  
+  // ── Pinned Message Logic ──
+  const MSG_PIN_PREFIX = 'qc_pinned_msg_';
+  const elPinBanner = document.getElementById('qcPinnedMsgBanner');
+  const elPinText = document.getElementById('qcPinnedMsgText');
+  if (elPinBanner) {
+    elPinBanner.addEventListener('click', function(e) {
+      if (e.target.closest('.unpin-btn')) return;
+      const mid = elPinBanner.dataset.mid;
+      if (mid) qcScrollToMsg('qc-msg-' + mid);
+    });
+  }
+
+  window.qcPinMessage = function(mid, text) {
+    if (!activeRoomId) return;
+    localStorage.setItem(MSG_PIN_PREFIX + activeRoomId, JSON.stringify({ mid: mid, text: text }));
+    qcLoadPinnedMessage();
+  }
+  
+  window.qcUnpinMessage = function(event) {
+    if (event) event.stopPropagation();
+    if (!activeRoomId) return;
+    localStorage.removeItem(MSG_PIN_PREFIX + activeRoomId);
+    qcLoadPinnedMessage();
+  }
+  
+  function qcLoadPinnedMessage() {
+    if (!activeRoomId || !elPinBanner) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(MSG_PIN_PREFIX + activeRoomId));
+      if (stored && stored.mid && stored.text) {
+        elPinText.textContent = stored.text;
+        elPinBanner.dataset.mid = stored.mid;
+        elPinBanner.classList.add('active');
+      } else {
+        elPinBanner.classList.remove('active');
+        elPinBanner.dataset.mid = '';
+      }
+    } catch(e) {
+      elPinBanner.classList.remove('active');
+    }
+  }
+
+  // Leave Room
+  function qcLeaveRoom() {
+    if (qcWS) { try { qcWS.close(); } catch(e) {} qcWS = null; }
+    activeRoomId = null; activeRoomName = ""; activeRoomType = "";
+    qcExitSelectMode();
+    elBack.style.display = 'none';
+    elExternal.style.display = 'none';
+    elHeaderAvatarContainer.style.display = 'none';
+    elHeaderSubtitle.style.display = 'none';
+    elHeaderTitle.textContent = "Quick Chat";
+    elChatPanel.style.display = 'none';
+    elListViews.style.display = 'flex';
+    elMessageInput.value = "";
+    qcFetchData();
+  }
+  
+  // Fetch messages from DB
+  function qcLoadHistory(roomId) {
+    elMessagesArea.innerHTML = '<div class="qc-empty"><i class="fas fa-spinner fa-spin"></i><div class="qc-empty-text">Loading messages...</div></div>';
+    fetch(`/chat/api/messages/${roomId}/`)
+      .then(res => res.json())
+      .then(data => {
+        elMessagesArea.innerHTML = '';
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(msg => qcRenderMsg(msg));
+          qcScrollBottom();
+        } else {
+          elMessagesArea.innerHTML = '<div class="qc-empty"><i class="far fa-comment-dots"></i><div class="qc-empty-text">No messages yet. Say hello!</div></div>';
+        }
+        if (data.room_type !== 'direct') {
+          elHeaderSubtitle.style.display = 'block';
+          elHeaderSubtitle.textContent = data.created_by ? ('Group Chat • Admin: ' + data.created_by) : 'Group Chat';
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load messages", err);
+        elMessagesArea.innerHTML = '<div class="qc-empty"><i class="fas fa-exclamation-circle text-danger"></i><div class="qc-empty-text">Failed to load history.</div></div>';
+      });
+  }
+  
+  // Connect WebSocket
+  function qcConnectWS(roomId) {
+    if (qcWS) {
+      try { qcWS.close(); } catch(e) {}
+      qcWS = null;
+    }
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    qcWS = new WebSocket(`${proto}//${location.host}/ws/chat/${roomId}/`);
+    
+    qcWS.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'chat_message') {
+        const emptyEl = elMessagesArea.querySelector('.qc-empty');
+        if (emptyEl) emptyEl.remove();
+        
+        qcRenderMsg(data);
+        qcScrollBottom();
+        qcHandleNewMessage(data);
+        qcFetchData();
+      } else if (data.type === 'message_reaction') {
+        const rxnsContainer = document.getElementById(`qc-rxns-${data.message_id}`);
+        if (rxnsContainer) {
+          rxnsContainer.style.display = 'flex';
+          let foundPill = false;
+          const pills = rxnsContainer.querySelectorAll('.qc-rxn-pill');
+          pills.forEach(pill => {
+            if (pill.innerHTML.includes(data.emoji)) {
+              foundPill = true;
+              let title = pill.getAttribute('title') || '';
+              let users = title.split(',').map(u => u.trim()).filter(Boolean);
+              const userIdx = users.indexOf(data.user);
+              if (userIdx > -1) {
+                users.splice(userIdx, 1);
+              } else {
+                users.push(data.user);
+              }
+              if (users.length === 0) {
+                pill.remove();
+              } else {
+                pill.setAttribute('title', users.join(', '));
+                pill.querySelector('span').textContent = users.length;
+              }
+            }
+          });
+          
+          if (!foundPill) {
+            const newPill = document.createElement('span');
+            newPill.className = 'qc-rxn-pill';
+            newPill.setAttribute('title', data.user);
+            newPill.setAttribute('onclick', `event.stopPropagation(); qcSendReaction('${data.message_id}', '${data.emoji}')`);
+            newPill.innerHTML = `${data.emoji} <span style="font-weight:600; opacity:0.8;">1</span>`;
+            rxnsContainer.appendChild(newPill);
+          }
+          
+          if (rxnsContainer.children.length === 0) {
+            rxnsContainer.style.display = 'none';
+          }
+        }
+      }
+    };
+    
+    qcWS.onclose = function() {
+      console.log("Quick Chat WS connection closed");
+    };
+  }
+  
+  // Send message
+  function qcSendMessage() {
+    const text = elMessageInput.value.trim();
+    if (!text) return;
+    
+    if (!qcWS || qcWS.readyState !== WebSocket.OPEN) {
+      console.warn("WebSocket is not connected. Reconnecting...");
+      if (activeRoomId) {
+        qcConnectWS(activeRoomId);
+        setTimeout(() => {
+          if (qcWS && qcWS.readyState === WebSocket.OPEN) {
+            qcSendMessage();
+          }
+        }, 500);
+      }
+      return;
+    }
+    
+    qcWS.send(JSON.stringify({
+      type: 'chat_message',
+      message: text,
+      parent_id: qcReplyId || null,
+      message_type: 'text'
+    }));
+    
+    qcCancelReply();
+    elMessageInput.value = "";
+    elMessageInput.focus();
+  }
+  
+  // Render message bubble
+  function qcRenderMsg(msg) {
+    const isMe = msg.sender === ME;
+    const row = document.createElement('div');
+    row.className = `qc-msg-row ${isMe ? 'me' : 'them'}`;
+    if (msg.id) row.id = `qc-msg-${msg.id}`;
+
+    // Click row to toggle select when in select mode
+    row.addEventListener('click', function(e) {
+      if (qcInSelectMode && !e.target.closest('.qc-msg-actions') && !e.target.closest('.qc-sel-chk')) {
+        qcToggleMsgSelect(String(msg.id));
+      }
+    });
+
+    let html = '';
+
+    // Selection checkbox
+    html += `<div class="qc-sel-chk" onclick="event.stopPropagation(); qcToggleMsgSelect('${msg.id}')"></div>`;
+
+    if (!isMe && activeRoomType !== 'direct') {
+      const avatarUrl = msg.sender_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender)}&background=random&size=32&bold=true`;
+      html += `<img src="${avatarUrl}" class="qc-msg-av" title="${escapeHTML(msg.sender)}">`;
+    }
+    
+    html += `<div class="qc-msg-bubble-wrap">`;
+    
+    // Hover toolbar actions
+    html += `
+      <div class="qc-msg-actions">
+        <button type="button" class="qc-msg-action-btn" title="Reply" onclick="event.stopPropagation(); qcStartReply('${msg.id}', '${escapeJS(msg.sender)}', '${escapeJS(msg.content || msg.message || '')}')">
+          <i class="fas fa-reply"></i>
+        </button>
+        <button type="button" class="qc-msg-action-btn" title="Forward" onclick="event.stopPropagation(); qcOpenForwardModal('${msg.id}')">
+          <i class="fas fa-share"></i>
+        </button>
+        <div class="qc-msg-action-btn qc-msg-react-trigger" title="React">
+          <i class="far fa-smile"></i>
+          <div class="qc-msg-react-picker">
+            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '👍')">👍</span>
+            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '❤️')">❤️</span>
+            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '😂')">😂</span>
+            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '😮')">😮</span>
+            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '😢')">😢</span>
+          </div>
+        </div>
+        <button type="button" class="qc-msg-action-btn" title="Pin Message" onclick="event.stopPropagation(); qcPinMessage('${msg.id}', '${escapeJS(msg.content || msg.message || '')}')">
+          <i class="fas fa-thumbtack"></i>
+        </button>
+      </div>
+    `;
+
+    if (!isMe && activeRoomType !== 'direct' && msg.sender) {
+      html += `<div class="qc-msg-sender">${escapeHTML(msg.sender)}</div>`;
+    }
+    
+    html += `<div class="qc-msg-bubble">`;
+    
+    // Reply block if replying
+    if (msg.parent_id) {
+      html += `
+        <div class="qc-reply-block" onclick="event.preventDefault(); event.stopPropagation(); qcScrollToMsg('qc-msg-${msg.parent_id}')">
+          <div class="qc-reply-block-sender">${escapeHTML(msg.parent_sender || '')}</div>
+          <div style="opacity: 0.9;">${escapeHTML(msg.parent_content || '')}</div>
+        </div>
+      `;
+    }
+
+    // File/Image Attachment rendering
+    if (msg.file_url) {
+      const isImg = (msg.file_type && msg.file_type.startsWith('image/')) || 
+                    /\.(gif|jpe?g|tiff?|png|webp|bmp)$/i.test(msg.file_url);
+      if (isImg) {
+        html += `<img class="qc-img" src="${msg.file_url}" alt="image" onclick="window.open('${msg.file_url}', '_blank')">`;
+      } else {
+        html += `
+          <div class="qc-file-card">
+            <i class="fas fa-file-alt" style="font-size: 20px;"></i>
+            <div style="min-width: 0; flex: 1;">
+              <div class="qc-file-name" style="font-size: 11px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHTML(msg.file_name || 'File')}</div>
+              <a href="${msg.file_url}" target="_blank" download style="font-size: 10px; text-decoration: none; font-weight: bold; color: inherit; opacity: 0.9;">Download</a>
+            </div>
+          </div>
+        `;
+      }
+    }
+    
+    if (msg.content || msg.message) {
+      html += `<div class="qc-msg-text">${escapeHTML(msg.content || msg.message || '')}</div>`;
+    }
+    let timeStr = 'now';
+    if (msg.raw_timestamp) {
+      try {
+        const msgDate = new Date(msg.raw_timestamp);
+        const hours = String(msgDate.getHours()).padStart(2, '0');
+        const minutes = String(msgDate.getMinutes()).padStart(2, '0');
+        timeStr = hours + ':' + minutes;
+      } catch(e) {
+        timeStr = msg.timestamp || 'now';
+      }
+    } else {
+      timeStr = msg.timestamp || 'now';
+    }
+    html += `<div class="qc-msg-meta">${timeStr}</div>`;
+    html += `</div>`; // Close qc-msg-bubble
+    
+    // Group and render reactions
+    let rxnsHtml = '';
+    if (msg.reactions && msg.reactions.length > 0) {
+      const groups = {};
+      msg.reactions.forEach(r => {
+        if (!groups[r.emoji]) groups[r.emoji] = [];
+        groups[r.emoji].push(r.user);
+      });
+      
+      rxnsHtml += `<div class="qc-reactions-container" id="qc-rxns-${msg.id}">`;
+      for (const emoji in groups) {
+        const users = groups[emoji];
+        rxnsHtml += `
+          <span class="qc-rxn-pill" title="${escapeHTML(users.join(', '))}" onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '${emoji}')">
+            ${emoji} <span style="font-weight:600; opacity:0.8;">${users.length}</span>
+          </span>
+        `;
+      }
+      rxnsHtml += `</div>`;
+    } else {
+      rxnsHtml += `<div class="qc-reactions-container" id="qc-rxns-${msg.id}" style="display:none;"></div>`;
+    }
+    html += rxnsHtml;
+    
+    html += `</div>`; // Close qc-msg-bubble-wrap
+    
+    row.innerHTML = html;
+    elMessagesArea.appendChild(row);
+  }
+
+  // ── Multi-select helpers ──
+  window.qcEnterSelectMode = function() {
+    qcInSelectMode = true;
+    qcSelectedIds.clear();
+    elMessagesArea.classList.add('qc-select-mode');
+    // Hide input, show toolbar
+    var inputArea = document.getElementById('qcInputArea');
+    var toolbar   = document.getElementById('qcSelectToolbar');
+    if (inputArea) inputArea.style.display = 'none';
+    if (toolbar)   toolbar.classList.add('active');
+    qcUpdateSelCount();
+  };
+
+  window.qcExitSelectMode = function() {
+    qcInSelectMode = false;
+    qcSelectedIds.clear();
+    elMessagesArea.classList.remove('qc-select-mode');
+    // Restore input, hide toolbar
+    var inputArea = document.getElementById('qcInputArea');
+    var toolbar   = document.getElementById('qcSelectToolbar');
+    var banner    = document.getElementById('qcFwdBanner');
+    if (inputArea) inputArea.style.display = '';
+    if (toolbar)   toolbar.classList.remove('active');
+    if (banner)    banner.classList.remove('active');
+    document.querySelectorAll('.qc-msg-row.qc-selected').forEach(r => r.classList.remove('qc-selected'));
+  };
+
+  window.qcToggleMsgSelect = function(msgId) {
+    if (!qcInSelectMode) return;
+    var el = document.getElementById('qc-msg-' + msgId);
+    if (!el) return;
+    if (qcSelectedIds.has(msgId)) {
+      qcSelectedIds.delete(msgId);
+      el.classList.remove('qc-selected');
+    } else {
+      qcSelectedIds.add(msgId);
+      el.classList.add('qc-selected');
+    }
+    qcUpdateSelCount();
+  };
+
+  window.qcSelectAll = function() {
+    document.querySelectorAll('#qcMessagesArea .qc-msg-row[id^="qc-msg-"]').forEach(function(row) {
+      var mid = row.id.replace('qc-msg-', '');
+      qcSelectedIds.add(mid);
+      row.classList.add('qc-selected');
+    });
+    qcUpdateSelCount();
+  };
+
+  function qcUpdateSelCount() {
+    var el = document.getElementById('qcSelCount');
+    if (el) el.textContent = qcSelectedIds.size + ' selected';
+  }
+
+  window.qcDeleteSelected = function() {
+    if (!qcSelectedIds.size) return;
+    if (!confirm('Delete ' + qcSelectedIds.size + ' message(s) for everyone?')) return;
+    fetch('/chat/api/bulk-delete/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      body: JSON.stringify({ message_ids: Array.from(qcSelectedIds) })
+    }).then(r => r.json()).then(d => {
+      if (d.status === 'success') {
+        d.deleted_ids.forEach(function(id) {
+          var el = document.getElementById('qc-msg-' + id);
+          if (el) {
+            var textEl = el.querySelector('.qc-msg-text');
+            if (textEl) textEl.innerHTML = '<em style="opacity:.6">This message was deleted</em>';
+            var actionsEl = el.querySelector('.qc-msg-actions');
+            if (actionsEl) actionsEl.remove();
+          }
+        });
+        qcExitSelectMode();
+      } else alert(d.message || 'Delete failed');
+    });
+  };
+
+  let qcFwdSelectedIds = [];
+
+  window.qcForwardSelected = function() {
+    if (!qcSelectedIds.size) { alert('Select at least one message.'); return; }
+    qcFwdSelectedIds = Array.from(qcSelectedIds);
+    // Show forward banner and go back to list view so user can pick a chat
+    qcExitSelectMode();
+    var banner = document.getElementById('qcFwdBanner');
+    var bannerText = document.getElementById('qcFwdBannerText');
+    if (bannerText) bannerText.textContent = 'Forwarding ' + qcFwdSelectedIds.length + ' message(s) \u2014 pick a chat below';
+    if (banner) banner.classList.add('active');
+    // Switch to list view so user can pick a recipient
+    elChatPanel.style.display = 'none';
+    elListViews.style.display = 'flex';
+    elHeaderTitle.textContent = 'Forward To\u2026';
+  };
+
+  window.qcCancelForwardMode = function() {
+    qcFwdSelectedIds = [];
+    var banner = document.getElementById('qcFwdBanner');
+    if (banner) banner.classList.remove('active');
+    // If we're in the list view because of forward mode, go back to the room
+    if (activeRoomId) {
+      elListViews.style.display = 'none';
+      elChatPanel.style.display = 'flex';
+      elHeaderTitle.textContent = activeRoomName;
+    }
+  };
+
+  function qcScrollBottom() {
+    elMessagesArea.scrollTop = elMessagesArea.scrollHeight;
+  }
+  
+  // File Preview Modal functions
+  window.qcPreviewFile = function(url, name, type, size) {
+    const elModal = document.getElementById('qcPreviewModal');
+    const elTitle = document.getElementById('qcPreviewTitle');
+    const elBody = document.getElementById('qcPreviewBody');
+    
+    elTitle.textContent = name;
+    elBody.innerHTML = '';
+    
+    const lowerType = type ? type.toLowerCase() : '';
+    const isImage = lowerType.startsWith('image/');
+    const isPDF = lowerType === 'application/pdf' || name.toLowerCase().endsWith('.pdf');
+    
+    if (isImage) {
+      elBody.innerHTML = `<img src="${url}" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">`;
+    } else if (isPDF) {
+      elBody.innerHTML = `<iframe src="${url}" style="width: 100%; height: 400px; border: none; border-radius: 8px;"></iframe>`;
+    } else {
+      const isWord = name.toLowerCase().endsWith('.doc') || name.toLowerCase().endsWith('.docx');
+      const isExcel = name.toLowerCase().endsWith('.xls') || name.toLowerCase().endsWith('.xlsx');
+      const isZip = name.toLowerCase().endsWith('.zip') || name.toLowerCase().endsWith('.rar');
+      
+      let icon = 'fa-file-alt';
+      if (isWord) icon = 'fa-file-word';
+      else if (isExcel) icon = 'fa-file-excel';
+      else if (isZip) icon = 'fa-file-archive';
+      
+      const sizeStr = size ? (size / 1024).toFixed(1) + ' KB' : 'Unknown size';
+      
+      elBody.innerHTML = `
+        <div style="text-align: center; padding: 20px; width: 100%;">
+          <i class="fas ${icon}" style="font-size: 64px; color: var(--accent); opacity: 0.8; margin-bottom: 16px;"></i>
+          <h4 style="margin: 0 0 8px; font-size: 15px; color: var(--text-primary); font-weight: 600;">${escapeHTML(name)}</h4>
+          <p style="margin: 0 0 20px; font-size: 12px; color: var(--text-muted);">${sizeStr}</p>
+          <a class="qc-send-btn" href="${url}" target="_blank" download style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 13px; color: white; background: var(--accent);">
+            <i class="fas fa-download"></i> Download File
+          </a>
+        </div>
+      `;
+    }
+    
+    elModal.style.display = 'flex';
+  };
+  
+  window.qcClosePreview = function() {
+    document.getElementById('qcPreviewModal').style.display = 'none';
+  };
+
+  // Reply handlers
+  window.qcStartReply = function(msgId, sender, content) {
+    qcReplyId = msgId;
+    document.getElementById('qcReplyPreviewSender').textContent = sender;
+    document.getElementById('qcReplyPreviewText').textContent = content;
+    document.getElementById('qcReplyPreview').style.display = 'flex';
+    elMessageInput.focus();
+  };
+  
+  window.qcCancelReply = function() {
+    qcReplyId = null;
+    document.getElementById('qcReplyPreview').style.display = 'none';
+  };
+  
+  window.qcScrollToMsg = function(targetId) {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.transition = 'background-color 0.5s ease';
+      el.style.backgroundColor = 'rgba(99, 102, 241, 0.2)';
+      setTimeout(() => {
+        el.style.backgroundColor = '';
+      }, 2000);
+    }
+  };
+
+  // Reactions sender
+  window.qcSendReaction = function(msgId, emoji) {
+    if (qcWS && qcWS.readyState === WebSocket.OPEN) {
+      qcWS.send(JSON.stringify({
+        type: 'add_reaction',
+        message_id: msgId,
+        emoji: emoji
+      }));
+    }
+  };
+
+  let qcActiveForwardMsgId = null;
+
+  window.qcOpenForwardModal = function(msgId) {
+    if (msgId !== null) { qcActiveForwardMsgId = msgId; qcFwdSelectedIds = []; }
+    const modal = document.getElementById('qcForwardModal');
+    const list = document.getElementById('qcForwardList');
+    const search = document.getElementById('qcForwardSearch');
+    if (!modal || !list) return;
+    
+    list.innerHTML = '<div style="text-align:center; padding:12px; color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    modal.style.display = 'flex';
+    
+    fetch('/chat/api/quick-chat-list/')
+      .then(r => r.json())
+      .then(data => {
+        qcRenderForwardList(data.peoples, data.groups);
+        search.value = '';
+        search.oninput = () => {
+          const q = search.value.toLowerCase();
+          const filteredPeoples = data.peoples.filter(p => p.display_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q));
+          const filteredGroups = data.groups.filter(g => g.name.toLowerCase().includes(q));
+          qcRenderForwardList(filteredPeoples, filteredGroups);
+        };
+      })
+      .catch(err => {
+        console.error(err);
+        list.innerHTML = '<div style="text-align:center; padding:12px; color:#ef4444;">Failed to load chats</div>';
+      });
+  };
+
+  window.qcCloseForward = function() {
+    document.getElementById('qcForwardModal').style.display = 'none';
+  };
+
+  function qcRenderForwardList(peoples, groups) {
+    const list = document.getElementById('qcForwardList');
+    list.innerHTML = '';
+    
+    groups.forEach(g => {
+      const item = document.createElement('div');
+      item.style.display = 'flex';
+      item.style.alignItems = 'center';
+      item.style.justifyContent = 'space-between';
+      item.style.padding = '8px';
+      item.style.borderRadius = '8px';
+      item.style.background = 'rgba(0,0,0,0.02)';
+      item.style.border = '1px solid var(--border)';
+      
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+          <img src="${g.avatar_url}" style="width:32px; height:32px; border-radius:6px; object-fit:cover;">
+          <span style="font-size:12px; font-weight:600; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHTML(g.name)}</span>
+        </div>
+        <button class="qc-send-btn" style="height:28px; padding:0 12px; font-size:11px;" onclick="qcForwardTo('${g.room_id}', this)">Send</button>
+      `;
+      list.appendChild(item);
+    });
+
+    peoples.forEach(p => {
+      const item = document.createElement('div');
+      item.style.display = 'flex';
+      item.style.alignItems = 'center';
+      item.style.justifyContent = 'space-between';
+      item.style.padding = '8px';
+      item.style.borderRadius = '8px';
+      item.style.background = 'rgba(0,0,0,0.02)';
+      item.style.border = '1px solid var(--border)';
+      
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+          <img src="${p.avatar_url}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+          <span style="font-size:12px; font-weight:600; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHTML(p.display_name)}</span>
+        </div>
+        <button class="qc-send-btn" style="height:28px; padding:0 12px; font-size:11px;" onclick="qcForwardTo('${p.room_id}', this)">Send</button>
+      `;
+      list.appendChild(item);
+    });
+    
+    if (list.children.length === 0) {
+      list.innerHTML = '<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:11px;">No chats found</div>';
+    }
+  }
+
+  window.qcForwardTo = function(targetRoomId, btn) {
+    const isBulk = qcFwdSelectedIds.length > 0;
+    const ids = isBulk ? qcFwdSelectedIds : (qcActiveForwardMsgId ? [qcActiveForwardMsgId] : []);
+    if (!ids.length) return;
+    btn.disabled = true; btn.textContent = 'Sending...';
+
+    Promise.all(ids.map(function(mid) {
+      return fetch('/chat/api/forward/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ message_id: mid, room_id: targetRoomId })
+      }).then(r => r.json());
+    })).then(function(results) {
+      var allOk = results.every(d => d.status === 'success');
+      if (allOk) {
+        btn.style.background = '#22c55e'; btn.textContent = 'Sent';
+        if (window.Chat && typeof window.Chat.updateRoomSnippet === 'function') {
+          var last = results[results.length - 1];
+          window.Chat.updateRoomSnippet({ room_id: last.room_id, content: last.content });
+          window.Chat.reorderRooms(last.room_id);
+        }
+        setTimeout(() => {
+          qcCloseForward();
+          qcFwdSelectedIds = [];
+          if (isBulk) qcExitSelectMode();
+          if (activeRoomId === targetRoomId) qcLoadHistory(targetRoomId);
+          qcFetchData();
+        }, 700);
+      } else {
+        btn.disabled = false; btn.textContent = 'Retry';
+        alert('Some messages failed to forward.');
+      }
+    }).catch(function(err) { console.error(err); btn.disabled = false; btn.textContent = 'Retry'; });
+  };
+
+  {% if request.user.is_authenticated %}
+  // Establish a permanent, global notification WebSocket connection for the current logged-in user!
+  let qcNotificationWS = null;
+  function connectGlobalNotifications() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    qcNotificationWS = new WebSocket(`${proto}//${location.host}/ws/notifications/`);
+    
+    qcNotificationWS.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'chat_notification') {
+        // Automatically update quick chat badges and lists!
+        const msgData = {
+          room_id: data.room_id,
+          sender: data.sender,
+          content: data.content,
+          raw_timestamp: new Date().toISOString()
+        };
+        qcHandleNewMessage(msgData);
+        qcFetchData();
+        
+        // If we are on the main chat page, update the main chat sidebar as well!
+        if (window.Chat && typeof window.Chat.handleWS === 'function') {
+          const isActive = typeof window.Chat.isRoomActive === 'function' && window.Chat.isRoomActive(data.room_id);
+          if (!isActive) {
+            window.Chat.handleWS({
+              type: 'chat_message',
+              room_id: data.room_id,
+              content: data.content,
+              message: data.content,  // main_chat uses data.message for snippet
+              sender: data.sender,
+              timestamp: 'now'
+            });
+          }
+        }
+      } else if (data.type === 'new_notification') {
+        // Automatically update the topbar notification bell count badge!
+        const badge = document.querySelector('.nav-badge');
+        if (badge) {
+          badge.textContent = data.unread_count;
+          badge.style.display = data.unread_count > 0 ? 'inline-block' : 'none';
+        } else if (data.unread_count > 0) {
+          const bellIcon = document.querySelector('.fa-bell');
+          if (bellIcon && bellIcon.parentElement) {
+            bellIcon.parentElement.insertAdjacentHTML('beforeend', `<span class="nav-badge" style="position:absolute; top:-6px; right:-6px;">${data.unread_count}</span>`);
+          }
+        }
+        
+        // Show a live toast/alert notification on the screen like an IPL score live ticker!
+        let container = document.getElementById('alertContainer');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'alertContainer';
+          container.style.cssText = 'position:fixed;top:20px;right:24px;z-index:9990;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+          document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-info';
+        toast.style.cssText = `
+          display:flex;align-items:center;gap:12px;
+          background:var(--bg-card, #1e1b4b);border:1px solid var(--border-light, #2e2a75);
+          border-radius:var(--radius, 8px);padding:14px 18px;
+          box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:300px;max-width:420px;
+          pointer-events:all;
+          animation: _slideIn 0.35s ease-out;
+          border-left:4px solid var(--c-primary, #6366f1);
+        `;
+        toast.innerHTML = `
+          <div style="flex-grow:1;">
+            <div style="font-weight:600;font-size:13px;color:var(--c-text, #ffffff);">${escapeHTML(data.notification.title)}</div>
+            <div style="font-size:12px;color:var(--text-muted, #94a3b8);margin-top:2px;">${escapeHTML(data.notification.message)}</div>
+          </div>
+          <button style="background:none;border:none;color:var(--text-muted, #94a3b8);cursor:pointer;font-size:18px;line-height:1;padding:0;" onclick="this.parentElement.remove()">×</button>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.style.transition = 'opacity .35s ease, transform .35s ease';
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(40px)';
+          setTimeout(() => toast.remove(), 380);
+        }, 4500);
+      }
+    };
+
+    qcNotificationWS.onclose = function(event) {
+      // Codes 1008 (policy violation / auth rejected by server) and 4003 (custom auth rejection)
+      // mean the user is NOT authenticated — stop reconnecting immediately to avoid a loop.
+      const AUTH_REJECTED_CODES = [1008, 4003];
+      if (AUTH_REJECTED_CODES.includes(event.code)) {
+        console.warn('[NotificationWS] Connection rejected (unauthenticated). Not reconnecting.');
+        return;
+      }
+      // For any other disconnect (network hiccup, server restart), retry after 3 seconds.
+      setTimeout(connectGlobalNotifications, 3000);
+    };
+  }
+
+  connectGlobalNotifications();
+  {% endif %}
+
+  // Helpers
+  function escapeHTML(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function escapeJS(s) {
+    return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\n/g,'\\n').replace(/\r/g,'');
+  }
+
+  // Fetch initial data to show notification count badge on page load
+  qcFetchData();
+
+  // Fallback polling: refresh quick chat list every 30 seconds in case WS events are missed
+  setInterval(function() {
+    // Only refresh if quick chat popup is closed (to avoid disrupting active chat)
+    const panel = document.getElementById('qcPanel');
+    if (!panel || panel.style.display === 'none' || panel.style.display === '') {
+      qcFetchData();
+    }
+  }, 30000);
+})();
+</script>

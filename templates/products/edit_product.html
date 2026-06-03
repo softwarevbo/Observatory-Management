@@ -1,0 +1,129 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}Edit Product - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title mb-0">Edit Product: {{ product.name }}</h1>
+    <a href="{% url 'products' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i> Back to List
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm p-4">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">{{ form.category.label }}</label>
+                        {{ form.category }}
+                        {% if form.category.errors %}<div class="text-danger small">{{ form.category.errors }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">{{ form.brand.label }}</label>
+                        {{ form.brand }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">{{ form.sku.label }}</label>
+                        {{ form.sku }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">{{ form.serial_number.label }}</label>
+                        {{ form.serial_number }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">{{ form.price.label }}</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₹</span>
+                            {{ form.price }}
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">{{ form.unit.label }}</label>
+                        {{ form.unit }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">{{ form.status.label }}</label>
+                        {{ form.status }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">{{ form.supplier.label }}</label>
+                        {{ form.supplier }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Branch (Super Admin Only)</label>
+                        {{ form.branch }}
+                        {% if not user.is_super_admin %}
+                        <input type="text" class="form-control" value="{{ product.branch.name|default:user.branch.name }}" disabled>
+                        <small class="text-muted">Locked to the assigned branch.</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Rack Number</label>
+                        {{ form.rack_number }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Shelf Number</label>
+                        {{ form.shelf_number }}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ form.description.label }}</label>
+                    {{ form.description }}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ form.purchase_details.label }}</label>
+                    {{ form.purchase_details }}
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">{{ form.image.label }}</label>
+                        {% if product.image %}
+                        <div class="mb-2">
+                            <img src="{{ product.image.url }}" class="img-thumbnail" style="width: 100px;">
+                        </div>
+                        {% endif %}
+                        {{ form.image }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">{{ form.datasheet.label }}</label>
+                        {% if product.datasheet %}
+                        <div class="mb-2">
+                            <a href="{{ product.datasheet.url }}" target="_blank" class="btn btn-sm btn-outline-info">View Datasheet</a>
+                        </div>
+                        {% endif %}
+                        {{ form.datasheet }}
+                    </div>
+                </div>
+
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-success px-5 btn-lg">Update Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

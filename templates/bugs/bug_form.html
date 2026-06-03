@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 900px) {
+        .form-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .section-title i {
+        color: var(--accent);
+    }
+    
+    .severity-badge {
+        padding: 4px 10px;
+        border-radius: 100px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .severity-low { background: var(--green-dim); color: var(--green); }
+    .severity-medium { background: var(--yellow-dim); color: var(--yellow); }
+    .severity-high { background: var(--purple-dim); color: var(--purple); }
+    .severity-critical { background: var(--red-dim); color: var(--red); }
+
+    .checkbox-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        background: var(--bg-secondary);
+        padding: 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-primary);
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .checkbox-item:hover {
+        background: var(--bg-primary);
+    }
+
+    .checkbox-item input {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="width: 100%;">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>{{ title }}</h1>
+            <p>Report technical issues and track their resolution status.</p>
+        </div>
+        <div class="page-header-right">
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="bugForm" novalidate>
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div class="card" style="border-left: 4px solid var(--red); margin-bottom: 24px; background: var(--red-dim);">
+            <div style="display: flex; align-items: center; gap: 12px; color: var(--red);">
+                <i class="fas fa-exclamation-circle"></i>
+                <span style="font-weight: 600;">Please correct the errors below.</span>
+            </div>
+            {% if form.non_field_errors %}
+            <div style="margin-top: 8px; font-size: 13px; color: var(--red);">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="form-layout">
+            
+            <!-- LEFT: Core Content -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-bug"></i>Issue Definition
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Subject <span style="color:var(--red)">*</span></label>
+                        <input type="text" name="title" id="id_title" class="form-control" placeholder="Brief summary of the issue" value="{{ form.title.value|default:'' }}" required>
+                        {% if form.title.errors %}<div class="form-error">{{ form.title.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Detailed Description <span style="color:var(--red)">*</span></label>
+                        <textarea name="description" id="id_description" class="form-control" placeholder="Provide as much detail as possible..." style="min-height: 150px;" required>{{ form.description.value|default:'' }}</textarea>
+                        {% if form.description.errors %}<div class="form-error">{{ form.description.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Steps to Reproduce</label>
+                        <textarea name="steps_to_reproduce" id="id_steps_to_reproduce" class="form-control" placeholder="1. Go to...&#10;2. Click on...&#10;3. Observation..." style="min-height: 120px;">{{ form.steps_to_reproduce.value|default:'' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-vials"></i>Technical Context
+                    </div>
+                    
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Expected Behavior</label>
+                            <textarea name="expected_behavior" id="id_expected_behavior" class="form-control" placeholder="What should have happened?" style="min-height: 80px;">{{ form.expected_behavior.value|default:'' }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Actual Behavior</label>
+                            <textarea name="actual_behavior" id="id_actual_behavior" class="form-control" placeholder="What actually happened?" style="min-height: 80px;">{{ form.actual_behavior.value|default:'' }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Environment / Browser</label>
+                        <input type="text" name="environment" id="id_environment" class="form-control" placeholder="e.g. Chrome 124, Windows 11, Staging Server" value="{{ form.environment.value|default:'' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Classification -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-project-diagram"></i>Project Context
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Target Project <span style="color:var(--red)">*</span></label>
+                        <select name="project" id="id_bug_project" class="form-control" required>
+                            <option value="">— Select Project —</option>
+                            {% for pk, label in form.fields.project.choices %}
+                                {% if pk %}
+                                <option value="{{ pk }}" {% if form.project.value|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        {% if form.project.errors %}<div class="form-error">{{ form.project.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Linked Task</label>
+                        <select name="linked_task" id="id_linked_task" class="form-control">
+                            <option value="">— No Task —</option>
+                        </select>
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:8px;">Link this bug to an existing task if applicable.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-tags"></i>Classification
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Severity</label>
+                            <select name="severity" id="id_severity" class="form-control">
+                                {% for pk, label in form.fields.severity.choices %}
+                                <option value="{{ pk }}" {% if form.severity.value == pk %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select name="status" id="id_status" class="form-control">
+                                {% for pk, label in form.fields.status.choices %}
+                                <option value="{{ pk }}" {% if form.status.value == pk %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Assignees</label>
+                        <div id="assignees-container" class="checkbox-list">
+                            <div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">
+                                <i class="fas fa-users" style="display: block; font-size: 20px; margin-bottom: 8px;"></i>
+                                Select a project to view members
+                            </div>
+                        </div>
+                        <div id="assignees-help" style="font-size:10px; color:var(--text-muted); margin-top:8px; display:none;">Only Project Managers can assign bugs.</div>
+                        {% if form.assignees.errors %}<div class="form-error">{{ form.assignees.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="card" style="border-top: 3px solid var(--accent);">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button type="submit" class="btn btn-primary" style="justify-content: center; width: 100%; padding: 12px;">
+                            <i class="fas fa-paper-plane"></i> {{ action }}
+                        </button>
+                        <a href="javascript:history.back()" class="btn btn-secondary" style="justify-content: center; width: 100%; padding: 12px;">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </form>
+    
+    <div id="assignees-data" style="display:none;" data-initial="[{% if form.assignees.value %}{% for val in form.assignees.value %}{{ val.pk|default:val }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}]"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const projectSel  = document.getElementById('id_bug_project');
+    const assigneesCont = document.getElementById('assignees-container');
+    const linkedSel   = document.getElementById('id_linked_task');
+
+    function loadProjectData(projectId, selectedAssignees, selectedTask) {
+        if (!projectId) {
+            if (assigneesCont) {
+                assigneesCont.innerHTML = '<div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;"><i class="fas fa-users" style="display: block; font-size: 20px; margin-bottom: 8px;"></i>Select a project to view members</div>';
+            }
+            linkedSel.innerHTML = '<option value="">— No Task —</option>';
+            return;
+        }
+
+        // Load members
+        if (assigneesCont) {
+            const helpEl = document.getElementById('assignees-help');
+            fetch(`/api/project-members/?project_id=${projectId}`)
+                .then(r => r.json())
+                .then(data => {
+                    assigneesCont.innerHTML = '';
+                    if (helpEl) {
+                        helpEl.style.display = data.can_assign ? 'none' : 'block';
+                    }
+                    if (data.members && data.members.length > 0) {
+                        data.members.forEach(m => {
+                            const div = document.createElement('label');
+                            div.className = 'checkbox-item';
+                            const isChecked = selectedAssignees.includes(String(m.id)) ? 'checked' : '';
+                            const isDisabled = data.can_assign ? '' : 'disabled';
+                            div.innerHTML = `<input type="checkbox" name="assignees" value="${m.id}" ${isChecked} ${isDisabled}><span>${m.name}</span>`;
+                            assigneesCont.appendChild(div);
+                        });
+                    } else {
+                        assigneesCont.innerHTML = '<div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">No members found for this project.</div>';
+                    }
+                });
+        }
+
+        // Load tasks
+        fetch(`/api/tasks-for-project/?project_id=${projectId}`)
+            .then(r => r.json())
+            .then(data => {
+                linkedSel.innerHTML = '<option value="">— No Task —</option>';
+                (data.tasks || []).forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.title;
+                    if (String(t.id) === String(selectedTask)) opt.selected = true;
+                    linkedSel.appendChild(opt);
+                });
+            });
+    }
+
+    if (projectSel) {
+        projectSel.addEventListener('change', function() {
+            loadProjectData(this.value, [], '');
+        });
+        
+        if (projectSel.value) {
+            const assigneesDataEl = document.getElementById('assignees-data');
+            const initialAssignees = assigneesDataEl ? JSON.parse(assigneesDataEl.getAttribute('data-initial') || '[]') : [];
+            const initialTask = "{{ form.linked_task.value|default:'' }}";
+            loadProjectData(projectSel.value, initialAssignees.map(String), initialTask);
+        }
+    }
+
+    // Severity coloring
+    const severitySel = document.getElementById('id_severity');
+    function updateSeverityStyle() {
+        const val = severitySel.value;
+        severitySel.className = 'form-control';
+        if (val === 'low') severitySel.style.borderLeft = '4px solid var(--green)';
+        else if (val === 'medium') severitySel.style.borderLeft = '4px solid var(--yellow)';
+        else if (val === 'high') severitySel.style.borderLeft = '4px solid var(--purple)';
+        else if (val === 'critical') severitySel.style.borderLeft = '4px solid var(--red)';
+    }
+    if (severitySel) {
+        severitySel.addEventListener('change', updateSeverityStyle);
+        updateSeverityStyle();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bulk-form-container {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        box-shadow: var(--shadow-lg);
+    }
+    .bulk-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+    }
+    .bulk-table th {
+        text-align: left;
+        padding: 12px;
+        color: var(--text-muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border);
+    }
+    .bulk-table td {
+        padding: 8px;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+    }
+    .bulk-table td:first-child {
+        border-left: 1px solid var(--border);
+        border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    }
+    .bulk-table td:last-child {
+        border-right: 1px solid var(--border);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .bulk-input {
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        width: 100%;
+        padding: 8px;
+        font-size: 13px;
+        outline: none;
+    }
+    .bulk-input:focus {
+        background: var(--bg-card);
+        border-radius: 4px;
+    }
+    .row-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+    }
+    .btn-delete-row {
+        color: var(--red);
+        background: none;
+        border: none;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+    }
+    .btn-delete-row:hover {
+        opacity: 1;
+    }
+    .add-row-container {
+        margin-top: 16px;
+        text-align: center;
+    }
+    .btn-add-row {
+        background: var(--bg-secondary);
+        border: 1px dashed var(--border);
+        color: var(--text-muted);
+        padding: 12px;
+        width: 100%;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+    }
+    .btn-add-row:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-glow);
+    }
+    .form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-narrow">
+    <div class="form-header">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">{{ title }}</h1>
+            <p style="color: var(--text-muted); font-size: 14px;">Project: <span style="color: var(--accent);">{{ project.name }}</span></p>
+        </div>
+        <a href="{% url 'tasks:project_detail' project.pk %}?view=requirements" class="btn btn-secondary">
+            <i class="fas fa-times"></i> Cancel
+        </a>
+    </div>
+
+    <form method="post" id="bulk-form">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        
+        <div class="bulk-form-container">
+            <table class="bulk-table" id="requirement-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">ID</th>
+                        <th style="width: 20%;">Name *</th>
+                        <th style="width: 20%;">Type</th>
+                        <th style="width: 15%;">Priority</th>
+                        <th style="width: 15%;">Status</th>
+                        <th style="width: 15%; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="formset-container">
+                    {% for form in formset %}
+                    <tr class="formset-row">
+                        {{ form.id }}
+                        <td>
+                            {{ form.req_id }}
+                            {% if form.req_id.errors %}
+                            <div style="color: var(--red); font-size: 10px; margin-top: 4px;">{{ form.req_id.errors.0 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                            <div style="color: var(--red); font-size: 10px; margin-top: 4px;">{{ form.name.errors.0 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ form.requirement_type }}
+                            {% if form.requirement_type.errors %}
+                            <div style="color: var(--red); font-size: 10px; margin-top: 4px;">{{ form.requirement_type.errors.0 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ form.priority }}
+                            {% if form.priority.errors %}
+                            <div style="color: var(--red); font-size: 10px; margin-top: 4px;">{{ form.priority.errors.0 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                            <div style="color: var(--red); font-size: 10px; margin-top: 4px;">{{ form.status.errors.0 }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if formset.can_delete %}
+                            <div style="display: none;">{{ form.DELETE }}</div>
+                            <button type="button" class="btn-delete-row" onclick="removeRow(this)">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="add-row-container">
+                <button type="button" class="btn-add-row" id="add-form">
+                    <i class="fas fa-plus"></i> Add Another Requirement Row
+                </button>
+            </div>
+
+            <div style="margin-top: 32px; display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="submit" class="btn btn-primary" style="padding: 10px 32px;">
+                    <i class="fas fa-save"></i> Save All Requirements
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addFormBtn = document.getElementById('add-form');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        const container = document.getElementById('formset-container');
+        
+        // Add classes to inputs for styling
+        function styleInputs() {
+            document.querySelectorAll('#formset-container input, #formset-container textarea').forEach(el => {
+                if (!el.classList.contains('bulk-input')) {
+                    el.classList.add('bulk-input');
+                }
+            });
+        }
+        
+        styleInputs();
+
+        addFormBtn.addEventListener('click', function() {
+            const formCount = parseInt(totalForms.value);
+            const firstRow = document.querySelector('.formset-row');
+            const newRow = firstRow.cloneNode(true);
+            
+            // Update indices
+            const formRegex = new RegExp(`form-(\\d+)-`, 'g');
+            newRow.innerHTML = newRow.innerHTML.replace(formRegex, `form-${formCount}-`);
+            
+            // Clear values
+            newRow.querySelectorAll('input:not([type=hidden]), textarea').forEach(input => {
+                input.value = '';
+            });
+            
+            // Handle ID field (ensure it's empty for new rows)
+            const idField = newRow.querySelector('input[type=hidden][id$="-id"]');
+            if (idField) idField.value = '';
+
+            container.appendChild(newRow);
+            totalForms.value = formCount + 1;
+            styleInputs();
+        });
+    });
+
+    function removeRow(btn) {
+        const row = btn.closest('.formset-row');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        const rows = document.querySelectorAll('.formset-row');
+        
+        if (rows.length > 1) {
+            // If it's an existing object, we should mark for deletion, 
+            // but since we are only using this for "Bulk Add" (Requirement.objects.none()), 
+            // we can just remove the row and update total forms.
+            row.remove();
+            totalForms.value = document.querySelectorAll('.formset-row').length;
+            
+            // Re-index remaining rows to ensure sequence is correct for Django
+            reIndexRows();
+        } else {
+            // Clear the only row instead of deleting
+            row.querySelectorAll('input:not([type=hidden]), textarea').forEach(input => {
+                input.value = '';
+            });
+        }
+    }
+
+    function reIndexRows() {
+        const rows = document.querySelectorAll('.formset-row');
+        document.getElementById('id_form-TOTAL_FORMS').value = rows.length;
+        
+        rows.forEach((row, index) => {
+            const prefix = `form-${index}-`;
+            row.querySelectorAll('input, select, textarea').forEach(el => {
+                if (el.name) el.name = el.name.replace(/form-(\d+)-/, prefix);
+                if (el.id) el.id = el.id.replace(/form-(\d+)-/, prefix);
+            });
+        });
+    }
+</script>
+{% endblock %}

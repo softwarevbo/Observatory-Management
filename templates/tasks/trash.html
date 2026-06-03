@@ -1,0 +1,1100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trash - IIAP PM{% endblock %}
+{% block page_title %}Trash Bin{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── BASE UI INTEGRATION ── */
+    .trash-page-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        animation: fadeIn 0.4s ease;
+    }
+
+    /* Filter Bar Overrides for alignment */
+    .trash-filter-bar { 
+        display: flex; 
+        gap: 12px; 
+        align-items: center; 
+        background: var(--bg-secondary); 
+        padding: 12px 16px; 
+        border-radius: var(--radius); 
+        border: 1px solid var(--border); 
+        flex-wrap: wrap;
+    }
+    
+    .trash-filter-bar .search-wrap input {
+        background: var(--bg-card);
+    }
+    
+    .btn-clear { 
+        width: 36px; 
+        height: 36px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        background: var(--bg-card); 
+        border-radius: var(--radius-sm); 
+        color: var(--accent); 
+        border: 1px solid var(--border); 
+        transition: all 0.2s; 
+        text-decoration: none;
+    }
+    .btn-clear:hover { background: var(--accent); color: white; transform: rotate(180deg); }
+
+    /* Stats Grid using core.css variables */
+    .trash-stats-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+        gap: 20px; 
+    }
+    
+    .stat-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: var(--transition);
+        box-shadow: var(--shadow);
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent);
+    }
+    .stat-icon { 
+        width: 44px; 
+        height: 44px; 
+        border-radius: var(--radius-sm); 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 18px; 
+        flex-shrink: 0;
+    }
+    .stat-icon.files { background: rgba(79, 142, 247, 0.1); color: #4f8ef7; }
+    .stat-icon.tasks { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+    .stat-icon.bugs { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .stat-icon.notes { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+    .stat-value { display: block; font-size: 22px; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+    /* Tabs Navigation */
+    .trash-tabs-nav { 
+        display: flex; 
+        gap: 8px; 
+        background: var(--bg-secondary); 
+        padding: 6px; 
+        border-radius: var(--radius); 
+        border: 1px solid var(--border); 
+        overflow-x: auto; 
+        scrollbar-width: none; 
+    }
+    .trash-tabs-nav::-webkit-scrollbar { display: none; }
+    .tab-btn { 
+        background: none; 
+        border: none; 
+        padding: 8px 16px; 
+        border-radius: var(--radius-sm); 
+        color: var(--text-muted); 
+        font-size: 13px; 
+        font-weight: 600; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        white-space: nowrap; 
+        transition: all 0.2s; 
+        cursor: pointer; 
+    }
+    .tab-btn i { font-size: 13px; opacity: 0.7; }
+    .tab-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
+    [data-theme="dark"] .tab-btn:hover { background: rgba(255,255,255,0.05); }
+    .tab-btn.active { 
+        background: var(--bg-card); 
+        color: var(--accent); 
+        box-shadow: var(--shadow); 
+        border: 1px solid var(--border); 
+    }
+
+    /* Table Styling */
+    .glass-card { 
+        background: var(--bg-card); 
+        border-radius: var(--radius); 
+        border: 1px solid var(--border); 
+        overflow: hidden; 
+        box-shadow: var(--shadow); 
+    }
+    .trash-table { margin: 0; width: 100%; border-collapse: collapse; }
+    .trash-table th { 
+        background: var(--bg-secondary); 
+        padding: 12px 16px; 
+        font-size: 11px; 
+        font-weight: 600; 
+        text-transform: uppercase; 
+        color: var(--text-muted); 
+        letter-spacing: 0.8px; 
+        border-bottom: 1px solid var(--border); 
+    }
+    .trash-table td { 
+        padding: 12px 16px; 
+        border-bottom: 1px solid var(--border); 
+        vertical-align: middle; 
+        color: var(--text-primary); 
+        font-size: 13px; 
+    }
+    .trash-table tr:hover td { background: var(--bg-card-hover); }
+    
+    .item-name { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+    .item-name i { font-size: 15px; }
+    .path-text { color: var(--text-muted); font-size: 12px; font-family: monospace; }
+    .date-text { color: var(--text-muted); font-size: 12px; }
+    .empty-state { text-align: center; padding: 60px !important; color: var(--text-muted); font-style: italic; }
+
+    /* Action Buttons */
+    .action-group { display: flex; gap: 6px; justify-content: flex-end; }
+    .btn-action { 
+        width: 32px; 
+        height: 32px; 
+        border-radius: var(--radius-sm); 
+        border: 1px solid var(--border); 
+        background: var(--bg-card); 
+        color: var(--text-muted); 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 12px; 
+        transition: all 0.2s; 
+        cursor: pointer; 
+    }
+    .btn-action:hover { transform: scale(1.05); }
+    .btn-action.preview:hover { background: rgba(99, 102, 241, 0.1); color: var(--accent); border-color: var(--accent); }
+    .btn-action.restore:hover { background: rgba(16, 185, 129, 0.1); color: var(--green); border-color: var(--green); }
+    .btn-action.delete:hover { background: rgba(239, 68, 68, 0.1); color: var(--red); border-color: var(--red); }
+
+    /* User Info */
+    .trash-user-info { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .user-avatar-sm { width: 24px; height: 24px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+
+    /* Badges */
+    .badge-soft-gray { background: rgba(156, 163, 175, 0.1); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.2); }
+    .badge-soft-warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+    .badge-soft-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+    .badge-outline { background: none; border: 1px solid var(--border); color: var(--accent); font-size: 10px; }
+
+    /* Tab Animation */
+    .tab-pane { display: none; animation: fadeIn 0.4s ease-out; }
+    .tab-pane.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Modal Styling */
+    .trash-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .trash-modal-card { background: var(--bg-card); border-radius: var(--radius); width: 100%; max-width: 600px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; animation: modalSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes modalSlide { from { transform: scale(0.95) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+    
+    .trash-modal-header { padding: 24px 30px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+    .modal-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); margin-bottom: 8px; display: block; }
+    #modalItemTitle { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; margin: 0; color: var(--text-primary); }
+    .modal-close-btn { background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; transition: color 0.2s; }
+    .modal-close-btn:hover { color: var(--red); }
+
+    .trash-modal-body { padding: 24px 30px; }
+    .modal-meta-box { background: var(--bg-secondary); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.6; border: 1px solid var(--border); color: var(--text-secondary); }
+    .modal-content-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 1px; }
+    .modal-description-box { font-size: 14px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; background: rgba(0,0,0,0.02); padding: 15px; border-radius: var(--radius-sm); }
+    [data-theme="dark"] .modal-description-box { background: rgba(255,255,255,0.02); }
+    .trash-modal-footer { padding: 16px 30px; background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+    /* Files & folders: file-manager icon view */
+    .recycle-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    .recycle-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .recycle-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .recycle-title i {
+        color: var(--accent);
+        font-size: 15px;
+    }
+
+    .recycle-count {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .recycle-viewbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .recycle-view-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .recycle-workspace {
+        min-height: 520px;
+        padding: 18px 22px 42px;
+        background: #ffffff;
+        border: 1px solid #38bdf8;
+        border-radius: 3px;
+        overflow: auto;
+    }
+
+    [data-theme="dark"] .recycle-workspace {
+        background: #f8fafc;
+        color: #111827;
+    }
+
+    .recycle-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(104px, 104px));
+        align-items: start;
+        gap: 22px 26px;
+    }
+
+    .recycle-tile {
+        position: relative;
+        width: 104px;
+        min-height: 122px;
+        padding: 8px 6px 30px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background: transparent;
+        text-align: center;
+        color: #1f2937;
+        transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .recycle-tile:hover,
+    .recycle-tile:focus-within {
+        background: #e0f2fe;
+        border-color: #7dd3fc;
+    }
+
+    .recycle-icon {
+        position: relative;
+        width: 58px;
+        height: 46px;
+        margin: 8px auto 8px;
+    }
+
+    .recycle-folder-icon::before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 0;
+        width: 28px;
+        height: 10px;
+        border-radius: 3px 3px 0 0;
+        background: #287ca6;
+    }
+
+    .recycle-folder-icon::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 9px;
+        width: 58px;
+        height: 37px;
+        border-radius: 2px;
+        background: #38aee4;
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .recycle-file-icon {
+        width: 42px;
+        height: 54px;
+        margin-top: 2px;
+        border-radius: 3px;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    }
+
+    .recycle-file-icon::before {
+        content: "";
+        position: absolute;
+        right: 8px;
+        top: 2px;
+        width: 13px;
+        height: 13px;
+        background: linear-gradient(135deg, #dbeafe 50%, #f8fafc 50%);
+        border-left: 1px solid #cbd5e1;
+        border-bottom: 1px solid #cbd5e1;
+    }
+
+    .recycle-file-icon i {
+        position: absolute;
+        left: 50%;
+        top: 58%;
+        transform: translate(-50%, -50%);
+        color: #2563eb;
+        font-size: 18px;
+    }
+
+    .recycle-tile-name {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 34px;
+        color: #1f2937;
+        font-size: 13px;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+
+    .recycle-tile-meta {
+        display: none;
+        margin-top: 4px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.25;
+    }
+
+    .recycle-tile:hover .recycle-tile-meta,
+    .recycle-tile:focus-within .recycle-tile-meta {
+        display: block;
+    }
+
+    .recycle-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 420px;
+        color: #64748b;
+        font-size: 13px;
+        font-style: italic;
+    }
+
+    .recycle-statusbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    .recycle-zoom {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .recycle-zoom-line {
+        width: 90px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--border);
+        position: relative;
+    }
+
+    .recycle-zoom-line::after {
+        content: "";
+        position: absolute;
+        left: 24px;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        transform: translateY(-50%);
+        border-radius: 50%;
+        background: #e2e8f0;
+        border: 1px solid #94a3b8;
+    }
+
+    .recycle-actions {
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        bottom: 5px;
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease;
+    }
+
+    .recycle-tile:hover .recycle-actions,
+    .recycle-tile:focus-within .recycle-actions {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .recycle-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        background: #ffffff;
+        color: #334155;
+        font-size: 11px;
+        cursor: pointer;
+        transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+
+    .recycle-action:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #94a3b8;
+    }
+
+    .recycle-action.restore:hover {
+        background: #dcfce7;
+        border-color: #22c55e;
+        color: #15803d;
+    }
+
+    .recycle-action.delete:hover {
+        background: #fee2e2;
+        border-color: #ef4444;
+        color: #b91c1c;
+    }
+
+    .recycle-action-form {
+        display: inline-flex;
+    }
+
+    @media (max-width: 980px) {
+        .recycle-workspace {
+            min-height: 420px;
+        }
+
+        .recycle-grid {
+            grid-template-columns: repeat(auto-fill, minmax(92px, 92px));
+            gap: 18px;
+        }
+
+        .recycle-tile {
+            width: 92px;
+        }
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="trash-page-wrapper">
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar" id="trashFilterForm">
+        <div class="search-wrap" style="flex:1;min-width:220px;">
+            <i class="fas fa-search"></i>
+            <input type="text" name="q" class="search-input" placeholder="Search items..." value="{{ search_query }}" style="width:100%;">
+        </div>
+        
+        <select name="project" class="filter-select" onchange="this.form.submit()">
+            <option value="">All Projects</option>
+            {% for proj in projects %}
+            <option value="{{ proj.id }}" {% if project_filter == proj.id|stringformat:"s" %}selected{% endif %}>{{ proj.name }}</option>
+            {% endfor %}
+        </select>
+
+        {% if user.is_admin or user.is_project_manager %}
+        <select name="deleted_by" class="filter-select" onchange="this.form.submit()">
+            <option value="">All Deleters</option>
+            {% for u in deleters %}
+            <option value="{{ u.id }}" {% if deleted_by_filter == u.id|stringformat:"s" %}selected{% endif %}>{{ u.display_name }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
+        <select name="days" class="filter-select" onchange="this.form.submit()">
+            <option value="">Any Time</option>
+            <option value="1" {% if days_filter == "1" %}selected{% endif %}>Deleted Today</option>
+            <option value="7" {% if days_filter == "7" %}selected{% endif %}>Last 7 Days</option>
+            <option value="30" {% if days_filter == "30" %}selected{% endif %}>Last 30 Days</option>
+        </select>
+
+        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+
+        {% if search_query or project_filter or deleted_by_filter or days_filter %}
+        <a href="{% url 'tasks:trash' %}" class="btn btn-secondary" title="Reset All Filters">
+            <i class="fas fa-times"></i> Clear
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- Stats Overview -->
+    <div class="trash-stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon files"><i class="fas fa-file-alt"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ files|length|add:categories|length }}</span>
+                <span class="stat-label">Files & Folders</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon tasks"><i class="fas fa-tasks"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ tasks|length }}</span>
+                <span class="stat-label">Deleted Tasks</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon bugs"><i class="fas fa-bug"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ bugs|length }}</span>
+                <span class="stat-label">Bug Reports</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon notes"><i class="fas fa-sticky-note"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ notes|length }}</span>
+                <span class="stat-label">Knowledge Notes</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="trash-tabs-nav">
+        <button class="tab-btn active" onclick="switchTab(event, 'tab-files')">
+            <i class="fas fa-folder-open"></i> Files & Folders
+        </button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-tasks')">
+            <i class="fas fa-tasks"></i> Tasks
+        </button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-requirements')">
+            <i class="fas fa-clipboard-list"></i> Requirements
+        </button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-bugs')">
+            <i class="fas fa-bug"></i> Bug Reports
+        </button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-notes')">
+            <i class="fas fa-sticky-note"></i> Notes
+        </button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-testcases')">
+            <i class="fas fa-vial"></i> Test Cases
+        </button>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="trash-tab-content">
+        <!-- Files Tab -->
+        <div id="tab-files" class="tab-pane active">
+            <div class="recycle-card">
+                <div class="recycle-toolbar" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="recycle-title">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>Files & Folders</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button type="button" id="btn-select-all" class="btn btn-outline-secondary btn-sm" style="padding: 4px 8px; font-size: 11px; border-radius: 4px;"><i class="fas fa-check-square"></i> Select All</button>
+                        <button type="button" id="btn-bulk-restore" class="btn btn-primary btn-sm" style="display: none; padding: 4px 8px; font-size: 11px; border-radius: 4px;"><i class="fas fa-undo"></i> Restore Selected (<span id="selected-count">0</span>)</button>
+                        <div class="recycle-count">{{ files|length|add:categories|length }} item{{ files|length|add:categories|length|pluralize }}</div>
+                    </div>
+                </div>
+                <div class="recycle-viewbar" style="display: flex; justify-content: space-between; align-items: center; padding-right: 15px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <a href="?{% if project_filter %}project={{ project_filter }}&{% endif %}{% if deleted_by_filter %}deleted_by={{ deleted_by_filter }}&{% endif %}{% if days_filter %}days={{ days_filter }}&{% endif %}" class="recycle-view-tab" style="text-decoration: none; color: inherit; font-weight: 500;"><i class="fas fa-trash-alt"></i> Trash</a>
+                        {% for bc in breadcrumbs %}
+                        <span style="opacity: 0.5;">/</span>
+                        <a href="?trash_cat_id={{ bc.pk }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if deleted_by_filter %}&deleted_by={{ deleted_by_filter }}{% endif %}{% if days_filter %}&days={{ days_filter }}{% endif %}" class="recycle-view-tab {% if forloop.last %}active{% endif %}" style="text-decoration: none; color: inherit; font-weight: 500;">
+                            <i class="fas fa-folder"></i> {{ bc.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="recycle-workspace">
+                    {% if categories or files %}
+                    <div class="recycle-grid">
+                        {% for cat in categories %}
+                        <div class="recycle-tile" title="{{ cat.full_path }}" onclick="if(!event.target.closest('.recycle-select, .recycle-actions')) window.location.href='?trash_cat_id={{ cat.pk }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if deleted_by_filter %}&deleted_by={{ deleted_by_filter }}{% endif %}{% if days_filter %}&days={{ days_filter }}{% endif %}'" style="cursor: pointer;">
+                            <input type="checkbox" class="item-select recycle-select" data-type="category" data-id="{{ cat.pk }}" onclick="event.stopPropagation();" style="position: absolute; top: 8px; left: 8px; z-index: 10; width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary);">
+                            <div class="recycle-icon recycle-folder-icon"></div>
+                            <div class="recycle-tile-name">{{ cat.name }}</div>
+                            <div class="recycle-tile-meta">{{ cat.deleted_at|date:"M d, Y H:i" }}</div>
+                            <div class="recycle-actions">
+                                <button type="button" class="recycle-action" title="Preview"
+                                    data-type="Folder"
+                                    data-title="{{ cat.name }}"
+                                    data-desc="No description for folders."
+                                    data-meta="<strong>Original Path:</strong> {{ cat.full_path }}<br><hr style='margin:8px 0; opacity:0.1;'><strong>Deleted By:</strong> {{ cat.deleted_by.display_name|default:'System' }}<br><strong>Deleted At:</strong> {{ cat.deleted_at|date:'M d, Y H:i' }}"
+                                    onclick="previewTrashItemFromData(this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% if user.is_admin or user.is_project_manager or user == cat.created_by or user == cat.project.project_incharge or user in cat.project.managers.all %}
+                                <form action="{% url 'tasks:category_restore' cat.pk %}{% if current_cat %}?trash_cat_id={{ current_cat.pk }}{% endif %}" method="post" class="recycle-action-form" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="recycle-action restore" title="Restore to original location"><i class="fas fa-undo"></i></button>
+                                </form>
+                                <form action="{% url 'tasks:category_permanent_delete' cat.pk %}" method="post" class="recycle-action-form" style="display:inline;" onsubmit="return confirm('Permanently delete this folder and ALL its contents?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="recycle-action delete" title="Delete permanently"><i class="fas fa-trash-alt"></i></button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% for file in files %}
+                        <div class="recycle-tile" title="{{ file.full_path }}">
+                            <input type="checkbox" class="item-select recycle-select" data-type="file" data-id="{{ file.pk }}" onclick="event.stopPropagation();" style="position: absolute; top: 8px; left: 8px; z-index: 10; width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary);">
+                            <div class="recycle-icon recycle-file-icon">
+                                <i class="fas {{ file.icon_class }}"></i>
+                            </div>
+                            <div class="recycle-tile-name">{{ file.display_name }}</div>
+                            <div class="recycle-tile-meta">{{ file.file_size_display }} - {{ file.deleted_at|date:"M d, Y H:i" }}</div>
+                            <div class="recycle-actions">
+                                <button type="button" class="recycle-action" title="Preview"
+                                    data-type="File"
+                                    data-title="{{ file.display_name }}"
+                                    data-desc="{{ file.description|default:'No description provided.' }}"
+                                    data-meta="<strong>Original Path:</strong> {{ file.full_path }}<br><strong>Size:</strong> {{ file.file_size_display }}<br><strong>Type:</strong> {{ file.get_file_type_display }} ({{ file.extension }})<br><strong>MIME Type:</strong> {{ file.mime_type }}<br><strong>Uploaded By:</strong> {{ file.uploaded_by.display_name }} on {{ file.created_at|date:'M d, Y' }}<br><hr style='margin:8px 0; opacity:0.1;'><strong>Deleted By:</strong> {{ file.deleted_by.display_name|default:'System' }}<br><strong>Deleted At:</strong> {{ file.deleted_at|date:'M d, Y H:i' }}"
+                                    onclick="previewTrashItemFromData(this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% if user.is_admin or user.is_project_manager or user == file.uploaded_by or user == file.project.project_incharge or user in file.project.managers.all %}
+                                <form action="{% url 'files:file_restore' file.pk %}{% if current_cat %}?trash_cat_id={{ current_cat.pk }}{% endif %}" method="post" class="recycle-action-form" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="recycle-action restore" title="Restore to original location"><i class="fas fa-undo"></i></button>
+                                </form>
+                                <form action="{% url 'files:file_permanent_delete' file.pk %}" method="post" class="recycle-action-form" style="display:inline;" onsubmit="return confirm('Permanently delete this file from disk?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="recycle-action delete" title="Delete permanently"><i class="fas fa-trash-alt"></i></button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="recycle-empty">No deleted files or folders found.</div>
+                    {% endif %}
+                    
+                    <form id="bulk-restore-form" action="{% url 'tasks:trash_bulk_restore' %}{% if current_cat %}?trash_cat_id={{ current_cat.pk }}{% endif %}" method="post" style="display: none;">
+                        {% csrf_token %}
+                        <div id="bulk-restore-inputs"></div>
+                    </form>
+                </div>
+                <div class="recycle-statusbar">
+                    <span>{{ files|length|add:categories|length }} item{{ files|length|add:categories|length|pluralize }}</span>
+                    <span class="recycle-zoom">Zoom: <span class="recycle-zoom-line"></span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks Tab -->
+        <div id="tab-tasks" class="tab-pane">
+            <div class="glass-card">
+                <div class="table-responsive">
+                    <table class="table trash-table">
+                        <thead>
+                            <tr>
+                                <th>Task Title</th>
+                                <th>Project</th>
+                                <th>Deleted By</th>
+                                <th>Deleted At</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td><div class="item-name"><i class="fas fa-tasks text-primary"></i><span>{{ task.title }}</span></div></td>
+                                <td><span class="badge badge-outline">{{ task.project.name }}</span></td>
+                                <td><span>{{ task.deleted_by.display_name|default:"System" }}</span></td>
+                                <td><span class="date-text">{{ task.deleted_at|date:"M d, Y H:i" }}</span></td>
+                                <td class="text-end">
+                                    <div class="action-group">
+                                        <button type="button" class="btn-action preview" title="Preview" 
+                                            data-type="Task"
+                                            data-title="{{ task.title }}"
+                                            data-desc="{{ task.description|default:'No description provided.' }}"
+                                            data-meta="<strong>ID:</strong> {{ task.task_id }}<br><strong>Status:</strong> {{ task.get_status_display }}<br><strong>Created By:</strong> {{ task.created_by.display_name }}<br><hr style='margin:8px 0; opacity:0.1;'><strong>Deleted By:</strong> {{ task.deleted_by.display_name|default:'System' }}"
+                                            onclick="previewTrashItemFromData(this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if user.is_admin or user.is_project_manager or user == task.created_by or user == task.project.project_incharge or user in task.project.managers.all %}
+                                        <form action="{% url 'tasks:task_restore' task.pk %}" method="post" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action restore" title="Restore"><i class="fas fa-undo"></i></button>
+                                        </form>
+                                        <form action="{% url 'tasks:task_permanent_delete' task.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Permanently delete this task?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action delete" title="Purge"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-state">No deleted tasks found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requirements Tab -->
+        <div id="tab-requirements" class="tab-pane">
+            <div class="glass-card">
+                <div class="table-responsive">
+                    <table class="table trash-table">
+                        <thead>
+                            <tr>
+                                <th>Requirement</th>
+                                <th>Project</th>
+                                <th>Deleted By</th>
+                                <th>Deleted At</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requirements %}
+                            <tr>
+                                <td><div class="item-name"><i class="fas fa-clipboard-list text-info"></i><span>{{ req.name }}</span></div></td>
+                                <td><span class="badge badge-outline">{{ req.project.name }}</span></td>
+                                <td><span>{{ req.deleted_by.display_name|default:"System" }}</span></td>
+                                <td><span class="date-text">{{ req.deleted_at|date:"M d, Y H:i" }}</span></td>
+                                <td class="text-end">
+                                    <div class="action-group">
+                                        <button type="button" class="btn-action preview" title="Preview" 
+                                            data-type="Requirement"
+                                            data-title="{{ req.name }}"
+                                            data-desc="{{ req.description|default:'No description provided.' }}"
+                                            data-meta="<strong>ID:</strong> {{ req.req_id }}<br><strong>Priority:</strong> {{ req.get_priority_display }}<br><hr style='margin:8px 0; opacity:0.1;'><strong>Deleted By:</strong> {{ req.deleted_by.display_name|default:'System' }}"
+                                            onclick="previewTrashItemFromData(this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if user.is_admin or user.is_project_manager or user == req.created_by or user == req.project.project_incharge or user in req.project.managers.all %}
+                                        <form action="{% url 'tasks:requirement_restore' req.pk %}" method="post" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action restore" title="Restore"><i class="fas fa-undo"></i></button>
+                                        </form>
+                                        <form action="{% url 'tasks:requirement_permanent_delete' req.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Permanently delete this requirement?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action delete" title="Purge"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-state">No deleted requirements found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bugs Tab -->
+        <div id="tab-bugs" class="tab-pane">
+            <div class="glass-card">
+                <div class="table-responsive">
+                    <table class="table trash-table">
+                        <thead>
+                            <tr>
+                                <th>Bug Title</th>
+                                <th>Project</th>
+                                <th>Severity</th>
+                                <th>Deleted At</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bug in bugs %}
+                            <tr>
+                                <td><div class="item-name"><i class="fas fa-bug text-danger"></i><span>{{ bug.title }}</span></div></td>
+                                <td><span class="badge badge-outline">{{ bug.project.name }}</span></td>
+                                <td><span class="badge badge-soft-{{ bug.severity }}">{{ bug.get_severity_display }}</span></td>
+                                <td><span class="date-text">{{ bug.deleted_at|date:"M d, Y H:i" }}</span></td>
+                                <td class="text-end">
+                                    <div class="action-group">
+                                        <button type="button" class="btn-action preview" title="Preview" 
+                                            data-type="Bug Report"
+                                            data-title="{{ bug.title }}"
+                                            data-desc="{{ bug.description|default:'No description provided.' }}"
+                                            data-meta="<strong>Status:</strong> {{ bug.get_status_display }}<br><strong>Reported By:</strong> {{ bug.reported_by.display_name }}"
+                                            onclick="previewTrashItemFromData(this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if user.is_admin or user.is_project_manager or user == bug.reported_by or user == bug.project.project_incharge or user in bug.project.managers.all %}
+                                        <form action="{% url 'tasks:bug_restore' bug.pk %}" method="post" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action restore" title="Restore"><i class="fas fa-undo"></i></button>
+                                        </form>
+                                        <form action="{% url 'tasks:bug_permanent_delete' bug.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Permanently delete this bug report?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action delete" title="Purge"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-state">No deleted bugs found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Tab -->
+        <div id="tab-notes" class="tab-pane">
+            <div class="glass-card">
+                <div class="table-responsive">
+                    <table class="table trash-table">
+                        <thead>
+                            <tr>
+                                <th>Note Title</th>
+                                <th>Project</th>
+                                <th>Author</th>
+                                <th>Deleted At</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for note in notes %}
+                            <tr>
+                                <td><div class="item-name"><i class="fas fa-sticky-note text-warning"></i><span>{{ note.title }}</span></div></td>
+                                <td><span class="badge badge-outline">{{ note.project.name|default:"Global" }}</span></td>
+                                <td><span>{{ note.author.display_name }}</span></td>
+                                <td><span class="date-text">{{ note.deleted_at|date:"M d, Y H:i" }}</span></td>
+                                <td class="text-end">
+                                    <div class="action-group">
+                                        <button type="button" class="btn-action preview" title="Preview" 
+                                            data-type="Note"
+                                            data-title="{{ note.title }}"
+                                            data-desc="{{ note.content|default:'No content.' }}"
+                                            data-meta="<strong>Author:</strong> {{ note.author.display_name }}"
+                                            onclick="previewTrashItemFromData(this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if user.is_admin or user.is_project_manager or user == note.author or user == note.project.project_incharge or user in note.project.managers.all %}
+                                        <form action="{% url 'tasks:note_restore' note.pk %}" method="post" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action restore" title="Restore"><i class="fas fa-undo"></i></button>
+                                        </form>
+                                        <form action="{% url 'tasks:note_permanent_delete' note.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Permanently delete this note?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action delete" title="Purge"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-state">No deleted notes found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Cases Tab -->
+        <div id="tab-testcases" class="tab-pane">
+            <div class="glass-card">
+                <div class="table-responsive">
+                    <table class="table trash-table">
+                        <thead>
+                            <tr>
+                                <th>Test Case</th>
+                                <th>Project</th>
+                                <th>Deleted By</th>
+                                <th>Deleted At</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tc in test_cases %}
+                            <tr>
+                                <td><div class="item-name"><i class="fas fa-vial text-success"></i><span>{{ tc.title }}</span></div></td>
+                                <td><span class="badge badge-outline">{{ tc.project.name }}</span></td>
+                                <td><span>{{ tc.deleted_by.display_name|default:"System" }}</span></td>
+                                <td><span class="date-text">{{ tc.deleted_at|date:"M d, Y H:i" }}</span></td>
+                                <td class="text-end">
+                                    <div class="action-group">
+                                        <button type="button" class="btn-action preview" title="Preview" 
+                                            data-type="Test Case"
+                                            data-title="{{ tc.title }}"
+                                            data-desc="{{ tc.scenario|default:'No scenario provided.' }}"
+                                            data-meta="<strong>Status:</strong> {{ tc.get_status_display }}"
+                                            onclick="previewTrashItemFromData(this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if user.is_admin or user.is_project_manager or user == tc.created_by or user == tc.project.project_incharge or user in tc.project.managers.all %}
+                                        <form action="{% url 'tasks:test_case_restore' tc.pk %}" method="post" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action restore" title="Restore"><i class="fas fa-undo"></i></button>
+                                        </form>
+                                        <form action="{% url 'tasks:test_case_permanent_delete' tc.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Permanently delete this test case?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-action delete" title="Purge"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="empty-state">No deleted test cases found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Structure -->
+<div id="trashModal" class="trash-modal-overlay" style="display:none;">
+    <div class="trash-modal-card">
+        <div class="trash-modal-header">
+            <div class="modal-title-group">
+                <span id="modalTypeTitle" class="modal-badge"></span>
+                <h3 id="modalItemTitle"></h3>
+            </div>
+            <button class="modal-close-btn" onclick="closeTrashModal()">&times;</button>
+        </div>
+        <div class="trash-modal-body">
+            <div id="modalItemMeta" class="modal-meta-box"></div>
+            <div class="modal-content-label">Description / Content</div>
+            <div id="modalItemDesc" class="modal-description-box"></div>
+        </div>
+        <div class="trash-modal-footer">
+            <button class="btn btn-secondary rounded-pill px-4" onclick="closeTrashModal()">Dismiss</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(evt, tabName) {
+    const panes = document.getElementsByClassName("tab-pane");
+    for (let pane of panes) pane.classList.remove("active");
+    
+    const btns = document.getElementsByClassName("tab-btn");
+    for (let btn of btns) btn.classList.remove("active");
+    
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+}
+
+function previewTrashItemFromData(btn) {
+    const type = btn.getAttribute('data-type');
+    const title = btn.getAttribute('data-title');
+    const desc = btn.getAttribute('data-desc');
+    const meta = btn.getAttribute('data-meta');
+    previewTrashItem(type, title, desc, meta);
+}
+
+function previewTrashItem(type, title, desc, meta) {
+    document.getElementById('modalTypeTitle').textContent = type;
+    document.getElementById('modalItemTitle').textContent = title;
+    document.getElementById('modalItemDesc').textContent = desc || 'No description provided.';
+    document.getElementById('modalItemMeta').innerHTML = meta;
+    document.getElementById('trashModal').style.display = 'flex';
+}
+
+function closeTrashModal() {
+    document.getElementById('trashModal').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('trashModal');
+    if (event.target == modal) {
+        closeTrashModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.item-select');
+    const selectAllBtn = document.getElementById('btn-select-all');
+    const bulkRestoreBtn = document.getElementById('btn-bulk-restore');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const bulkForm = document.getElementById('bulk-restore-form');
+    const bulkInputs = document.getElementById('bulk-restore-inputs');
+
+    function updateBulkButtons() {
+        const checked = document.querySelectorAll('.item-select:checked');
+        selectedCountSpan.textContent = checked.length;
+        if (checked.length > 0) {
+            bulkRestoreBtn.style.display = 'inline-flex';
+        } else {
+            bulkRestoreBtn.style.display = 'none';
+        }
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkButtons);
+    });
+
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            updateBulkButtons();
+        });
+    }
+
+    if (bulkRestoreBtn) {
+        bulkRestoreBtn.addEventListener('click', function() {
+            bulkInputs.innerHTML = '';
+            const checked = document.querySelectorAll('.item-select:checked');
+            checked.forEach(cb => {
+                const type = cb.getAttribute('data-type'); // 'category' or 'file'
+                const id = cb.getAttribute('data-id');
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = type === 'category' ? 'categories' : 'files';
+                input.value = id;
+                bulkInputs.appendChild(input);
+            });
+            bulkForm.submit();
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — IIAP PM{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 900px) {
+        .form-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .warning-box {
+        background: var(--yellow-dim);
+        border-left: 4px solid var(--yellow);
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        color: var(--yellow);
+        margin-top: 10px;
+        display: none;
+    }
+    
+    .section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .section-title i {
+        color: var(--accent);
+    }
+    .checkbox-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        background: var(--bg-secondary);
+        padding: 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-primary);
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .checkbox-item:hover {
+        background: var(--bg-primary);
+    }
+
+    .checkbox-item input {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="width: 100%;">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>{{ title }}</h1>
+            {% if project %}
+            <p>Project: <span style="color: var(--accent); font-weight: 600;">{{ project.name }}</span></p>
+            {% else %}
+            <p>Define task details and project context.</p>
+            {% endif %}
+        </div>
+        <div class="page-header-right">
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="taskForm" novalidate>
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div class="card" style="border-left: 4px solid var(--red); margin-bottom: 24px; background: var(--red-dim);">
+            <div style="display: flex; align-items: center; gap: 12px; color: var(--red);">
+                <i class="fas fa-exclamation-circle"></i>
+                <span style="font-weight: 600;">Please correct the errors below.</span>
+            </div>
+            {% if form.non_field_errors %}
+            <div style="margin-top: 8px; font-size: 13px; color: var(--red);">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="form-layout">
+            
+            <!-- LEFT: Content -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-pen-nib"></i>Task Definition
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Task ID</label>
+                        <input type="text" name="task_id" id="id_task_id" class="form-control" placeholder="TAS-XXX-XXXXXX (Auto if empty)" value="{{ form.task_id.value|default:'' }}">
+                        {% if form.task_id.errors %}<div class="form-error">{{ form.task_id.errors.0 }}</div>{% endif %}
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">Format: [PROJECT]-[TYPE]-[YEAR]-[SEQ]</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Task Title <span style="color:var(--red)">*</span></label>
+                        <input type="text" name="title" id="id_title" class="form-control" placeholder="What needs to be done?" value="{{ form.title.value|default:'' }}" required>
+                        {% if form.title.errors %}<div class="form-error">{{ form.title.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Context / Description</label>
+                        <textarea name="description" id="id_description" class="form-control" placeholder="Add some details..." style="min-height: 120px;">{{ form.description.value|default:'' }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tags</label>
+                        <input type="text" name="tags" id="id_tags" class="form-control" placeholder="e.g. backend, ui, critical" value="{{ form.tags.value|default:'' }}">
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">Comma-separated values.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-project-diagram"></i>Project Context
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Project <span style="color:var(--red)">*</span></label>
+                        {% if form.project.field.widget.input_type == 'hidden' %}
+                            <div class="form-control" style="background: var(--bg-primary); cursor: not-allowed; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-lock" style="font-size: 10px; color: var(--text-muted);"></i>
+                                {{ project.name }}
+                            </div>
+                            {{ form.project }}
+                        {% else %}
+                            <select name="project" id="id_task_project" class="form-control" required>
+                                <option value="">— Select Project —</option>
+                                {% for pk, label in form.fields.project.choices %}
+                                    {% if pk %}
+                                    <option value="{{ pk }}" {% if form.project.value|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                        {% if form.project.errors %}<div class="form-error">{{ form.project.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Requirement Link</label>
+                        <select name="requirement" id="id_task_requirement" class="form-control">
+                            <option value="">— Select Requirement —</option>
+                        </select>
+                        <div id="requirement-warning" class="warning-box">
+                            <i class="fas fa-exclamation-triangle"></i> This task is currently unlinked to any requirement.
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Target Module</label>
+                        <select name="module" id="id_task_module" class="form-control">
+                            <option value="">— Select Module —</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Management -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-calendar-alt"></i>Timeline
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Due Date</label>
+                            <input type="date" name="due_date" id="id_due_date" class="form-control" value="{{ form.due_date.value|date:'Y-m-d'|default:'' }}">
+                            {% if form.due_date.errors %}<div class="form-error">{{ form.due_date.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Deadline</label>
+                            <input type="date" name="deadline" id="id_deadline" class="form-control" value="{{ form.deadline.value|date:'Y-m-d'|default:'' }}">
+                            {% if form.deadline.errors %}<div class="form-error">{{ form.deadline.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estimated Hours</label>
+                        <input type="number" name="estimated_hours" id="id_estimated_hours" class="form-control" step="0.5" placeholder="0.0" value="{{ form.estimated_hours.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <i class="fas fa-tasks"></i>Execution
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select name="status" id="id_status" class="form-control">
+                                {% for pk, label in form.fields.status.choices %}
+                                <option value="{{ pk }}" {% if form.status.value == pk %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Priority</label>
+                            <select name="priority" id="id_priority" class="form-control">
+                                {% for pk, label in form.fields.priority.choices %}
+                                <option value="{{ pk }}" {% if form.priority.value == pk %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Task Type</label>
+                        <select name="task_type" id="id_task_type" class="form-control">
+                            {% for pk, label in form.fields.task_type.choices %}
+                            <option value="{{ pk }}" {% if form.task_type.value == pk %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Assignees</label>
+                        <div id="assignees-container" class="checkbox-list">
+                            <!-- Dynamic checkboxes will be loaded here -->
+                            <div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">
+                                <i class="fas fa-users" style="display: block; font-size: 20px; margin-bottom: 8px;"></i>
+                                Select a project to view members
+                            </div>
+                        </div>
+                        {% if form.assignees.errors %}<div class="form-error">{{ form.assignees.errors.0 }}</div>{% endif %}
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:8px;">Select team members to assign this task.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Parent Task</label>
+                        <select name="parent_task" id="id_parent_task" class="form-control">
+                            <option value="">— Independent Task —</option>
+                            {% for task in form.fields.parent_task.queryset %}
+                                <option value="{{ task.pk }}" data-requirement="{{ task.requirement_id|default:'' }}" {% if form.parent_task.value|stringformat:"s" == task.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ task }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="card" style="border-top: 3px solid var(--accent);">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button type="submit" class="btn btn-primary" style="justify-content: center; width: 100%; padding: 12px;">
+                            <i class="fas fa-save"></i> {{ action }}
+                        </button>
+                        
+                        <a href="javascript:history.back()" class="btn btn-secondary" style="justify-content: center; width: 100%; padding: 12px;">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const projectSel = document.getElementById('id_task_project');
+console.log("Project Selection Element:", projectSel);
+const moduleSel = document.getElementById('id_task_module');
+const requirementSel = document.getElementById('id_task_requirement');
+const reqWarning = document.getElementById('requirement-warning');
+const assigneesCont = document.getElementById('assignees-container');
+const parentTaskSel = document.getElementById('id_parent_task');
+
+// For Edit Task: get already assigned members
+const initialAssignees = [{% if form.instance.pk %}{% for a in form.instance.assignees.all %}"{{ a.pk }}",{% endfor %}{% endif %}];
+
+function loadProjectData(projectId, keepModule, keepRequirement, keepParentTask) {
+    if (!projectId) {
+        if (moduleSel) { moduleSel.innerHTML = '<option value="">— Select Project First —</option>'; moduleSel.disabled = true; }
+        if (requirementSel) { requirementSel.innerHTML = '<option value="">— Select Project First —</option>'; requirementSel.disabled = true; }
+        if (parentTaskSel) { parentTaskSel.innerHTML = '<option value="">— Select Project First —</option>'; parentTaskSel.disabled = true; }
+        if (assigneesCont) {
+            assigneesCont.innerHTML = `
+                <div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">
+                    <i class="fas fa-users" style="display: block; font-size: 20px; margin-bottom: 8px;"></i>
+                    Select a project to view members
+                </div>`;
+        }
+        return;
+    }
+    
+    if (moduleSel) moduleSel.disabled = false;
+    if (requirementSel) requirementSel.disabled = false;
+    if (parentTaskSel) parentTaskSel.disabled = false;
+    
+    // Load modules
+    fetch(`/api/project-modules/?project_id=${projectId}`)
+        .then(r => r.json())
+        .then(data => {
+            const saved = keepModule || (moduleSel ? moduleSel.value : '');
+            if (moduleSel) {
+                moduleSel.innerHTML = '<option value="">— No module selected —</option>';
+                (data.modules || []).forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id; opt.textContent = m.name;
+                    if (String(m.id) === String(saved)) opt.selected = true;
+                    moduleSel.appendChild(opt);
+                });
+            }
+        });
+
+    // Load requirements
+    fetch(`/api/project-requirements/?project_id=${projectId}`)
+        .then(r => r.json())
+        .then(data => {
+            const saved = keepRequirement || (requirementSel ? requirementSel.value : '');
+            if (requirementSel) {
+                requirementSel.innerHTML = '<option value="">— Select a requirement —</option>';
+                (data.requirements || []).forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id; opt.textContent = `[${r.req_id || r.id}] ${r.name}`;
+                    if (String(r.id) === String(saved)) opt.selected = true;
+                    requirementSel.appendChild(opt);
+                });
+                updateWarning();
+            }
+        });
+
+    // Load parent tasks
+    if (parentTaskSel) {
+        fetch(`/api/tasks-for-project/?project_id=${projectId}`)
+            .then(r => r.json())
+            .then(data => {
+                const saved = keepParentTask || (parentTaskSel ? parentTaskSel.value : '');
+                parentTaskSel.innerHTML = '<option value="">— Independent Task —</option>';
+                (data.tasks || []).forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.task_id ? `[${t.task_id}] ${t.title}` : t.title;
+                    opt.setAttribute('data-requirement', t.requirement_id || '');
+                    if (String(t.id) === String(saved)) opt.selected = true;
+                    parentTaskSel.appendChild(opt);
+                });
+            });
+    }
+
+    // Load assignees
+    if (assigneesCont) {
+        // Capture currently checked IDs before reloading
+        const currentChecked = Array.from(assigneesCont.querySelectorAll('input:checked')).map(i => i.value);
+        // Combine with initial if it's the first load
+        const selectedIds = currentChecked.length > 0 ? currentChecked : initialAssignees;
+
+        fetch(`/api/project-members/?project_id=${projectId}`)
+            .then(r => r.json())
+            .then(data => {
+                assigneesCont.innerHTML = '';
+                if (!data.members || data.members.length === 0) {
+                    assigneesCont.innerHTML = '<div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 12px; padding: 10px;">No members found in this project.</div>';
+                    return;
+                }
+                data.members.forEach(m => {
+                    const isChecked = selectedIds.includes(String(m.id));
+                    const item = document.createElement('label');
+                    item.className = 'checkbox-item';
+                    item.innerHTML = `
+                        <input type="checkbox" name="assignees" value="${m.id}" ${isChecked ? 'checked' : ''}>
+                        <span>${m.name}</span>
+                    `;
+                    assigneesCont.appendChild(item);
+                });
+            });
+    }
+}
+
+function updateWarning() {
+    if (requirementSel && reqWarning) {
+        reqWarning.style.display = requirementSel.value ? 'none' : 'block';
+    }
+}
+
+if (projectSel) {
+    if (projectSel.tagName === 'SELECT') {
+        projectSel.addEventListener('change', function() {
+            loadProjectData(this.value, '', '', '');
+        });
+    }
+    // If we have a value (either from select or hidden input), load the data
+    if (projectSel.value) {
+        console.log("Loading project data for ID:", projectSel.value);
+        loadProjectData(projectSel.value, '{{ form.module.value|default:"" }}', '{{ form.requirement.value|default:"" }}', '{{ form.parent_task.value|default:"" }}');
+    }
+}
+
+if (requirementSel) {
+    requirementSel.addEventListener('change', updateWarning);
+}
+
+// Automatically select parent task's requirement on selecting the task
+if (parentTaskSel && requirementSel) {
+    parentTaskSel.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption) {
+            const reqId = selectedOption.getAttribute('data-requirement');
+            if (reqId) {
+                requirementSel.value = reqId;
+                updateWarning();
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

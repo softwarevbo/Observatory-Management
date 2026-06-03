@@ -1,0 +1,237 @@
+{% extends 'telescope/base.html' %}
+
+{% block tele_title %}Telescope Status{% endblock %}
+
+{% block tele_css %}
+<style>
+.observatory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  flex-wrap: wrap;
+}
+
+.tele-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 24px;
+}
+
+.tele-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+}
+.tele-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.tele-card-image {
+  height: 210px;
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid var(--border);
+}
+.tele-card-image-fallback {
+  height: 210px;
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+
+.tele-card-content { padding: 20px; }
+
+.admin-badge {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(239,68,68,.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge-status.observing { background: var(--green-dim); color: var(--green); }
+.badge-status.idle      { background: var(--accent-glow); color: var(--accent); }
+.badge-status.maintenance { background: var(--red-dim); color: var(--red); }
+
+.tele-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.detail-item { display: flex; flex-direction: column; gap: 4px; }
+.detail-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: .5px; }
+.detail-value { font-size: 13px; font-weight: 600; color: var(--text-primary); font-family: 'Courier New', monospace; }
+</style>
+{% endblock %}
+
+{% block tele_content %}
+  {% if messages %}
+  <div style="margin-bottom:24px;">
+    {% for msg in messages %}
+    <div style="padding:12px 20px;border-radius:8px;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;
+      {% if msg.tags == 'success' %}background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3);
+      {% else %}background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3);{% endif %}">
+      <i class="fas {% if msg.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %}"></i>
+      <span>{{ msg }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Observatory Header -->
+  <div class="observatory-header">
+    <div style="max-width:600px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <i class="fas fa-satellite-dish" style="font-size:32px;color:var(--accent);"></i>
+        <h1 style="font-size:24px;font-weight:700;color:var(--text-primary);margin:0;">{{ observatory.name }}</h1>
+      </div>
+      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">
+        <i class="fas fa-map-marker-alt"></i> {{ observatory.location }}
+      </p>
+      <div style="display:flex;gap:20px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;">
+        <span><strong>Elevation:</strong> {{ observatory.elevation }}</span>
+        <span><strong>Coordinates:</strong> {{ observatory.coordinates }}</span>
+        <span><strong>Est:</strong> {{ observatory.established }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin: Add Telescope -->
+  {% if user.is_superuser or user.is_telescope_admin %}
+  <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
+    <a href="{% url 'telescope:create' %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Add Telescope
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Section Heading -->
+  <h2 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:8px 0 16px;">
+    <i class="fas fa-binoculars" style="color:var(--accent);margin-right:8px;"></i>Mount &amp; Instrument Status
+  </h2>
+
+  <!-- Telescopes Grid -->
+  <div class="tele-grid">
+    {% for t in telescopes %}
+    <div class="tele-card">
+
+      <!-- Image -->
+      {% if t.image %}
+        <div class="tele-card-image" style="background-image:url('{{ t.image.url }}');"></div>
+      {% elif t.image_url %}
+        <div class="tele-card-image" style="background-image:url('{{ t.image_url }}');"></div>
+      {% else %}
+        <div class="tele-card-image-fallback">
+          <i class="fas fa-satellite-dish"></i>
+        </div>
+      {% endif %}
+
+      <div class="tele-card-content">
+        <!-- Header row -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <h3 style="font-size:16px;font-weight:700;color:var(--text-primary);margin:0;">
+              <a href="{% url 'telescope:detail' t.pk %}" style="color:inherit;text-decoration:none;">{{ t.name }}</a>
+            </h3>
+            <span style="font-size:11px;color:var(--text-muted);">{{ t.type }} | Aperture: {{ t.aperture }}</span>
+          </div>
+          <span class="badge-status {{ t.status }}">{{ t.get_status_display }}</span>
+        </div>
+
+        <!-- Info Grid -->
+        <div class="tele-details">
+          <div class="detail-item">
+            <span class="detail-label">Current Target</span>
+            <span class="detail-value">{{ t.current_target|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">CCD Temp</span>
+            <span class="detail-value">{{ t.ccd_temp|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">RA</span>
+            <span class="detail-value">{{ t.ra|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">DEC</span>
+            <span class="detail-value">{{ t.dec|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Dome Shutter</span>
+            <span class="detail-value">{{ t.dome|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Tracking</span>
+            <span class="detail-value">{{ t.tracking|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Instrument Focus</span>
+            <span class="detail-value">{{ t.focus|default:"—" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Active Spectrograph/CCD</span>
+            <span class="detail-value">{{ t.instrument|default:"—" }}</span>
+          </div>
+        </div>
+
+        <!-- Admin Edit/Delete -->
+        {% if user.is_superuser or user.is_telescope_admin %}
+        <div style="display:flex;gap:8px;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <span class="admin-badge" style="align-self:center;">Admin</span>
+          <a href="{% url 'telescope:edit' t.pk %}" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:11px;text-decoration:none;">
+            <i class="fas fa-edit"></i> Edit
+          </a>
+          <a href="{% url 'telescope:delete' t.pk %}" class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:11px;text-decoration:none;"
+             onclick="return confirm('Are you sure you want to delete {{ t.name }}?')">
+            <i class="fas fa-trash"></i> Delete
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="grid-column:1/-1;padding:60px;text-align:center;color:var(--text-muted);">
+      <i class="fas fa-satellite-dish" style="font-size:48px;opacity:.2;display:block;margin-bottom:16px;"></i>
+      <p>No telescopes registered yet.</p>
+      {% if user.is_superuser or user.is_telescope_admin %}
+      <a href="{% url 'telescope:create' %}" class="btn btn-primary" style="margin-top:12px;">
+        <i class="fas fa-plus"></i> Add Telescope
+      </a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}
