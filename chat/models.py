@@ -32,6 +32,8 @@ class ChatRoom(models.Model):
     def __str__(self):
         return self.name or f"Room {self.room_id}"
 
+from .encryption_utils import encrypt_data, decrypt_data
+
 class Message(models.Model):
     MESSAGE_TYPES = [
         ('text', 'Text'),
@@ -54,8 +56,17 @@ class Message(models.Model):
     class Meta:
         ordering = ['created_at']
 
+    @property
+    def decrypted_content(self):
+        return decrypt_data(self.content)
+
+    def save(self, *args, **kwargs):
+        if self.content and not self.content.startswith("enc::"):
+            self.content = encrypt_data(self.content)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.sender}: {self.content[:50]}"
+        return f"{self.sender}: {self.decrypted_content[:50]}"
 
 class MessageReaction(models.Model):
     message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='reactions')
@@ -73,6 +84,15 @@ class ChatAttachment(models.Model):
     file_type = models.CharField(max_length=100)
     file_size = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def decrypted_file_name(self):
+        return decrypt_data(self.file_name)
+
+    def save(self, *args, **kwargs):
+        if self.file_name and not self.file_name.startswith("enc::"):
+            self.file_name = encrypt_data(self.file_name)
+        super().save(*args, **kwargs)
 
 class ReadReceipt(models.Model):
     message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='read_receipts')

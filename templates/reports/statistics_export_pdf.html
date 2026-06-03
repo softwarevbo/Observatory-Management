@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+{% load report_extras %}
+
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Statistics Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        h2 { margin-top: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #888; padding: 4px 8px; }
+        th { background: #eee; }
+    </style>
+</head>
+<body>
+    <h1>Statistics Report</h1>
+    <h2>Products by Category</h2>
+    <table>
+        <thead><tr><th>Category</th><th>Count</th></tr></thead>
+        <tbody>
+        {% for c in category_breakdown %}
+            <tr><td>{{ c.name }}</td><td>{{ c.product_count }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <h2>Stock In/Out by Month</h2>
+    <table>
+        <thead><tr><th>Month</th><th>Stock In</th><th>Stock Out</th></tr></thead>
+        <tbody>
+        {% for m in month_labels %}
+            <tr>
+                <td>{{ m }}</td>
+                <td>{{ stock_in_by_month|index:forloop.counter0 }}</td>
+                <td>{{ stock_out_by_month|index:forloop.counter0 }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <h2>Rentals by Status</h2>
+    <table>
+        <thead><tr><th>Status</th><th>Count</th></tr></thead>
+        <tbody>
+        {% for r in rental_status_breakdown %}
+            <tr><td>{{ r.status|title }}</td><td>{{ r.count }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <h2>Rentals by Product (Top 10)</h2>
+    <table>
+        <thead><tr><th>Product</th><th>Count</th></tr></thead>
+        <tbody>
+        {% for r in rental_product_breakdown %}
+            <tr><td>{{ r.product__name }}</td><td>{{ r.count }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <h2>Alerts by Type</h2>
+    <table>
+        <thead><tr><th>Type</th><th>Count</th></tr></thead>
+        <tbody>
+        {% for a in alert_type_breakdown %}
+            <tr><td>{{ a.alert_type|title }}</td><td>{{ a.count }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <h2>Alerts by Product (Top 10)</h2>
+    <table>
+        <thead><tr><th>Product</th><th>Count</th></tr></thead>
+        <tbody>
+        {% for a in alert_product_breakdown %}
+            <tr><td>{{ a.product__name }}</td><td>{{ a.count }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html> 

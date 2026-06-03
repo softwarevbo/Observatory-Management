@@ -295,7 +295,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         parent_content = None
         parent_sender = None
         if msg.parent_message:
-            parent_content = msg.parent_message.content[:50]
+            parent_content = msg.parent_message.decrypted_content[:50]
             parent_sender = msg.parent_message.sender.username
             
         return {

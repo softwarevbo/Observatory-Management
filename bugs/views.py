@@ -49,13 +49,22 @@ def bug_list(request):
     if project_filter:
         current_project = Project.objects.filter(id=project_filter).first()
 
+    from django.core.paginator import Paginator
+    bugs_qs = (
+        bugs.select_related("project", "reported_by")
+        .prefetch_related("assignees")
+        .order_by("-created_at")
+    )
+    paginator = Paginator(bugs_qs, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
     return render(
         request,
         "bugs/bug_list.html",
         {
-            "bugs": bugs.select_related("project", "reported_by")
-            .prefetch_related("assignees")
-            .order_by("-created_at"),
+            "bugs": page_obj.object_list,
+            "page_obj": page_obj,
             "severity_choices": BugReport.SEVERITY_CHOICES,
             "status_choices": BugReport.STATUS_CHOICES,
             "projects": projects,

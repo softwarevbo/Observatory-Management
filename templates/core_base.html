@@ -13,6 +13,7 @@
     {% block extra_head %}{% endblock %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     {% load static %}
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     <link rel="stylesheet" href="{% static 'css/resource_management.css' %}">
     <link rel="stylesheet" href="{% static 'css/chat.css' %}">
     <!-- KaTeX for Formula Support -->
@@ -1426,6 +1427,11 @@
                     {% endif %}
                 </a>
                 {% endblock %}
+                {% if user.is_authenticated and user.profile_picture %}
+                <a href="{% url 'accounts:profile' %}" title="My Profile" style="display:inline-flex; align-items:center; justify-content:center; text-decoration:none; margin-left:6px;">
+                    <img src="{{ user.profile_picture.url }}" alt="{{ user.display_name }}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:2px solid var(--accent);">
+                </a>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -1534,6 +1540,40 @@
                     localStorage.setItem('sidebar-scroll-position', sidebarNav.scrollTop);
                 });
             }
+        });
+
+        // Prevent back navigation to form pages after submission
+        window.addEventListener('pageshow', function (event) {
+            const currentPath = window.location.pathname;
+            const preventBackKey = 'prevent_back_to_' + currentPath;
+            if (sessionStorage.getItem(preventBackKey) === 'true') {
+                sessionStorage.removeItem(preventBackKey);
+                const urlParams = new URLSearchParams(window.location.search);
+                const projectId = urlParams.get('project');
+                if (projectId) {
+                    window.location.replace('/projects/' + projectId + '/');
+                } else {
+                    const match = currentPath.match(/\/projects\/(\d+)\//);
+                    if (match && match[1]) {
+                        window.location.replace('/projects/' + match[1] + '/');
+                    } else {
+                        window.location.replace('/dashboard/');
+                    }
+                }
+                return;
+            }
+            
+            const submittedPath = sessionStorage.getItem('form_submitted_path');
+            if (submittedPath) {
+                sessionStorage.removeItem('form_submitted_path');
+                if (submittedPath !== currentPath) {
+                    sessionStorage.setItem('prevent_back_to_' + submittedPath, 'true');
+                }
+            }
+        });
+
+        window.addEventListener('submit', function (event) {
+            sessionStorage.setItem('form_submitted_path', window.location.pathname);
         });
     </script>
     <!-- KaTeX JS -->

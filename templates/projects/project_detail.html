@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load task_tags %}
-{% block title %}{{ project.name }} — IIAP PM{% endblock %}
+{% block title %}{{ project.name }} — IIAP OM{% endblock %}
 {% block page_title %}{% endblock %}
 
 {% block topbar_actions %}
@@ -13,12 +13,10 @@
     RTM Matrix</a>
 <a href="{% url 'finance:project_expenses' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-wallet"></i>
     Finance</a>
+{% if user.is_admin or user in project.managers.all or user == project.project_incharge %}
 <a href="{% url 'tasks:project_settings' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i>
     Settings</a>
 <a href="{% url 'files:file_audit_logs' %}" class="btn btn-secondary btn-sm"><i class="fas fa-history"></i> Logs</a>
-
-{% if user.is_admin or user in project.managers.all %}
-
 {% endif %}
 
 {% endblock %}

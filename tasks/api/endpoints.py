@@ -13,6 +13,7 @@ def tasks_for_project(request):
         return JsonResponse({"tasks": []})
     tasks = (
         get_visible_tasks_qs(request.user, Task.objects.filter(project_id=project_id, parent_task__isnull=True, is_in_trash=False))
+        .exclude(linked_bugs__is_in_trash=True)
         .values("id", "title", "task_id", "requirement_id")
         .order_by("title")
     )

@@ -103,6 +103,13 @@ class FileCategory(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        # Skip rename-detection logic if caller specified update_fields
+        # (e.g., bulk-trash operations only touch is_in_trash/deleted_at/deleted_by)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            super().save(*args, **kwargs)
+            return
+
         is_new = not self.pk
         old_name = None
         if not is_new:

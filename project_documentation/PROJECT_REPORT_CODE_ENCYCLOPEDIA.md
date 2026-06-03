@@ -1,4 +1,4 @@
-# IIAP PM — Code & Logic Encyclopedia (Supplement)
+# IIAP OM — Code & Logic Encyclopedia (Supplement)
 
 > Companion to `PROJECT_REPORT_FULL.md`. Documents **every Python module**, **view function logic**, **services**, **signals**, and **integration flows** file-by-file.
 

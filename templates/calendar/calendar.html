@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Calendar — IIAP PM{% endblock %}
+{% block title %}Calendar — IIAP OM{% endblock %}
 {% block page_title %}Calendar{% endblock %}
 
 {% block extra_css %}
@@ -184,12 +184,13 @@
         <div class="card" style="background: var(--bg-secondary); border-style: dashed;">
             <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">Calendar Sync</div>
             <p style="font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;">
-                Meetings created here are automatically pushed to the IIAP PM Radicale server for cross-device access.
+                Meetings created here are automatically pushed to the IIAP OM Radicale server for cross-device access.
             </p>
             <a href="{% url 'accounts:settings' %}#calendar" class="btn btn-ghost btn-xs" style="width: 100%;">Configure Sync</a>
         </div>
     </div>
 </div>
+<!-- Event Modal Removed to allow full page navigation -->
 {% endblock %}
 
 {% block extra_js %}
@@ -197,6 +198,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
+    
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         headerToolbar: {
@@ -209,12 +211,11 @@ document.addEventListener('DOMContentLoaded', function() {
         themeSystem: 'standard',
         eventClick: function(info) {
             if (info.event.url) {
-                window.location.href = info.event.url;
                 info.jsEvent.preventDefault();
+                window.location.href = info.event.url;
             }
         },
         eventDidMount: function(info) {
-            // Customize event styling if needed
             info.el.style.borderRadius = '4px';
             info.el.style.border = 'none';
             info.el.style.padding = '2px 4px';

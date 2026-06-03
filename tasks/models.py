@@ -952,4 +952,22 @@ class RequirementVersion(models.Model):
         return f"{self.requirement.req_id} - v{self.version_number}"
 
 
+class RequirementComment(models.Model):
+    requirement = models.ForeignKey(Requirement, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    content = models.TextField()
+    attachment = models.FileField(upload_to="requirements/comments/%Y/%m/", null=True, blank=True)
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Comment by {self.author} on {self.requirement}"
+
+
 

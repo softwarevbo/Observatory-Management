@@ -1871,7 +1871,14 @@ const Chat = (() => {
     return roomId === targetRoomId || activeRoomUUID === targetRoomId;
   }
 
-  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive };
+  function leave() {
+    if (ws) {
+      try { ws.close(); } catch(e) {}
+      ws = null;
+    }
+  }
+
+  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive, leave };
 })();
 
 // Expose Chat globally so the Quick Chat global-notification WebSocket can call into it

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{% if form.initial.parent_file %}Upload New Version{% else %}Upload Resources{% endif %} — IIAP PM{% endblock %}
+{% block title %}{% if form.initial.parent_file %}Upload New Version{% else %}Upload Resources{% endif %} — IIAP OM{% endblock %}
 {% block page_title %}{% if form.initial.parent_file %}New Version: {{ form.initial.parent_file.original_name }}{% else %}Upload Resources{% endif %}{% endblock %}
 {% block extra_css %}
 <style>
@@ -349,8 +349,8 @@ async function addFiles(files, paths = null) {
     const fileList = Array.from(files);
     const total = fileList.length;
 
-    // Process in chunks of 50 to keep UI responsive
-    const chunkSize = 50;
+    // Process in chunks of 1000 to keep UI responsive and fast
+    const chunkSize = 1000;
     for (let i = 0; i < total; i += chunkSize) {
         const chunk = fileList.slice(i, i + chunkSize);
         chunk.forEach((f, idx) => {
@@ -384,8 +384,13 @@ function render() {
 
     updateUploadBtnState();
     stagedItems.querySelectorAll('.queue-item').forEach(el => el.remove());
+    const moreText = document.getElementById('moreFilesText');
+    if (moreText) moreText.remove();
 
-    stash.forEach((item, idx) => {
+    const maxDisplay = 100;
+    const itemsToDisplay = stash.slice(0, maxDisplay);
+
+    itemsToDisplay.forEach((item, idx) => {
         const type = getFileType(item.file.name);
         const cfg = TYPE_MAP[type];
         const div = document.createElement('div');
@@ -415,6 +420,14 @@ function render() {
         div.onclick = () => showPreview(idx);
         stagedItems.appendChild(div);
     });
+
+    if (stash.length > maxDisplay) {
+        const div = document.createElement('div');
+        div.id = 'moreFilesText';
+        div.style.cssText = 'padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 600; border-top: 1px solid var(--border);';
+        div.innerHTML = `<i class="fas fa-ellipsis-h" style="margin-right: 8px;"></i> And ${stash.length - maxDisplay} more files staged for upload...`;
+        stagedItems.appendChild(div);
+    }
 }
 
 function showPreview(idx, e) {
@@ -548,10 +561,31 @@ dropZone.ondrop = (e) => {
     }
 };
 
+let scanBufferFiles = [];
+let scanBufferPaths = [];
+let scanTimer = null;
+
+function flushScanBuffer() {
+    if (scanBufferFiles.length > 0) {
+        addFiles(scanBufferFiles, scanBufferPaths);
+        scanBufferFiles = [];
+        scanBufferPaths = [];
+    }
+}
+
 function scan(entry, path = "") {
+    scanOverlay.style.display = 'flex';
+    scanProgress.textContent = "Scanning directory structure...";
+
     if (entry.isFile) {
         const fullPath = path ? path + "/" + entry.name : entry.name;
-        entry.file(f => addFiles([f], [fullPath]));
+        entry.file(f => {
+            scanBufferFiles.push(f);
+            scanBufferPaths.push(fullPath);
+            
+            if (scanTimer) clearTimeout(scanTimer);
+            scanTimer = setTimeout(flushScanBuffer, 100);
+        });
     } else if (entry.isDirectory) {
         const newPath = path ? path + "/" + entry.name : entry.name;
         const reader = entry.createReader();
@@ -567,7 +601,7 @@ function scan(entry, path = "") {
     }
 }
 
-function executeUpload() {
+async function executeUpload() {
     // Validate: project must be selected (in non-versioning mode)
     const projEl = document.getElementById('id_project');
     if (projEl && !projEl.value) {
@@ -597,58 +631,78 @@ function executeUpload() {
 
     const overlay = document.getElementById('uploadOverlay');
     overlay.style.display = 'flex';
-    document.getElementById('progressStatus').textContent = "Preparing files for secure transmission...";
     
-    const fd = new FormData(document.getElementById('uploadForm'));
-    fd.delete('files');
-    toUpload.forEach(item => {
-        fd.append('files', item.file);
-        fd.append('relative_paths', item.path);
-    });
+    const totalFiles = toUpload.length;
+    let uploadedFilesCount = 0;
+    const BATCH_SIZE = 100;
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', window.location.href, true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    function uploadBatch(batchItems) {
+        return new Promise((resolve, reject) => {
+            const fd = new FormData(document.getElementById('uploadForm'));
+            fd.delete('files');
+            fd.delete('relative_paths');
+            
+            batchItems.forEach(item => {
+                fd.append('files', item.file);
+                fd.append('relative_paths', item.path);
+            });
 
-    // Track real progress
-    xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 100;
-            // Cap at 99% until server responds with success
-            const displayPercent = Math.min(percentComplete, 99);
-            updateProgress(displayPercent);
-            document.getElementById('progressStatus').textContent = `Uploading... ${Math.round(displayPercent)}%`;
-        }
-    };
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', window.location.href, true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-    xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-                const res = JSON.parse(xhr.responseText);
-                if (res.success) {
-                    updateProgress(100);
-                    document.getElementById('progressStatus').textContent = "Upload Complete! Redirecting...";
-                    setTimeout(() => { window.location.href = res.redirect_url || "{% url 'files:file_list' %}"; }, 1000);
-                } else {
-                    alert('Upload failed: ' + (res.error || 'Unknown error'));
-                    overlay.style.display = 'none';
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const batchProgress = e.loaded / e.total;
+                    const overallProgress = ((uploadedFilesCount + (batchProgress * batchItems.length)) / totalFiles) * 100;
+                    const displayPercent = Math.min(overallProgress, 99.5);
+                    updateProgress(displayPercent);
+                    document.getElementById('progressStatus').textContent = `Uploading item ${uploadedFilesCount + 1} to ${Math.min(uploadedFilesCount + batchItems.length, totalFiles)} of ${totalFiles} (${Math.round(displayPercent)}%)`;
                 }
-            } catch(e) {
-                alert('Upload failed (invalid response from server).');
-                overlay.style.display = 'none';
+            };
+
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            resolve(res);
+                        } else {
+                            reject(res.error || 'Unknown error');
+                        }
+                    } catch(e) {
+                        reject('Invalid response from server');
+                    }
+                } else {
+                    reject('Status code ' + xhr.status);
+                }
+            };
+
+            xhr.onerror = function() {
+                reject('Network error');
+            };
+
+            xhr.send(fd);
+        });
+    }
+
+    let redirectUrl = "";
+    try {
+        for (let i = 0; i < totalFiles; i += BATCH_SIZE) {
+            const batch = toUpload.slice(i, i + BATCH_SIZE);
+            const res = await uploadBatch(batch);
+            uploadedFilesCount += batch.length;
+            if (res.redirect_url) {
+                redirectUrl = res.redirect_url;
             }
-        } else {
-            alert('Upload failed with status code ' + xhr.status);
-            overlay.style.display = 'none';
         }
-    };
-
-    xhr.onerror = function() {
-        alert('Network error during upload.');
+        updateProgress(100);
+        document.getElementById('progressStatus').textContent = "Upload Complete! Redirecting...";
+        setTimeout(() => { window.location.href = redirectUrl || "{% url 'files:file_list' %}"; }, 1000);
+    } catch(err) {
+        alert('Upload failed: ' + err);
         overlay.style.display = 'none';
-    };
-
-    xhr.send(fd);
+    }
 }
 
 function updateProgress(p) {

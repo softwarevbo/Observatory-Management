@@ -1,5 +1,5 @@
 from .project_forms import ProjectForm, ProjectEditForm, ProjectSettingsForm
-from .task_forms import TaskForm, CommentForm, BulkTaskForm
+from .task_forms import TaskForm, CommentForm, BulkTaskForm, RequirementCommentForm
 from bugs.forms import BugReportForm, BugCommentForm, BugResolutionForm
 from events.forms import CalendarEventForm
 from notes.forms import KnowledgeBaseNoteForm

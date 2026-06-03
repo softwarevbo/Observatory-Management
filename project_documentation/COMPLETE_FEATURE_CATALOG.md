@@ -1,4 +1,4 @@
-# IIAP PM — Complete Feature Catalog (Every Feature, Including Mini Features)
+# IIAP OM — Complete Feature Catalog (Every Feature, Including Mini Features)
 
 **Version:** 1.0  
 **Total cataloged features:** 325+  
@@ -24,7 +24,7 @@
 
 ## A.1 Narrative: Identity Layer
 
-IIAP PM separates three portals on one codebase: **Observatory PM**, **Inventory**, and **Telescope**. Each portal has distinct login routes, session keys, and middleware rules. Mini-features such as avatar color fallback, nickname display, and “next URL” redirect after login are easy to overlook but shape daily UX.
+IIAP OM separates three portals on one codebase: **Observatory PM**, **Inventory**, and **Telescope**. Each portal has distinct login routes, session keys, and middleware rules. Mini-features such as avatar color fallback, nickname display, and “next URL” redirect after login are easy to overlook but shape daily UX.
 
 ## A.2 Feature Table — Accounts & Login
 

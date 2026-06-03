@@ -81,7 +81,7 @@ class BugReportForm(forms.ModelForm):
             ).order_by("first_name", "username")
             self.fields["linked_task"].queryset = Task.objects.filter(
                 project=target_project, is_in_trash=False
-            ).order_by("title")
+            ).exclude(linked_bugs__is_in_trash=True).order_by("title")
         else:
             self.fields["assignees"].queryset = User.objects.filter(
                 is_active=True
@@ -92,9 +92,9 @@ class BugReportForm(forms.ModelForm):
                 ).distinct()
                 self.fields["linked_task"].queryset = Task.objects.filter(
                     project__in=accessible, is_in_trash=False
-                ).order_by("title")
+                ).exclude(linked_bugs__is_in_trash=True).order_by("title")
             else:
-                self.fields["linked_task"].queryset = Task.objects.filter(is_in_trash=False).order_by(
+                self.fields["linked_task"].queryset = Task.objects.filter(is_in_trash=False).exclude(linked_bugs__is_in_trash=True).order_by(
                     "title"
                 )
 

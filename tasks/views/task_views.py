@@ -110,7 +110,7 @@ def get_project_data(request):
     for m in members:
         m["display_name"] = f"{m['first_name']} {m['last_name']}" if m["first_name"] else m["username"]
 
-    tasks = list(project.tasks.filter(is_in_trash=False).values("id", "title", "task_id"))
+    tasks = list(project.tasks.filter(is_in_trash=False).exclude(linked_bugs__is_in_trash=True).values("id", "title", "task_id"))
 
     return JsonResponse({
         "modules": modules,

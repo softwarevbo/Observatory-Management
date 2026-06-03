@@ -11,6 +11,7 @@ from google_auth_oauthlib.flow import Flow
 from tasks.models import Project, Task, AuditLog
 from tasks.decorators import admin_required
 from tasks.services.notification_service import NotificationService
+from tasks.utils.query_utils import get_visible_tasks_qs
 from .models import CalendarEvent, UserCalendarSettings
 from .forms import CalendarEventForm
 
@@ -34,9 +35,12 @@ def calendar_view(request):
         for e in events
     ]
 
-    my_tasks = Task.objects.filter(
-        Q(assignees=request.user) | Q(created_by=request.user),
-        Q(due_date__isnull=False) | Q(deadline__isnull=False),
+    my_tasks = get_visible_tasks_qs(
+        request.user,
+        Task.objects.filter(
+            Q(assignees=request.user) | Q(created_by=request.user),
+            Q(due_date__isnull=False) | Q(deadline__isnull=False),
+        )
     ).distinct()
 
     for t in my_tasks:

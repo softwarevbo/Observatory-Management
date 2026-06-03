@@ -4,7 +4,7 @@ from notes.models import KnowledgeBaseNote
 
 def get_visible_tasks_qs(user, tasks_qs):
     # Always filter out items in trash unless in trash view
-    tasks_qs = tasks_qs.filter(is_in_trash=False)
+    tasks_qs = tasks_qs.filter(is_in_trash=False).exclude(linked_bugs__is_in_trash=True)
     
     if user.is_admin:
         return tasks_qs

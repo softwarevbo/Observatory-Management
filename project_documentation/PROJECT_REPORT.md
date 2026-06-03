@@ -1,4 +1,4 @@
-# IIAP PM — Integrated Institute Management Platform
+# IIAP OM — Integrated Institute Management Platform
 
 ## Complete End-to-End Project Report Document
 
@@ -6,7 +6,7 @@
 
 | Document Property | Value |
 |-------------------|-------|
-| **Project Title** | IIAP PM (IIA Project Management & Operations Platform) |
+| **Project Title** | IIAP OM (IIA Project Management & Operations Platform) |
 | **Document Version** | 2.0 (Reference) — **3.0 Master (~100 pages)** available |
 | **Master Report** | `PROJECT_REPORT_MASTER_INDEX.md` → Parts 1–3 + this file + encyclopedia |
 | **Companion Doc** | `PROJECT_REPORT_CODE_ENCYCLOPEDIA.md` (per-file logic) |
@@ -59,11 +59,11 @@
 
 ## 1.1 Project Identity
 
-**IIAP PM** is a unified, Django-based web platform designed for research and engineering organizations. It was originally scoped as a Project Management System for multi-disciplinary teams (Electronics, Mechanical, Optics, Simulation, Software) and has evolved into an **enterprise monolith** integrating document control, quality assurance, real-time chat, inventory management, financial tracking, and observatory telescope monitoring.
+**IIAP OM** is a unified, Django-based web platform designed for research and engineering organizations. It was originally scoped as a Project Management System for multi-disciplinary teams (Electronics, Mechanical, Optics, Simulation, Software) and has evolved into an **enterprise monolith** integrating document control, quality assurance, real-time chat, inventory management, financial tracking, and observatory telescope monitoring.
 
 ### Abstract / Executive Summary
 
-IIAP PM eliminates operational fragmentation by providing a single authenticated environment where:
+IIAP OM eliminates operational fragmentation by providing a single authenticated environment where:
 
 - Projects, requirements, tasks, and releases share a consistent ID scheme and relational model.
 - Files are version-controlled, categorized, and snapshotted into immutable releases with checksums.
@@ -87,7 +87,7 @@ The system is **server-rendered** for the primary UI (Django Templates + vanilla
 
 ## 1.3 Target Problem Solved
 
-| Pain Point | IIAP PM Solution |
+| Pain Point | IIAP OM Solution |
 |------------|------------------|
 | Scattered spreadsheets and email threads | Unified `Project` → `Requirement` → `Task` hierarchy |
 | Uncontrolled document versions | `ProjectFile` versioning + `ReleaseFile` SHA-256 snapshots |
@@ -1886,5 +1886,5 @@ ReleaseFile: `file`, `original_name`, `relative_path`, `content_hash`, `version`
 
 **End of Document**
 
-*This report (v2.0) documents the full IIAP PM platform. For line-by-line view logic and pseudocode of every function, read **`project_documentation/PROJECT_REPORT_CODE_ENCYCLOPEDIA.md`** alongside this file.*
+*This report (v2.0) documents the full IIAP OM platform. For line-by-line view logic and pseudocode of every function, read **`project_documentation/PROJECT_REPORT_CODE_ENCYCLOPEDIA.md`** alongside this file.*
 

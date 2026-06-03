@@ -4,7 +4,10 @@ from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import include, path
 
+from django.views.generic.base import RedirectView
+
 urlpatterns = [
+    path("favicon.ico", RedirectView.as_view(url="/static/img/favicon.png")),
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls", namespace="accounts")),
     path("files/", include("files.urls", namespace="files")),

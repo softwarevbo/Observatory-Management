@@ -1,4 +1,4 @@
-# IIAP PM — Master Technical Report (Part 1 of 3)
+# IIAP OM — Master Technical Report (Part 1 of 3)
 
 **Document Class:** Enterprise Architecture & Implementation Dossier  
 **Target Length:** ~100 pages (combined Parts 1–3)  
@@ -25,13 +25,13 @@
 
 ## I.1 Purpose of This Document
 
-This master report exists to provide a **single, authoritative narrative** of the IIAP PM (Indian Institute of Astrophysics Project Management) platform. Unlike a README or API reference, it explains not only *what* the system does but *how* each layer cooperates: from the moment a researcher logs in, through project creation, requirement traceability, test-gated task completion, immutable release publication, real-time chat, branch-level inventory movements, and observatory telescope monitoring.
+This master report exists to provide a **single, authoritative narrative** of the IIAP OM (Indian Institute of Astrophysics Project Management) platform. Unlike a README or API reference, it explains not only *what* the system does but *how* each layer cooperates: from the moment a researcher logs in, through project creation, requirement traceability, test-gated task completion, immutable release publication, real-time chat, branch-level inventory movements, and observatory telescope monitoring.
 
 The platform was engineered as a **Django monolith** with optional **ASGI/WebSocket** channels rather than as a distributed microservice mesh. That architectural choice reduces operational complexity for institute deployments while concentrating business rules in the ORM, server-rendered views, and a small set of service classes. Every major workflow in this document is accompanied by diagrams, decision tables, and prose suitable for onboarding engineers, writing academic theses, or preparing audit submissions.
 
 ## I.2 Organizational Context
 
-IIAP PM serves multi-disciplinary engineering teams spanning **Electronics, Mechanical, Optics, Simulation, and Software**. Projects are not generic “tickets”; they carry module affinity, formal requirements (BRD/FRD/TRD), linked test cases, release baselines, and financial budgets. The same installation also hosts a **physically separate inventory domain** (branches, serial numbers, procurement) and a **telescope operations dashboard** aligned with VBO observatory instruments (VBT, JCBT, Zeiss, Cassegrain, Schmidt).
+IIAP OM serves multi-disciplinary engineering teams spanning **Electronics, Mechanical, Optics, Simulation, and Software**. Projects are not generic “tickets”; they carry module affinity, formal requirements (BRD/FRD/TRD), linked test cases, release baselines, and financial budgets. The same installation also hosts a **physically separate inventory domain** (branches, serial numbers, procurement) and a **telescope operations dashboard** aligned with VBO observatory instruments (VBT, JCBT, Zeiss, Cassegrain, Schmidt).
 
 The design assumption is that **one institute** runs one deployment, with role separation enforced in software rather than by spinning up separate products.
 

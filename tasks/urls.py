@@ -108,6 +108,11 @@ urlpatterns = [
         name="requirement_approve",
     ),
     path(
+        "requirements/<int:pk>/comment/add/",
+        release_views.requirement_comment_add,
+        name="requirement_comment_add",
+    ),
+    path(
         "requirements/<int:pk>/restore/",
         misc_views.requirement_restore,
         name="requirement_restore",

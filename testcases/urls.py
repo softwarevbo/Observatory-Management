@@ -10,4 +10,5 @@ urlpatterns = [
     path("<int:pk>/edit/", views.test_case_edit, name="test_case_edit"),
     path("<int:pk>/delete/", views.test_case_delete, name="test_case_delete"),
     path("<int:pk>/verify/", views.test_case_verify, name="test_case_verify"),
+    path("<int:pk>/comment/add/", views.test_case_comment_add, name="test_case_comment_add"),
 ]

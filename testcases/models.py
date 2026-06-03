@@ -122,3 +122,24 @@ class TestCaseHistory(models.Model):
     class Meta:
         db_table = "tasks_testcasehistory"
         ordering = ["-timestamp"]
+
+
+class TestCaseComment(models.Model):
+    test_case = models.ForeignKey(
+        TestCase, on_delete=models.CASCADE, related_name="comments"
+    )
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    content = models.TextField()
+    attachment = models.FileField(upload_to="test_cases/comments/%Y/%m/", null=True, blank=True)
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "tasks_testcasecomment"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Comment by {self.author} on {self.test_case}"

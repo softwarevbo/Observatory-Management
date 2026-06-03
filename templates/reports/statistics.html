@@ -1,0 +1,119 @@
+{% extends 'inventory_base.html' %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 class="page-title mb-0">Inventory Statistics & Full Report</h1>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'statistics-report-export' format='excel' %}" class="btn btn-success">Download Full Excel</a>
+            <a href="{% url 'statistics-report-export' format='pdf' %}" class="btn btn-danger">Download Full PDF</a>
+            <a href="{% url 'statistics-report-export' format='csv' %}" class="btn btn-primary">Download Full CSV</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-2"><div class="kpi-card"><div class="kpi-label">Products</div><div class="kpi-value">{{ total_products }}</div></div></div>
+        <div class="col-md-2"><div class="kpi-card"><div class="kpi-label">Stock In</div><div class="kpi-value">{{ total_stock_in }}</div></div></div>
+        <div class="col-md-2"><div class="kpi-card"><div class="kpi-label">Stock Out</div><div class="kpi-value">{{ total_stock_out }}</div></div></div>
+        <div class="col-md-2"><div class="kpi-card"><div class="kpi-label">Current Stock</div><div class="kpi-value">{{ current_stock }}</div></div></div>
+        <div class="col-md-2"><div class="kpi-card"><div class="kpi-label">Procurement</div><div class="kpi-value">{{ total_procurement_requests }}</div></div></div>
+        <div class="col-md-2"><div class="kpi-card"><div class="kpi-label">Pending Requests</div><div class="kpi-value">{{ pending_procurement_requests }}</div></div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card p-3 chart-card">
+                <h5 class="mb-3">Stock Trend (12 Months)</h5>
+                <canvas id="stockBarChart"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card p-3 chart-card">
+                <h5 class="mb-3">Products by Category</h5>
+                <canvas id="categoryPieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card p-3 chart-card">
+                <h5 class="mb-3">Rentals by Product</h5>
+                <canvas id="rentalProductBarChart"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card p-3 chart-card">
+                <h5 class="mb-3">Alerts by Product</h5>
+                <canvas id="alertProductBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <h5 class="mb-3">Recent Overall Transactions (A-Z Tracking)</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Type</th>
+                        <th>Reference</th>
+                        <th>User</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in recent_transactions %}
+                    <tr>
+                        <td>{{ t.timestamp|date:"M d, Y H:i" }}</td>
+                        <td>{{ t.type }}</td>
+                        <td>{{ t.ref }}</td>
+                        <td>{{ t.user }}</td>
+                        <td>{{ t.description }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted">No transactions found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<style>
+.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px; height:100%; }
+.kpi-label { font-size:12px; color:#64748b; text-transform:uppercase; }
+.kpi-value { font-size:24px; font-weight:700; color:#0f172a; }
+.chart-card { height: 320px; }
+.chart-card canvas { width: 100% !important; height: 240px !important; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('categoryPieChart'), {
+    type: 'pie',
+    data: { labels: {{ category_names|safe }}, datasets: [{ data: {{ category_counts|safe }} }] },
+    options: { maintainAspectRatio: false }
+});
+new Chart(document.getElementById('stockBarChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ month_labels|safe }},
+        datasets: [
+            { label: 'Stock In', data: {{ stock_in_by_month|safe }}, backgroundColor: '#2563eb' },
+            { label: 'Stock Out', data: {{ stock_out_by_month|safe }}, backgroundColor: '#dc2626' }
+        ]
+    },
+    options: { maintainAspectRatio: false }
+});
+new Chart(document.getElementById('rentalProductBarChart'), {
+    type: 'bar',
+    data: { labels: {{ rental_product_names|safe }}, datasets: [{ label: 'Rentals', data: {{ rental_product_counts|safe }}, backgroundColor: '#16a34a' }] },
+    options: { maintainAspectRatio: false }
+});
+new Chart(document.getElementById('alertProductBarChart'), {
+    type: 'bar',
+    data: { labels: {{ alert_product_names|safe }}, datasets: [{ label: 'Alerts', data: {{ alert_product_counts|safe }}, backgroundColor: '#f59e0b' }] },
+    options: { maintainAspectRatio: false }
+});
+</script>
+{% endblock %}

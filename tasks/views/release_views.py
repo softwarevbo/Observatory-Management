@@ -14,9 +14,9 @@ import random
 import string
 
 from django.forms import modelformset_factory
-from ..models import Project, Release, ModuleMember, Task, Requirement, ProjectModule, AuditLog
+from ..models import Project, Release, ModuleMember, Task, Requirement, ProjectModule, AuditLog, RequirementComment
 from testcases.models import TestCase
-from ..forms import ReleaseForm, RequirementForm
+from ..forms import ReleaseForm, RequirementForm, RequirementCommentForm
 from ..decorators import manager_or_admin_required
 from ..utils.query_utils import get_visible_tasks_qs
 from ..services.release_service import ReleaseService
@@ -365,14 +365,80 @@ def requirement_detail(request, pk):
         messages.error(request, "Access denied.")
         return redirect("tasks:project_list")
         
+    from testcases.models import TestCase
+    from bugs.models import BugReport
+    
+    tasks = req.tasks.filter(is_in_trash=False)
+    test_cases = TestCase.objects.filter(task__requirement=req, is_in_trash=False)
+    bugs = BugReport.objects.filter(linked_task__requirement=req, is_in_trash=False)
+    comments = req.comments.filter(parent__isnull=True).select_related("author").all()
+    comment_form = RequirementCommentForm()
+        
     return render(
         request,
         "projects/requirement_detail.html",
         {
             "requirement": req,
             "project": project,
+            "tasks": tasks,
+            "test_cases": test_cases,
+            "bugs": bugs,
+            "comments": comments,
+            "comment_form": comment_form,
         },
     )
+
+
+@login_required
+def requirement_comment_add(request, pk):
+    req = get_object_or_404(Requirement, pk=pk)
+    project = req.project
+    
+    is_member = (
+        project.members.filter(pk=request.user.pk).exists()
+        or project.managers.filter(pk=request.user.pk).exists()
+        or request.user.is_admin
+    )
+    if not is_member:
+        messages.error(request, "Access denied.")
+        return redirect("tasks:project_list")
+        
+    if request.method == "POST":
+        form = RequirementCommentForm(request.POST, request.FILES)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.requirement = req
+            comment.author = request.user
+            parent_id = request.POST.get("parent_id")
+            if parent_id:
+                try:
+                    comment.parent = RequirementComment.objects.get(pk=parent_id)
+                except RequirementComment.DoesNotExist:
+                    pass
+            comment.save()
+            
+            # Send Notification to all project members
+            from tasks.services.notification_service import NotificationService
+            recipients = set(project.members.all()) | set(project.managers.all())
+            if project.project_incharge:
+                recipients.add(project.project_incharge)
+            
+            for recipient in recipients:
+                if recipient != request.user:
+                    NotificationService.create_notification(
+                        recipient=recipient,
+                        sender=request.user,
+                        notification_type="project_update",
+                        title=f"New Comment on Requirement: {req.name}",
+                        message=f"{request.user.display_name} commented on requirement '{req.name}': {comment.content[:50]}...",
+                        project=project,
+                    )
+            
+            messages.success(request, "Comment added.")
+        else:
+            messages.error(request, "Error adding comment.")
+            
+    return redirect("tasks:requirement_detail", pk=pk)
 
 
 @login_required

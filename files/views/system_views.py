@@ -17,21 +17,4 @@ def system_settings(request):
     if not request.user.is_admin:
         messages.error(request, "Access denied. Admins only.")
         return redirect('tasks:dashboard')
-    
-    config = SystemSettings.objects.first()
-    if not config:
-        config = SystemSettings.objects.create()
-    
-    if request.method == 'POST':
-        form = SystemSettingsForm(request.POST, instance=config)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "System settings updated successfully.")
-            return redirect('files:system_settings')
-    else:
-        form = SystemSettingsForm(instance=config)
-    
-    return render(request, 'files/system_settings.html', {
-        'form': form,
-        'config': config
-    })
+    return redirect('/accounts/settings/#system')

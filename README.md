@@ -1,4 +1,4 @@
-# IIAP PM — Project Management System
+# IIAP OM — Project Management System
 ## Module 1: Task Management
 
 A professional Django-based project management system designed for engineering teams

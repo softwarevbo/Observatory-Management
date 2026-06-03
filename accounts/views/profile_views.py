@@ -31,6 +31,30 @@ def profile_view(request):
     )
 
 
+def _resolve_base_template(user):
+    """Return the correct base template based on the user's primary access rights.
+
+    Priority rules:
+    - Telescope-only users  → telescope/base.html
+    - Inventory-only users  → inventory_base.html
+    - PM / admin / members  → base.html  (Observatory Management)
+    """
+    can_pm        = getattr(user, 'can_access_pm', True)
+    can_telescope = getattr(user, 'can_access_telescope', False)
+    can_inventory = getattr(user, 'can_access_inventory', False)
+
+    # Telescope console users who don't also have PM access
+    if can_telescope and not can_pm:
+        return "telescope/base.html"
+
+    # Inventory-only users
+    if can_inventory and not can_pm and not can_telescope:
+        return "inventory_base.html"
+
+    # Everyone else: observatory management workspace
+    return "base.html"
+
+
 @login_required
 def settings_view(request):
     from tasks.models import SystemIssue, SystemSettings
@@ -38,8 +62,10 @@ def settings_view(request):
 
     UserCalendarSettings.objects.get_or_create(user=request.user)
     sys_settings = SystemSettings.get_settings()
+
     if request.method == "POST":
         action = request.POST.get("action")
+
         if action == "update_profile":
             user = request.user
             (
@@ -65,6 +91,7 @@ def settings_view(request):
             user.save()
             messages.success(request, "Profile updated successfully.")
             return redirect("/accounts/settings/#account")
+
         elif action == "update_preferences":
             user = request.user
             user.theme_preference = request.POST.get(
@@ -74,6 +101,7 @@ def settings_view(request):
             user.save()
             messages.success(request, "Preferences updated successfully.")
             return redirect("/accounts/settings/#preferences")
+
         elif action == "report_issue":
             SystemIssue.objects.create(
                 title=request.POST.get("title"),
@@ -83,6 +111,7 @@ def settings_view(request):
             )
             messages.success(request, "Thank you! Your issue has been reported.")
             return redirect("/accounts/settings/#issues")
+
         elif action == "update_system_settings" and request.user.is_admin:
             (
                 sys_settings.primary_color,
@@ -96,21 +125,43 @@ def settings_view(request):
                 ),
             )
             sys_settings.save()
+
+            from files.models import SystemSettings as FileSystemSettings
+            files_settings = FileSystemSettings.objects.first()
+            if not files_settings:
+                files_settings = FileSystemSettings.objects.create()
+            if "max_file_size_gb" in request.POST:
+                try:
+                    files_settings.max_file_size_gb = int(
+                        request.POST.get("max_file_size_gb")
+                    )
+                    files_settings.save()
+                except ValueError:
+                    pass
+
             messages.success(request, "System settings updated successfully.")
             return redirect("/accounts/settings/#system")
+
+    from files.models import SystemSettings as FileSystemSettings
+    files_settings = FileSystemSettings.objects.first()
+    if not files_settings:
+        files_settings = FileSystemSettings.objects.create()
+
     return render(
         request,
         "accounts/settings.html",
         {
+            "base_template": _resolve_base_template(request.user),
             "sys_settings": sys_settings,
+            "files_settings": files_settings,
             "reported_issues": (
                 SystemIssue.objects.all().order_by("-created_at")
                 if request.user.is_admin
                 else SystemIssue.objects.none()
             ),
-            "my_issues": SystemIssue.objects.filter(reported_by=request.user).order_by(
-                "-created_at"
-            ),
+            "my_issues": SystemIssue.objects.filter(
+                reported_by=request.user
+            ).order_by("-created_at"),
             "calendar_settings": UserCalendarSettings.objects.get_or_create(
                 user=request.user
             )[0],

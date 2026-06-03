@@ -1,89 +1,112 @@
-# Environments
+# ============================================================
+# IIA Management System — .gitignore
+# Django + Python + VS Code
+# ============================================================
+
+# ─── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyo
+
+# ─── Virtual Environments ──────────────────────────────────
 .env
-.venv
-env/
+.venv/
 venv/
+env/
 ENV/
 env.bak/
 venv.bak/
 
-# Secrets & Credentials
+# ─── Secrets & Credentials ─────────────────────────────────
+*.env
+.env.*
+!.env.example
 client_secret.json
 radicale_users.htpasswd
 *.pem
 *.key
 *.token
+*.p12
+*.pfx
+local_settings.py
 
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# ─── Django ────────────────────────────────────────────────
+db.sqlite3
+db.sqlite3-journal
+*.log
+media/
+media_root/
+staticfiles/
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
+# ─── Distribution / Packaging ──────────────────────────────
 build/
-develop-eggs/
 dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+MANIFEST
+develop-eggs/
 downloads/
 eggs/
-.eggs/
 lib/
 lib64/
 parts/
 sdist/
 var/
-wheels/
 share/python-wheels/
-*.egg-info/
 .installed.cfg
-*.egg
-MANIFEST
+.Python
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
+# ─── Testing & Coverage ────────────────────────────────────
 .coverage
 .coverage.*
-.cache
-nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
+htmlcov/
+coverage_html/
+.tox/
+.nox/
+.cache
 .hypothesis/
 .pytest_cache/
+nosetests.xml
 cover/
 
-# Generated Reports & Analysis
+# ─── Generated Reports & Analysis ──────────────────────────
 *_analysis_results.json
-analysis_results.json
-enterprise_analysis_results.json
+*_results.json
+*_report.html
+*_report.txt
 db_schema_diagram.html
 project_quality_report.html
-project_reports/
-reports/
+dynamic_analysis_report.txt
+enterprise_quality_report.txt
+security_report.html
 
-# Translations
-*.mo
-*.pot
+# ─── One-off / Scratch Scripts ─────────────────────────────
+scratch.py
+scratch2.py
+scratch/
+fix_trash.py
+generate_code_report.py
+generate_project_summary.sh
+run_full_analysis.py
+update_global.py
+cleanup.sh
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-media/
-media_root/
-staticfiles/
-
-# Celery stuff
+# ─── Celery ────────────────────────────────────────────────
 celerybeat-schedule
 celerybeat.pid
 
-# OS generated files
+# ─── Translations ──────────────────────────────────────────
+*.mo
+*.pot
+
+# ─── OS Generated Files ────────────────────────────────────
 .DS_Store
 .DS_Store?
 ._*
@@ -91,10 +114,30 @@ celerybeat.pid
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# IDE / Editor
+# ─── IDE / Editor ──────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+*.orig
+
+# ─── Node / Frontend (if used) ─────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Docker (if used) ──────────────────────────────────────
+.dockerignore
+docker-compose.override.yml
+
+# ─── Jupyter / IPython ─────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ─── pyproject / pip ───────────────────────────────────────
+pip-log.txt
+pip-delete-this-directory.txt

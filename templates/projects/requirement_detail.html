@@ -57,14 +57,15 @@
             {{ requirement.description|default:"No description provided." }}
         </div>
         
-        {% if requirement.tasks.exists %}
+        <!-- Linked Tasks -->
+        {% if tasks %}
         <h3 style="font-size:14px; color:var(--text-primary); margin-top:24px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">Linked Tasks</h3>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-            {% for task in requirement.tasks.all %}
-            <a href="{% url 'tasks:task_detail' task.pk %}" style="display:block; padding:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:var(--text-primary);">
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+            {% for task in tasks %}
+            <a href="{% url 'tasks:task_detail' task.pk %}" style="display:block; padding:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:var(--text-primary); transition: var(--transition);">
                 <div style="font-size:10px; color:var(--text-muted); font-weight:700; margin-bottom:2px;">ID: {{ task.task_id|default:task.pk }}</div>
                 <div style="font-weight:600; font-size:13px;">{{ task.title }}</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px; display:flex; gap:6px;">
                     <span class="badge badge-gray" style="font-size:9px;">{{ task.get_status_display }}</span>
                     <span class="badge badge-gray" style="font-size:9px;">{{ task.get_priority_display }}</span>
                 </div>
@@ -72,11 +73,214 @@
             {% endfor %}
         </div>
         {% endif %}
+
+        <!-- Linked Test Cases -->
+        {% if test_cases %}
+        <h3 style="font-size:14px; color:var(--text-primary); margin-top:24px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">Linked Test Cases</h3>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+            {% for tc in test_cases %}
+            <a href="{% url 'tasks:test_case_detail' tc.pk %}" style="display:block; padding:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:var(--text-primary); transition: var(--transition);">
+                <div style="font-size:10px; color:var(--text-muted); font-weight:700; margin-bottom:2px;">ID: {{ tc.test_id|default:tc.pk }} (Task: {{ tc.task.title }})</div>
+                <div style="font-weight:600; font-size:13px;">{{ tc.title }}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px; display:flex; gap:6px;">
+                    <span class="badge {% if tc.status == 'passed' %}badge-green{% elif tc.status == 'failed' %}badge-red{% else %}badge-yellow{% endif %}" style="font-size:9px;">{{ tc.get_status_display }}</span>
+                    <span class="badge badge-gray" style="font-size:9px;">{{ tc.get_priority_display }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Linked Bugs -->
+        {% if bugs %}
+        <h3 style="font-size:14px; color:var(--text-primary); margin-top:24px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">Linked Bug Reports</h3>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+            {% for bug in bugs %}
+            <a href="{% url 'tasks:bug_detail' bug.pk %}" style="display:block; padding:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; text-decoration:none; color:var(--text-primary); transition: var(--transition);">
+                <div style="font-size:10px; color:var(--text-muted); font-weight:700; margin-bottom:2px;">Bug #{{ bug.pk }} (Task: {{ bug.linked_task.title }})</div>
+                <div style="font-weight:600; font-size:13px;">{{ bug.title }}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px; display:flex; gap:6px;">
+                    <span class="badge {% if bug.status == 'resolved' or bug.status == 'closed' %}badge-green{% else %}badge-red{% endif %}" style="font-size:9px;">{{ bug.get_status_display }}</span>
+                    <span class="badge badge-gray" style="font-size:9px;">{{ bug.get_severity_display }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ── DISCUSSION FORUM ── -->
+        <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 30px;">
+            <h3 style="font-size:16px; color:var(--text-primary); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-comments" style="color:var(--accent);"></i> Discussion Forum
+                {% if comments.count > 0 %}
+                <span class="badge badge-blue" style="font-size:10px;">{{ comments.count }}</span>
+                {% endif %}
+            </h3>
+
+            <!-- Comments List -->
+            <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
+                {% for comment in comments %}
+                <div id="comment-container-{{ comment.pk }}" style="border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+                    <div style="display:flex; gap:12px; align-items:flex-start;">
+                        {% include 'partials/user_avatar.html' with avatar_user=comment.author size="34" radius="8px" font_size="12" extra_style="flex-shrink:0;" %}
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                                <span style="font-size:13px; font-weight:700; color:var(--text-primary);">{{ comment.author.display_name }}</span>
+                                <span style="font-size:11px; color:var(--text-muted);">{{ comment.created_at|timesince }} ago</span>
+                            </div>
+                            <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-sm); border-top-left-radius:2px; padding:12px 14px; font-size:13px; color:var(--text-secondary); line-height:1.6;">
+                                {{ comment.content|linebreaksbr }}
+                                
+                                {% if comment.attachment %}
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+                                    <a href="{{ comment.attachment.url }}" target="_blank" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                                        <i class="fas fa-paperclip"></i>
+                                        <span style="font-size: 11px; text-decoration: underline;">Attachment</span>
+                                    </a>
+                                    {% if comment.attachment.url|lower|slice:"-4:" == ".png" or comment.attachment.url|lower|slice:"-4:" == ".jpg" or comment.attachment.url|lower|slice:"-5:" == ".jpeg" %}
+                                    <img src="{{ comment.attachment.url }}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; border: 1px solid var(--border);">
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div style="margin-top: 6px;">
+                                <a href="javascript:void(0);" onclick="showReplyForm('{{ comment.pk }}', 'comment-container-{{ comment.pk }}', '{% url 'tasks:requirement_comment_add' requirement.pk %}')" style="font-size: 11px; color: var(--accent); text-decoration: none; font-weight: 600;">
+                                    <i class="fas fa-reply"></i> Reply
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nested Replies -->
+                    {% if comment.replies.exists %}
+                    <div style="margin-left: 44px; border-left: 2px solid var(--border); padding-left: 12px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+                        {% for reply in comment.replies.all %}
+                        <div style="display:flex; gap:10px; align-items:flex-start; padding: 4px 0;">
+                            {% include 'partials/user_avatar.html' with avatar_user=reply.author size="28" radius="6px" font_size="10" extra_style="flex-shrink:0;" %}
+                            <div style="flex:1; min-width:0;">
+                                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                                    <span style="font-size:12px; font-weight:700; color:var(--text-primary);">{{ reply.author.display_name }}</span>
+                                    <span style="font-size:10px; color:var(--text-muted);">{{ reply.created_at|timesince }} ago</span>
+                                </div>
+                                <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-sm); border-top-left-radius:2px; padding:8px 10px; font-size:12.5px; color:var(--text-secondary); line-height:1.6;">
+                                    {{ reply.content|linebreaksbr }}
+                                    
+                                    {% if reply.attachment %}
+                                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+                                        <a href="{{ reply.attachment.url }}" target="_blank" style="display: flex; align-items: center; gap: 6px; text-decoration: none; color: inherit;">
+                                            <i class="fas fa-paperclip"></i>
+                                            <span style="font-size: 10px; text-decoration: underline;">Attachment</span>
+                                        </a>
+                                        {% if reply.attachment.url|lower|slice:"-4:" == ".png" or reply.attachment.url|lower|slice:"-4:" == ".jpg" or reply.attachment.url|lower|slice:"-5:" == ".jpeg" %}
+                                        <img src="{{ reply.attachment.url }}" style="max-width: 100%; max-height: 200px; border-radius: 6px; margin-top: 6px; border: 1px solid var(--border);">
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div style="margin-top: 4px;">
+                                    <a href="javascript:void(0);" onclick="showReplyForm('{{ comment.pk }}', 'comment-container-{{ comment.pk }}', '{% url 'tasks:requirement_comment_add' requirement.pk %}')" style="font-size: 10px; color: var(--accent); text-decoration: none; font-weight: 600;">
+                                        <i class="fas fa-reply"></i> Reply
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div style="text-align:center; padding:40px 20px; color:var(--text-muted);">
+                    <i class="fas fa-comments" style="font-size:40px; opacity:0.15; display:block; margin-bottom:12px;"></i>
+                    <p style="font-size:13px;">No comments yet. Start the discussion!</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Post Comment Form -->
+            <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px;">Add a Comment</div>
+                <form method="post" action="{% url 'tasks:requirement_comment_add' requirement.pk %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div style="display:flex; gap:10px; align-items:flex-start;">
+                        {% include 'partials/user_avatar.html' with avatar_user=user size="34" radius="8px" font_size="12" extra_style="flex-shrink:0; margin-top:2px;" %}
+                        <div style="flex:1;">
+                            <textarea name="content" class="form-control" placeholder="Write a comment to the requirement forum..." style="min-height:90px; font-size:13px; margin-bottom:10px;" required></textarea>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <label for="id_attachment" class="btn btn-ghost btn-sm" style="border: 1px dashed var(--border); cursor: pointer;" title="Upload Screenshot/File">
+                                        <i class="fas fa-camera"></i> Screenshot / File
+                                    </label>
+                                    <input type="file" name="attachment" id="id_attachment" style="display: none;" onchange="document.getElementById('main-file-name').textContent = this.files[0] ? this.files[0].name : '';">
+                                    <span id="main-file-name" style="font-size: 11px; color: var(--text-muted);"></span>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-paper-plane"></i> Post Comment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showReplyForm(commentId, containerId, postUrl) {
+        const existingForm = document.getElementById('active-reply-form');
+        if (existingForm) {
+            existingForm.remove();
+        }
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const formHtml = `
+            <form method="post" enctype="multipart/form-data" id="active-reply-form" action="${postUrl}" style="margin-top: 12px; margin-left: 44px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie('csrftoken')}">
+                <input type="hidden" name="parent_id" value="${commentId}">
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <textarea name="content" class="form-control" placeholder="Write a reply..." style="min-height: 70px; font-size: 13px; margin-bottom: 8px;" required></textarea>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="reply_attachment_${commentId}" class="btn btn-ghost btn-sm" style="border: 1px dashed var(--border); padding: 4px 8px; font-size: 11px;" title="Upload Screenshot/File">
+                                    <i class="fas fa-camera"></i> Attachment
+                                </label>
+                                <input type="file" name="attachment" id="reply_attachment_${commentId}" style="display: none;" onchange="document.getElementById('reply-file-name-${commentId}').textContent = this.files[0] ? this.files[0].name : '';">
+                                <span id="reply-file-name-${commentId}" style="font-size: 11px; color: var(--text-muted);"></span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="btn btn-ghost btn-sm" style="font-size: 11px;" onclick="document.getElementById('active-reply-form').remove()">Cancel</button>
+                                <button type="submit" class="btn btn-primary btn-sm" style="font-size: 11px;">
+                                    <i class="fas fa-reply"></i> Reply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        `;
+        container.insertAdjacentHTML('beforeend', formHtml);
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         if (typeof marked !== 'undefined') {
             document.querySelectorAll('.render-markdown').forEach(el => {

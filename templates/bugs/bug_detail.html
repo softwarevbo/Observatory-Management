@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ bug.title }} — IIAP PM{% endblock %}
+{% block title %}{{ bug.title }} — IIAP OM{% endblock %}
 {% block page_title %}Bug Detail{% endblock %}
 {% if user == bug.reported_by %}
 <a href="{% url 'tasks:bug_edit' bug.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit</a>

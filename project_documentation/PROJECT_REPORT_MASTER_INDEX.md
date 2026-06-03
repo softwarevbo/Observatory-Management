@@ -1,8 +1,8 @@
-# IIAP PM — Master Report Index (100-Page Documentation Set)
+# IIAP OM — Master Report Index (100-Page Documentation Set)
 
 ## How to Read This Documentation
 
-This is the **complete documentation package** for the IIAP PM platform. Together, the files below contain **narrative chapters**, **diagrams**, **flowcharts**, **URL encyclopedias**, **per-function logic**, and **operational runbooks**—designed to print as approximately **100 pages** (PDF/DOCX).
+This is the **complete documentation package** for the IIAP OM platform. Together, the files below contain **narrative chapters**, **diagrams**, **flowcharts**, **URL encyclopedias**, **per-function logic**, and **operational runbooks**—designed to print as approximately **100 pages** (PDF/DOCX).
 
 ---
 
@@ -59,7 +59,7 @@ pandoc PROJECT_REPORT_MASTER_PART1.md \
       -V geometry:margin=1in \
       -V fontsize=11pt \
       --toc --toc-depth=3 \
-      --metadata title="IIAP PM Master Technical Report"
+      --metadata title="IIAP OM Master Technical Report"
 
 # Option B: Word (no LaTeX required)
 pandoc PROJECT_REPORT_MASTER_PART1.md \
@@ -102,4 +102,4 @@ pandoc PROJECT_REPORT_MASTER_PART1.md \
 
 ---
 
-*IIAP PM Master Documentation — Version 3.0 — May 2026*
+*IIAP OM Master Documentation — Version 3.0 — May 2026*

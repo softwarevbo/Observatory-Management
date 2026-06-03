@@ -23,11 +23,14 @@
             class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <i class="fas fa-th-large"></i><span>Dashboard</span>
         </a>
+        {% if not user.is_admin %}
         <a href="{% url 'tasks:reports' %}"
             class="nav-item {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
             <i class="fas fa-chart-bar"></i><span>Reports</span>
         </a>
+        {% endif %}
 
+        {% if not user.is_admin %}
         <!-- Workspace -->
         <div class="nav-section-label">Workspace</div>
         <a href="{% url 'tasks:project_list' %}"
@@ -78,9 +81,11 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
 
         <!-- Planning -->
         <div class="nav-section-label">Planning & Tracking</div>
+        {% if not user.is_admin %}
         <a href="{% url 'tasks:global_release_list' %}"
             class="nav-item {% if 'release' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-rocket"></i><span>Releases</span>
@@ -97,15 +102,19 @@
             class="nav-item {% if 'calendar' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-calendar-alt"></i><span>Calendar</span>
         </a>
-        <a href="{% url 'chat:home' %}"
+        {% endif %}
+        <a href="{% url 'chat:home' %}" id="sidebarChatLink"
             class="nav-item {% if request.resolver_match.app_name == 'chat' %}active{% endif %}">
             <i class="fas fa-comments"></i><span>Chat</span>
         </a>
+        {% if not user.is_admin %}
         <a href="{% url 'tasks:bug_list' %}"
             class="nav-item {% if request.resolver_match.url_name == 'bug_list' and not request.GET.project %}active{% endif %}">
             <i class="fas fa-bug"></i><span>All Bug Reports</span>
         </a>
+        {% endif %}
 
+        {% if not user.is_admin %}
         <!-- Knowledge & Assets -->
         <div class="nav-section-label">Resources</div>
         <a href="{% url 'tasks:kb_overview' %}"
@@ -128,6 +137,7 @@
         <a href="/telescope/" class="nav-item {% if request.resolver_match.app_name == 'telescope' %}active{% endif %}">
             <i class="fas fa-binoculars" style="color: #a855f7;"></i><span>Telescope Control</span>
         </a>
+        {% endif %}
         {% endif %}
 
         <!-- System -->

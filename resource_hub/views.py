@@ -1101,8 +1101,10 @@ def repo_download_zip(request, slug, ref):
         except Exception:
             pass
 
+        safe_ref = ref.replace('/', '-')
         response = HttpResponse(proc.stdout, content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename={repo.slug}-{ref}.zip'
+        response['Content-Disposition'] = f'attachment; filename="{repo.slug}-{safe_ref}.zip"'
+        response['Content-Length'] = len(proc.stdout)
         return response
     except Exception as e:
         return HttpResponse(f"Failed to generate archive: {e}", status=500)

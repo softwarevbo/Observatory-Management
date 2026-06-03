@@ -54,7 +54,7 @@ class UserCalendarSettings(models.Model):
         max_length=100, default="your_username", blank=True, null=True
     )
     caldav_password = models.CharField(max_length=100, blank=True, null=True)
-    caldav_calendar_name = models.CharField(max_length=100, default="IIAP PM")
+    caldav_calendar_name = models.CharField(max_length=100, default="IIAP OM")
 
     # Google Calendar Settings
     google_calendar_id = models.CharField(max_length=255, default="primary")

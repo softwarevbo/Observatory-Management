@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm;
+            margin-bottom: 2cm;
+            @frame footer_frame {
+                -pdf-frame-content: footer_content;
+                left: 1.5cm;
+                right: 1.5cm;
+                bottom: 0.8cm;
+                height: 1cm;
+            }
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 9.5pt;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #1F4E78;
+            margin-bottom: 20px;
+            padding-bottom: 8px;
+        }
+        .company-name {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1F4E78;
+            text-transform: uppercase;
+        }
+        .report-title {
+            font-size: 14pt;
+            margin-top: 8px;
+            color: #2c3e50;
+        }
+        .confidential {
+            color: #e74c3c;
+            font-size: 8pt;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 5px;
+        }
+        h2 {
+            font-size: 12pt;
+            color: #2c3e50;
+            border-left: 4px solid #1F4E78;
+            padding-left: 8px;
+            margin-top: 20px;
+            margin-bottom: 12px;
+            background: #f8f9fa;
+        }
+        h3 {
+            font-size: 10.5pt;
+            color: #34495e;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border: 1px solid #e1e4e8;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #e1e4e8;
+            padding: 5px 6px;
+            text-align: left;
+            vertical-align: top;
+            font-size: 8pt;
+        }
+        th {
+            background-color: #1F4E78;
+            color: #ffffff;
+            font-weight: bold;
+            border-bottom: 2px solid #122f4a;
+        }
+        td div {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        tr:nth-child(even) {
+            background-color: #fafbfc;
+        }
+        .section-title {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #1a1f36;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eaecef;
+        }
+        .summary-grid {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .summary-label {
+            font-weight: bold;
+            width: 20%;
+            background-color: #f8f9fa;
+        }
+        .summary-value {
+            width: 30%;
+        }
+        .badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .rtm-cell { font-size: 7.5pt; }
+        .nested-list { margin: 0; padding-left: 12px; }
+        
+        .footer {
+            position: fixed;
+            bottom: -1cm;
+            left: 0;
+            right: 0;
+            height: 1cm;
+            text-align: center;
+            font-size: 7.5pt;
+            color: #999;
+        }
+        
+        /* Traceability Matrix Specific */
+        .rtm-table th { background-color: #2c3e50; }
+        
+        /* Page Break */
+        .page-break { page-break-after: always; }
+        
+        /* Wrap text properly */
+        .text-wrap {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- xhtml2pdf Frame Content -->
+    <div id="footer_content" style="text-align: right; font-size: 7.5pt; color: #999;">
+        © {{ timestamp|date:"Y" }} {{ company.name }}. All rights reserved. | Page <pdf:pagenumber> of <pdf:pagecount>
+    </div>
+
+    <div class="header">
+        <div class="company-name">{{ company.name }}</div>
+        <div style="font-size: 9pt; color: #666;">{{ company.tagline }}</div>
+        <div class="report-title">{{ title }}</div>
+        {% if company.confidential_label %}
+        <div class="confidential">{{ company.confidential_label }}</div>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>Document Control</h2>
+        <table class="summary-grid">
+            <tr>
+                <td class="summary-label">Report ID</td>
+                <td class="summary-value">RPT-{{ timestamp|date:"Ymd" }}-{{ project.pk }}</td>
+                <td class="summary-label">Classification</td>
+                <td class="summary-value">Public</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Author</td>
+                <td class="summary-value">{{ generated_by }}</td>
+                <td class="summary-label">Revision</td>
+                <td class="summary-value">1.0 (Final)</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>1. Project Summary</h2>
+        <table class="summary-grid">
+            <tr>
+                <td class="summary-label">Project Name</td>
+                <td class="summary-value">{{ project.name }}</td>
+                <td class="summary-label">Project ID</td>
+                <td class="summary-value">{{ project.project_id }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Status</td>
+                <td class="summary-value">{{ project.get_status_display }}</td>
+                <td class="summary-label">Priority</td>
+                <td class="summary-value">{{ project.get_priority_display }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Start Date</td>
+                <td class="summary-value">{{ project.start_date|default:"N/A" }}</td>
+                <td class="summary-label">Deadline</td>
+                <td class="summary-value">{{ project.end_date|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">In-Charge</td>
+                <td class="summary-value">{{ project.project_incharge.display_name|default:"N/A" }}</td>
+                <td class="summary-label">Generated By</td>
+                <td class="summary-value">{{ generated_by }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Generated Date</td>
+                <td class="summary-value" colspan="3">{{ timestamp }}</td>
+            </tr>
+        </table>
+        
+        <h3>Description</h3>
+        <p class="text-wrap">{{ project.description|default:"No description provided." }}</p>
+    </div>
+
+    <div class="section">
+        <h2>2. Project Team</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 15%;" class="text-center">ID</th>
+                    <th style="width: 25%;">Name</th>
+                    <th style="width: 20%;">Role</th>
+                    <th style="width: 25%;">Email</th>
+                    <th style="width: 15%;" class="text-center">Membership</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for manager in project.managers.all %}
+                <tr>
+                    <td class="text-center"><div>{{ manager.employee_id|default:"MGR" }}</div></td>
+                    <td><div>{{ manager.display_name }}</div></td>
+                    <td><div>Project Manager</div></td>
+                    <td><div>{{ manager.email }}</div></td>
+                    <td class="text-center"><div>Management</div></td>
+                </tr>
+                {% endfor %}
+                {% for member in project.members.all %}
+                <tr>
+                    <td class="text-center"><div>{{ member.employee_id|default:"MEM" }}</div></td>
+                    <td><div>{{ member.display_name }}</div></td>
+                    <td><div>Team Member</div></td>
+                    <td><div>{{ member.email }}</div></td>
+                    <td class="text-center"><div>Development</div></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if include_requirements %}
+    <div class="page-break"></div>
+    <div class="section">
+        <h2>3. Requirements Specification</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 12%;" class="text-center">REQ ID</th>
+                    <th style="width: 25%;">Requirement Name</th>
+                    <th style="width: 12%;">Type</th>
+                    <th style="width: 11%;" class="text-center">Priority</th>
+                    <th style="width: 12%;" class="text-center">Status</th>
+                    <th style="width: 14%;">Linked Tasks</th>
+                    <th style="width: 14%;">Linked Test Cases</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requirements %}
+                <tr>
+                    <td class="text-center"><div>{{ req.req_id_pdf }}</div></td>
+                    <td><div>{{ req.name_pdf }}</div></td>
+                    <td><div>{{ req.get_requirement_type_display }}</div></td>
+                    <td class="text-center"><div>{{ req.get_priority_display }}</div></td>
+                    <td class="text-center"><div>{{ req.get_status_display }}</div></td>
+                    <td><div>{{ req.linked_tasks_str }}</div></td>
+                    <td><div>{{ req.linked_tcs_str }}</div></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7">No requirements defined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if include_tasks %}
+    <div class="page-break"></div>
+    <div class="section">
+        <h2>4. Development Tasks</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 13%;" class="text-center">TASK ID</th>
+                    <th style="width: 22%;">Task Title</th>
+                    <th style="width: 13%;" class="text-center">Linked REQ</th>
+                    <th style="width: 15%;">Assignee</th>
+                    <th style="width: 11%;" class="text-center">Status</th>
+                    <th style="width: 10%;" class="text-center">Priority</th>
+                    <th style="width: 16%;">Linked Test Cases</th>
+                    <th style="width: 10%;" class="text-center">Due Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td class="text-center"><div>{{ task.task_id_pdf }}</div></td>
+                    <td><div>{{ task.title_pdf }}</div></td>
+                    <td class="text-center"><div>{{ task.linked_req_str }}</div></td>
+                    <td><div>{{ task.assignees_str }}</div></td>
+                    <td class="text-center"><div>{{ task.get_status_display }}</div></td>
+                    <td class="text-center"><div>{{ task.get_priority_display }}</div></td>
+                    <td><div>{{ task.linked_tcs_str }}</div></td>
+                    <td class="text-center"><div>{{ task.due_date_str }}</div></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8">No tasks defined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if include_test_cases %}
+    <div class="page-break"></div>
+    <div class="section">
+        <h2>5. QA & Test Validation</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 13%;" class="text-center">TEST ID</th>
+                    <th style="width: 22%;">Scenario/Title</th>
+                    <th style="width: 13%;" class="text-center">Linked Task</th>
+                    <th style="width: 13%;" class="text-center">Linked REQ</th>
+                    <th style="width: 10%;" class="text-center">Priority</th>
+                    <th style="width: 11%;" class="text-center">Status</th>
+                    <th style="width: 18%;">Expected Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tc in test_cases %}
+                <tr>
+                    <td class="text-center"><div>{{ tc.test_id_pdf }}</div></td>
+                    <td><div>{{ tc.title_pdf }}</div></td>
+                    <td class="text-center"><div>{{ tc.linked_task_str }}</div></td>
+                    <td class="text-center"><div>{{ tc.linked_req_str }}</div></td>
+                    <td class="text-center"><div>{{ tc.priority|upper }}</div></td>
+                    <td class="text-center"><div>{{ tc.get_status_display }}</div></td>
+                    <td><div>{{ tc.expected_result_pdf }}</div></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7">No test cases defined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if include_rtm %}
+    <div class="page-break"></div>
+    <div class="section">
+        <h2>6. Requirement Traceability Matrix (RTM)</h2>
+        <table class="rtm-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">Requirement</th>
+                    <th style="width: 40%;">Development Tasks</th>
+                    <th style="width: 35%;">Test Cases</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rtm_data_pdf %}
+                <tr>
+                    <td class="rtm-cell">
+                        <div>
+                            <strong>{{ row.req.req_id }}</strong><br/>
+                            {{ row.req.name }}
+                        </div>
+                    </td>
+                    <td class="rtm-cell">
+                        <div>
+                            {% if row.tasks %}
+                            <ul class="nested-list">
+                                {% for t in row.tasks %}
+                                <li>{{ t.task_id }}: {{ t.title }} ({{ t.status_display }})</li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span style="color:#999;">No tasks mapped</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="rtm-cell">
+                        <div>
+                            {% if row.test_cases %}
+                            <ul class="nested-list">
+                                {% for tc in row.test_cases %}
+                                <li>{{ tc.test_id }}: ({{ tc.status_display }})</li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span style="color:#999;">No verification coverage</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">No traceability data available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+</body>
+</html>

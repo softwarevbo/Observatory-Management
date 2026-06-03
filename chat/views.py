@@ -71,40 +71,42 @@ def search_messages(request):
     if not query:
         return JsonResponse({'results': []})
         
-    messages = Message.objects.filter(
-        room__participants=request.user,
-        content__icontains=query
-    )
+    messages_qs = Message.objects.filter(room__participants=request.user)
     
     room_id = request.GET.get('room_id', '')
     if room_id:
         if room_id.startswith('DM-'):
             participant_id = room_id.split('-')[1]
             room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
-            messages = messages.filter(room__name=room_name)
+            messages_qs = messages_qs.filter(room__name=room_name)
         else:
-            messages = messages.filter(room__room_id=room_id)
+            messages_qs = messages_qs.filter(room__room_id=room_id)
             
-    messages = messages.select_related('room', 'sender').order_by('-created_at')[:50]
+    messages = messages_qs.select_related('room', 'sender').order_by('-created_at')[:1000]
     
     msgs_data = []
+    query_lower = query.lower()
     for m in messages:
-        room_name = m.room.name or "Group Chat"
-        room_type = m.room.room_type
-        
-        if room_type == 'direct':
-            other_user = m.room.participants.exclude(id=request.user.id).first()
-            room_name = other_user.username if other_user else "Direct Message"
+        dec_content = m.decrypted_content
+        if query_lower in dec_content.lower():
+            room_name = m.room.name or "Group Chat"
+            room_type = m.room.room_type
             
-        msgs_data.append({
-            'id': m.id,
-            'sender': m.sender.username,
-            'content': m.content,
-            'timestamp': m.created_at.strftime('%Y-%m-%d %H:%M'),
-            'room_name': room_name,
-            'room_id': str(m.room.room_id),
-            'room_type': room_type
-        })
+            if room_type == 'direct':
+                other_user = m.room.participants.exclude(id=request.user.id).first()
+                room_name = other_user.username if other_user else "Direct Message"
+                
+            msgs_data.append({
+                'id': m.id,
+                'sender': m.sender.username,
+                'content': dec_content,
+                'timestamp': m.created_at.strftime('%Y-%m-%d %H:%M'),
+                'room_name': room_name,
+                'room_id': str(m.room.room_id),
+                'room_type': room_type
+            })
+            if len(msgs_data) >= 50:
+                break
     
     return JsonResponse({'results': msgs_data})
 
@@ -167,14 +169,14 @@ def get_messages(request, room_id):
         'id': m.id,
         'sender': m.sender.username,
         'sender_avatar': m.sender.profile_picture.url if m.sender.profile_picture else None,
-        'content': m.content,
+        'content': m.decrypted_content,
         'timestamp': m.created_at.strftime('%H:%M'),
         'raw_timestamp': m.created_at.isoformat(),
         'message_type': m.message_type,
         'file_url': m.attachments.first().file.url if m.message_type == 'file' and m.attachments.exists() else None,
-        'file_name': m.attachments.first().file_name if m.message_type == 'file' and m.attachments.exists() else None,
+        'file_name': m.attachments.first().decrypted_file_name if m.message_type == 'file' and m.attachments.exists() else None,
         'file_type': m.attachments.first().file_type if m.message_type == 'file' and m.attachments.exists() else None,
-        'parent_content': m.parent_message.content[:50] if m.parent_message else None,
+        'parent_content': m.parent_message.decrypted_content[:50] if m.parent_message else None,
         'parent_sender': m.parent_message.sender.username if m.parent_message else None,
         'parent_id': m.parent_message.id if m.parent_message else None,
         'is_seen': m.read_receipts.exclude(user=m.sender).exists() if m.room.room_type == 'direct' else False,
@@ -257,14 +259,14 @@ def upload_chat_file(request):
                         {
                             'type': 'chat_message',
                             'id': message.id,
-                            'message': message.content,
+                            'message': message.decrypted_content,
                             'sender': request.user.username,
                             'sender_avatar': request.user.profile_picture.url if request.user.profile_picture else None,
                             'timestamp': message.created_at.strftime('%H:%M'),
                             'raw_timestamp': message.created_at.isoformat(),
                             'message_type': 'file',
                             'file_url': attachment.file.url,
-                            'file_name': attachment.file_name,
+                            'file_name': attachment.decrypted_file_name,
                             'file_type': attachment.file_type,
                             'room_id': room_id
                         }
@@ -272,7 +274,7 @@ def upload_chat_file(request):
                 
                 uploaded_results.append({
                     'file_url': attachment.file.url,
-                    'file_name': attachment.file_name,
+                    'file_name': attachment.decrypted_file_name,
                     'file_type': attachment.file_type,
                     'message_id': message.id
                 })
@@ -518,14 +520,14 @@ def forward_message(request):
                 'type': 'chat_message',
                 'room_id': str(room.room_id),
                 'id': new_msg.id,
-                'message': new_msg.content,
+                'message': new_msg.decrypted_content,
                 'sender': request.user.username,
                 'sender_avatar': request.user.profile_picture.url if request.user.profile_picture else None,
                 'timestamp': new_msg.created_at.strftime('%H:%M'),
                 'raw_timestamp': new_msg.created_at.isoformat(),
                 'message_type': new_msg.message_type,
                 'file_url': first_att.file.url if first_att else None,
-                'file_name': first_att.file_name if first_att else None,
+                'file_name': first_att.decrypted_file_name if first_att else None,
                 'file_type': first_att.file_type if first_att else None,
             }
             
@@ -543,7 +545,7 @@ def forward_message(request):
                                 "type": "chat_notification",
                                 "room_id": str(room.room_id),
                                 "sender": request.user.username,
-                                "content": new_msg.content if new_msg.message_type == 'text' else 'File',
+                                "content": new_msg.decrypted_content if new_msg.message_type == 'text' else 'File',
                                 "unread_count": unread_count
                             }
                         )

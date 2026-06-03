@@ -76,6 +76,7 @@ def file_upload(request):
                     else None
                 ),
             )
+            category_cache = {}
             for idx, f in enumerate(uploaded_files):
                 if f.size > max_size_bytes:
                     messages.error(request, f"File {f.name} exceeds the maximum allowed size.")
@@ -88,13 +89,18 @@ def file_upload(request):
                 if project and "/" in rel_path:
                     current_parent = base_cat
                     for part in rel_path.split("/")[:-1]:
-                        cat_obj, _ = FileCategory.objects.get_or_create(
-                            name=part,
-                            project=project,
-                            parent=current_parent,
-                            defaults={"created_by": request.user},
-                        )
-                        current_parent = cat_obj
+                        cache_key = (current_parent.pk if current_parent else None, part)
+                        if cache_key in category_cache:
+                            current_parent = category_cache[cache_key]
+                        else:
+                            cat_obj, _ = FileCategory.objects.get_or_create(
+                                name=part,
+                                project=project,
+                                parent=current_parent,
+                                defaults={"created_by": request.user},
+                            )
+                            category_cache[cache_key] = cat_obj
+                            current_parent = cat_obj
                     file_cat = current_parent
                 existing = (
                     ProjectFile.objects.filter(

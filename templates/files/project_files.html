@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Files — {{ project.name }} — IIAP PM{% endblock %}
+{% block title %}Files — {{ project.name }} — IIAP OM{% endblock %}
 {% block page_title %}{{ project.name }} — Files{% endblock %}
 {% block topbar_actions %}
 <a href="{% url 'files:file_upload' %}?project={{ project.pk }}" class="btn btn-primary btn-sm"><i class="fas fa-cloud-upload-alt"></i> Upload</a>

@@ -21,7 +21,7 @@ from tasks.signals import audit_post_save, audit_post_delete, add_task_module_me
 
 
 class Command(BaseCommand):
-    help = "Seed the database with demo data for IIAP PM"
+    help = "Seed the database with demo data for IIAP OM"
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.WARNING("Flushing existing records and seeding database with transaction block..."))

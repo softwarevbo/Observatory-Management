@@ -739,7 +739,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "caldav_calendar_name",
-                    models.CharField(default="IIAP PM", max_length=100),
+                    models.CharField(default="IIAP OM", max_length=100),
                 ),
                 (
                     "google_calendar_id",

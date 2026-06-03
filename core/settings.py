@@ -1,5 +1,5 @@
 """
-IIAP PM - Core Settings
+IIAP OM - Core Settings
 """
 
 from pathlib import Path

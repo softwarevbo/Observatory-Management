@@ -8,8 +8,8 @@ from django.forms import modelformset_factory
 from tasks.models import Project, Task, ProjectModule, Requirement
 from tasks.decorators import manager_or_admin_required
 from tasks.services.notification_service import NotificationService
-from .models import TestCase, TestCaseAttachment, TestCaseHistory
-from .forms import TestCaseForm
+from .models import TestCase, TestCaseAttachment, TestCaseHistory, TestCaseComment
+from .forms import TestCaseForm, TestCaseCommentForm
 
 
 @login_required
@@ -103,7 +103,7 @@ def test_case_create(request, project_id):
                     )
             
             messages.success(request, f"Test Case {test_case.test_id} created successfully.")
-            return redirect("tasks:project_detail", pk=project_id)
+            return redirect(f"/projects/{project_id}/?view=test_cases")
     else:
         task_id = request.GET.get("task")
         initial = {}
@@ -193,8 +193,13 @@ def test_case_detail(request, pk):
         messages.error(request, "This test case is in the trash and can only be previewed by Admins or Project Managers.")
         return redirect("tasks:project_detail", pk=test_case.project.pk)
         
+    comments = test_case.comments.filter(parent__isnull=True).select_related("author").all()
+    comment_form = TestCaseCommentForm()
+    
     return render(request, "test_cases/test_case_detail.html", {
-        "test_case": test_case
+        "test_case": test_case,
+        "comments": comments,
+        "comment_form": comment_form,
     })
 
 
@@ -311,3 +316,55 @@ def test_case_verify(request, pk):
         "test_case": test_case,
         "status_choices": TestCase.STATUS_CHOICES
     })
+
+
+@login_required
+def test_case_comment_add(request, pk):
+    test_case = get_object_or_404(TestCase, pk=pk)
+    project = test_case.project
+    
+    is_member = (
+        project.members.filter(pk=request.user.pk).exists()
+        or project.managers.filter(pk=request.user.pk).exists()
+        or request.user.is_admin
+    )
+    if not is_member:
+        messages.error(request, "Access denied.")
+        return redirect("tasks:project_list")
+        
+    if request.method == "POST":
+        form = TestCaseCommentForm(request.POST, request.FILES)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.test_case = test_case
+            comment.author = request.user
+            parent_id = request.POST.get("parent_id")
+            if parent_id:
+                try:
+                    comment.parent = TestCaseComment.objects.get(pk=parent_id)
+                except TestCaseComment.DoesNotExist:
+                    pass
+            comment.save()
+            
+            # Send Notification to all project members
+            recipients = set(project.members.all()) | set(project.managers.all())
+            if project.project_incharge:
+                recipients.add(project.project_incharge)
+            
+            for recipient in recipients:
+                if recipient != request.user:
+                    NotificationService.create_notification(
+                        recipient=recipient,
+                        sender=request.user,
+                        notification_type="project_update",
+                        title=f"New Comment on Test Case: {test_case.title}",
+                        message=f"{request.user.display_name} commented on test case '{test_case.title}': {comment.content[:50]}...",
+                        project=project,
+                        test_case=test_case,
+                    )
+            
+            messages.success(request, "Comment added.")
+        else:
+            messages.error(request, "Error adding comment.")
+            
+    return redirect("testcases:test_case_detail", pk=pk)

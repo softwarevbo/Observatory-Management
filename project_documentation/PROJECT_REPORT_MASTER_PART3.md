@@ -1,4 +1,4 @@
-# IIAP PM — Master Technical Report (Part 3 of 3)
+# IIAP OM — Master Technical Report (Part 3 of 3)
 
 # CHAPTER XV — INVENTORY & SUPPLY CHAIN DOMAIN
 
@@ -366,7 +366,7 @@ bandit -r accounts tasks -ll
 
 | Term | Definition |
 |------|------------|
-| IIAP PM | Indian Institute of Astrophysics Project Management platform |
+| IIAP OM | Indian Institute of Astrophysics Project Management platform |
 | PM | Project Management subsystem (not Program Manager role only) |
 | PRJ ID | Auto project identifier `PRJ-{INIT}-{YEAR}-{####}` |
 | RTM | Requirements Traceability Matrix |

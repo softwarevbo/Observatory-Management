@@ -70,8 +70,19 @@ class CalendarEventForm(forms.ModelForm):
             
             self.fields["project"].queryset = projects_qs
             
-            if self.instance and self.instance.project:
-                self.fields["task"].queryset = Task.objects.filter(project=self.instance.project, is_in_trash=False)
+            project_id = None
+            if self.instance and self.instance.project_id:
+                project_id = self.instance.project_id
+            elif self.data and self.data.get("project"):
+                try:
+                    project_id = int(self.data.get("project"))
+                except (ValueError, TypeError):
+                    pass
+            
+            if project_id:
+                self.fields["task"].queryset = Task.objects.filter(
+                    project_id=project_id, is_in_trash=False
+                ).exclude(linked_bugs__is_in_trash=True)
             else:
                 self.fields["task"].queryset = Task.objects.none()
 

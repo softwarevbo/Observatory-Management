@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ project.name }} — Notes{% endblock %}
-{% block page_title %}{% endblock %}
+{% block page_title %}Notes — {{ project.name }}{% endblock %}
 
 {% block topbar_actions %}
     <a href="{% url 'tasks:kb_create' project.pk %}" class="btn btn-primary">
@@ -193,6 +193,19 @@
 {% endblock %}
 
 {% block content %}
+<div class="page-header" style="margin-bottom: 20px;">
+    <div class="page-header-left">
+        <div class="kbl-breadcrumb">
+            <a href="{% url 'tasks:project_list' %}">Projects</a>
+            <i class="fas fa-chevron-right" style="font-size: 8px;"></i>
+            <a href="{% url 'tasks:project_detail' project.pk %}">{{ project.name }}</a>
+            <i class="fas fa-chevron-right" style="font-size: 8px;"></i>
+            <span>Notes</span>
+        </div>
+        <h1 class="kbl-title" style="margin-top: 4px;">Notes — {{ project.name }}</h1>
+    </div>
+</div>
+
 <!-- Stat Chips -->
 <div class="stat-chips">
     <span class="stat-chip"><i class="fas fa-sticky-note" style="color:var(--accent)"></i> {{ notes.count }} Total</span>

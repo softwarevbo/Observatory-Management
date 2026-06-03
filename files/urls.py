@@ -35,4 +35,5 @@ urlpatterns = [
     path("move-item/", views.move_item, name="move_item"),
     path("manage-resource/", views.manage_resource, name="manage_resource"),
     path("audit-logs/", views.file_audit_logs, name="file_audit_logs"),
+    path("bulk-action/", views.bulk_file_action, name="bulk_file_action"),
 ]

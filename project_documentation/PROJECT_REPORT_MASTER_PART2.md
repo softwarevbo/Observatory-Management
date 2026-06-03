@@ -1,4 +1,4 @@
-# IIAP PM — Master Technical Report (Part 2 of 3)
+# IIAP OM — Master Technical Report (Part 2 of 3)
 
 # CHAPTER VI — BUG TRACKING (`bugs`)
 
@@ -92,7 +92,7 @@ Create/edit/delete: admin, global PM role, or **project incharge/manager** for t
 
 ## VII.6 Bulk Import
 
-`test_case_bulk_create` accepts tabular input for migration from Excel-based test repositories—common when institutes adopt IIAP PM mid-project.
+`test_case_bulk_create` accepts tabular input for migration from Excel-based test repositories—common when institutes adopt IIAP OM mid-project.
 
 ---
 

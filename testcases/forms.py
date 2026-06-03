@@ -1,6 +1,6 @@
 from django import forms
 from tasks.models import Project, Task
-from .models import TestCase
+from .models import TestCase, TestCaseComment
 
 
 class TestCaseForm(forms.ModelForm):
@@ -42,7 +42,7 @@ class TestCaseForm(forms.ModelForm):
         if project:
             self.fields["project"].initial = project
             self.fields["project"].widget = forms.HiddenInput()
-            self.fields["task"].queryset = Task.objects.filter(project=project, is_in_trash=False).order_by("title")
+            self.fields["task"].queryset = Task.objects.filter(project=project, is_in_trash=False).exclude(linked_bugs__is_in_trash=True).order_by("title")
             
             member_ids = list(project.members.values_list("pk", flat=True))
             member_ids.extend(project.managers.values_list("pk", flat=True))
@@ -53,7 +53,7 @@ class TestCaseForm(forms.ModelForm):
             if curr_project_id:
                 try:
                     curr_project = Project.objects.get(pk=curr_project_id)
-                    self.fields["task"].queryset = Task.objects.filter(project=curr_project, is_in_trash=False).order_by("title")
+                    self.fields["task"].queryset = Task.objects.filter(project=curr_project, is_in_trash=False).exclude(linked_bugs__is_in_trash=True).order_by("title")
                     member_ids = list(curr_project.members.values_list("pk", flat=True))
                     member_ids.extend(curr_project.managers.values_list("pk", flat=True))
                     self.fields["assigned_members"].queryset = User.objects.filter(pk__in=member_ids, is_active=True).order_by("first_name")
@@ -69,3 +69,19 @@ class TestCaseForm(forms.ModelForm):
         self.fields["title"].required = True
         self.fields["project"].required = False if project else True
         self.fields["task"].required = True
+
+
+class TestCaseCommentForm(forms.ModelForm):
+    class Meta:
+        model = TestCaseComment
+        fields = ["content", "attachment"]
+        widgets = {
+            "content": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Write a comment to the test case forum...",
+                }
+            ),
+            "attachment": forms.FileInput(attrs={"class": "form-control"}),
+        }

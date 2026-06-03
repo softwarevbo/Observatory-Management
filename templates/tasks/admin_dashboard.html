@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Admin Dashboard — IIAP PM{% endblock %}
+{% block title %}Admin Dashboard — IIAP OM{% endblock %}
 {% block page_title %}System Dashboard{% endblock %}
 
 {% block content %}
@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<div class="grid-4" style="margin-bottom:24px">
+<div class="grid-4" style="margin-bottom:16px">
     <a href="{% url 'tasks:project_list' %}" style="text-decoration:none">
         <div class="stat-card">
             <div class="stat-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7"><i class="fas fa-folder-open"></i></div>
@@ -47,57 +47,122 @@
     </a>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <div class="card-title"><i class="fas fa-folder" style="color:var(--yellow);margin-right:8px"></i>System Projects Directory</div>
+<!-- SECOND STAT ROW -->
+<div class="grid-4" style="margin-bottom:24px">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(99,102,241,0.12);color:#6366f1"><i class="fas fa-git-alt"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">{{ stats.total_repos }}</div>
+            <div class="stat-label">Repositories</div>
+        </div>
     </div>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Project Name</th>
-                    <th>Manager</th>
-                    <th>System Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for project in projects %}
-                <tr>
-                    <td><strong>{{ project.name }}</strong></td>
-                    <td>{{ project.managers.first.display_name|default:'—' }}</td>
-                    <td>
-                        <div style="display:flex; gap: 8px;">
-                            <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)"><i class="fas fa-eye"></i> View</a>
-                            
-                            {% if project.deletion_requested_by_admin %}
-                                <form method="post" action="{% url 'tasks:project_delete' project.pk %}" style="margin:0;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="cancel_deletion">
-                                    <button type="submit" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)"><i class="fas fa-times"></i> Cancel Project Deletion</button>
-                                </form>
-                                {% if project.is_overdue %} <!-- just roughly simulating 30 days logic if available, but the real logic is in views. Let's just show Force Delete if we know it's available, otherwise they can click to confirm page -->
+    <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(14,165,233,0.12);color:#0ea5e9"><i class="fas fa-vial"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">{{ stats.total_test_cases }}</div>
+            <div class="stat-label">Test Cases</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(244,63,94,0.12);color:#f43f5e"><i class="fas fa-bug"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">{{ stats.active_bugs }}</div>
+            <div class="stat-label">Active Bugs</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(100,116,139,0.12);color:#64748b"><i class="fas fa-shield-alt"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">{{ stats.total_bugs }}</div>
+            <div class="stat-label">Total Bug Reports</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2" style="gap:24px">
+    <!-- PROJECTS DIRECTORY -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title"><i class="fas fa-folder" style="color:var(--yellow);margin-right:8px"></i>System Projects Directory</div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Manager</th>
+                        <th>System Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in projects %}
+                    <tr>
+                        <td><strong>{{ project.name }}</strong></td>
+                        <td>{{ project.managers.first.display_name|default:'—' }}</td>
+                        <td>
+                            <div style="display:flex; gap: 8px;">
+                                <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)"><i class="fas fa-eye"></i> View</a>
+                                
+                                {% if project.deletion_requested_by_admin %}
+                                    <form method="post" action="{% url 'tasks:project_delete' project.pk %}" style="margin:0;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="cancel_deletion">
+                                        <button type="submit" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)"><i class="fas fa-times"></i> Cancel</button>
+                                    </form>
+                                {% elif project.deletion_requested_by_pm %}
+                                    <form method="post" action="{% url 'tasks:project_delete' project.pk %}" style="margin:0;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="approve_deletion">
+                                        <button type="submit" class="btn btn-sm" style="background:var(--red-dim);border:1px solid rgba(239,68,68,0.3);color:var(--red)"><i class="fas fa-check"></i> Approve</button>
+                                    </form>
+                                {% else %}
+                                    <form method="post" action="{% url 'tasks:project_delete' project.pk %}" style="margin:0;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="request_deletion">
+                                        <button type="submit" class="btn btn-sm" style="background:transparent;border:1px solid rgba(239,68,68,0.3);color:var(--red)"><i class="fas fa-paper-plane"></i> Request Delete</button>
+                                    </form>
                                 {% endif %}
-                            {% elif project.deletion_requested_by_pm %}
-                                <form method="post" action="{% url 'tasks:project_delete' project.pk %}" style="margin:0;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="approve_deletion">
-                                    <button type="submit" class="btn btn-sm" style="background:var(--red-dim);border:1px solid rgba(239,68,68,0.3);color:var(--red)"><i class="fas fa-check"></i> Approve Project Deletion</button>
-                                </form>
-                            {% else %}
-                                <form method="post" action="{% url 'tasks:project_delete' project.pk %}" style="margin:0;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="request_deletion">
-                                    <button type="submit" class="btn btn-sm" style="background:transparent;border:1px solid rgba(239,68,68,0.3);color:var(--red)"><i class="fas fa-paper-plane"></i> Request to Delete</button>
-                                </form>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="3"><div class="empty-state">No projects in the system.</div></td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3"><div class="empty-state">No projects in the system.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- AUDIT LOGS -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title"><i class="fas fa-history" style="color:var(--accent);margin-right:8px"></i>Recent System Activity</div>
+            <a href="{% url 'files:file_audit_logs' %}" class="btn btn-secondary btn-sm">All Logs</a>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            {% for log in recent_logs %}
+            <div style="padding:12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">{{ log.get_module_display }} &bull; {{ log.get_action_type_display }}</span>
+                    <span style="font-size:10px; color:var(--text-muted);">{{ log.timestamp|timesince }} ago</span>
+                </div>
+                <div style="font-size:13px; font-weight:600; color:var(--text-primary);">
+                    {% if log.user %}{{ log.user.display_name }}{% else %}System{% endif %} {{ log.get_action_type_display|lower }}d 
+                    <strong>{{ log.entity_name|default:log.module }}</strong>
+                </div>
+                {% if log.details %}
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px; font-style:italic;">
+                    {{ log.details }}
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="empty-state" style="padding:24px;">
+                <i class="fas fa-history"></i>
+                <p>No recent activity logs.</p>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endblock %}

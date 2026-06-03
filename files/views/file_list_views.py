@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Count, Case, When, IntegerField
 from django.shortcuts import get_object_or_404, render, redirect
 from django.core.paginator import Paginator
 
@@ -33,16 +33,24 @@ def check_file_access(pf, user, access_type="view"):
 @login_required
 def file_list(request):
     user = request.user
-    search, type_filter, proj_filter, module_filter, resource_view, repo_cat_id = (
+    
+    # Get view preference from session, defaulting to 'tree'
+    saved_view = request.session.get("file_view_preference", "tree")
+    resource_view = request.GET.get("resource_view")
+    if resource_view:
+        if resource_view == "grid":
+            resource_view = "repository"
+        request.session["file_view_preference"] = resource_view
+    else:
+        resource_view = saved_view
+
+    search, type_filter, proj_filter, module_filter, repo_cat_id = (
         request.GET.get("q", ""),
         request.GET.get("type", ""),
         request.GET.get("project", ""),
         request.GET.get("module", ""),
-        request.GET.get("resource_view", "repository"),
         request.GET.get("repo_cat_id"),
     )
-    if resource_view == "grid":
-        resource_view = "repository"
     current_repo_cat = (
         get_object_or_404(FileCategory, pk=repo_cat_id, is_in_trash=False) if repo_cat_id else None
     )
@@ -81,14 +89,23 @@ def file_list(request):
         files = files.filter(project_id=proj_filter)
     if module_filter:
         files = files.filter(module_id=module_filter)
-    total_size = files.aggregate(s=Sum("file_size"))["s"] or 0
+    # Compute all stats in a SINGLE query using conditional aggregation
+    agg = files.aggregate(
+        total=Count('pk'),
+        total_size=Sum('file_size'),
+        images=Count(Case(When(file_type='image', then=1), output_field=IntegerField())),
+        documents=Count(Case(When(file_type__in=['document', 'pdf'], then=1), output_field=IntegerField())),
+        code=Count(Case(When(file_type='code', then=1), output_field=IntegerField())),
+        archives=Count(Case(When(file_type='archive', then=1), output_field=IntegerField())),
+    )
+    total_size = agg['total_size'] or 0
     stats = {
-        "total": files.count(),
+        "total": agg['total'],
         "total_size": total_size,
-        "images": files.filter(file_type="image").count(),
-        "documents": files.filter(file_type__in=["document", "pdf"]).count(),
-        "code": files.filter(file_type="code").count(),
-        "archives": files.filter(file_type="archive").count(),
+        "images": agg['images'],
+        "documents": agg['documents'],
+        "code": agg['code'],
+        "archives": agg['archives'],
         "total_size_display": (
             f"{total_size / 1024:.1f} KB"
             if total_size < 1024**2
@@ -117,15 +134,27 @@ def file_list(request):
             files_no_project_qs = ProjectFile.objects.filter(q_filter, project__isnull=True).distinct().order_by("original_name")
             page_obj = Paginator(files_no_project_qs, 20).get_page(page_num)
 
+    projects_qs = (
+        Project.objects.filter(Q(managers=user) | Q(members=user))
+        .distinct()
+        .prefetch_related(
+            'file_categories',
+            'file_categories__children',
+            'file_categories__children__children',  # 3 levels deep
+            'managers',
+            'members',
+        )
+    )
+    if proj_filter:
+        projects_qs = projects_qs.filter(pk=proj_filter)
+
     return render(
         request,
         "files/file_list.html",
         {
             "files": page_obj,
             "page_obj": page_obj,
-            "projects": Project.objects.filter(
-                Q(managers=user) | Q(members=user)
-            ).distinct(),
+            "projects": projects_qs,
             "files_no_project": page_obj.object_list if not current_project and not current_repo_cat and resource_view == "repository" else files_no_project_qs,
             "stats": stats,
             "type_choices": ProjectFile.FILE_TYPE_CHOICES,
@@ -144,71 +173,4 @@ def file_list(request):
 
 @login_required
 def project_files(request, pk):
-    project = get_object_or_404(Project, pk=pk)
-    user = request.user
-    type_filter, cat_filter, search = (
-        request.GET.get("type", ""),
-        request.GET.get("category", ""),
-        request.GET.get("q", ""),
-    )
-    if not (
-        project.members.filter(pk=user.pk).exists()
-        or project.managers.filter(pk=user.pk).exists()
-        or ModuleMember.objects.filter(module__project=project, user=user).exists()
-    ):
-        messages.error(request, "No access to project files.")
-        return redirect("files:file_list")
-    q_filter = (
-        Q(uploaded_by=user)
-        | Q(project__managers=user)
-        | Q(project__members=user, is_public=True)
-        | Q(project__members=user, module__isnull=True, task__module__isnull=True)
-        | Q(module__members__user=user)
-        | Q(task__module__members__user=user)
-        | Q(access_rights__user=user, access_rights__can_view=True)
-    )
-    files = (
-        project.files.filter(q_filter, versions__isnull=True, is_in_trash=False)
-        .select_related("uploaded_by", "task", "category")
-        .distinct()
-    )
-    if type_filter:
-        files = files.filter(file_type=type_filter)
-    if cat_filter:
-        files = files.filter(category_id=cat_filter)
-    if search:
-        files = files.filter(
-            Q(original_name__icontains=search) | Q(title__icontains=search)
-        )
-    recently_updated = (
-        project.files.filter(is_in_trash=False)
-        .select_related("uploaded_by", "category")
-        .order_by("-updated_at")[:10]
-    )
-    return render(
-        request,
-        "files/project_files.html",
-        {
-            "project": project,
-            "files": files.order_by("-created_at"),
-            "root_categories": project.file_categories.filter(parent__isnull=True, is_in_trash=False),
-            "categories": project.file_categories.filter(is_in_trash=False),
-            "recently_updated": recently_updated,
-            "stats": {
-                "total": files.count(),
-                "total_size": files.aggregate(s=Sum("file_size"))["s"] or 0,
-                "by_type": [
-                    {
-                        "key": ft,
-                        "label": label,
-                        "count": files.filter(file_type=ft).count(),
-                    }
-                    for ft, label in ProjectFile.FILE_TYPE_CHOICES
-                ],
-            },
-            "type_choices": ProjectFile.FILE_TYPE_CHOICES,
-            "type_filter": type_filter,
-            "cat_filter": cat_filter,
-            "search": search,
-        },
-    )
+    return redirect(f"/files/?project={pk}")

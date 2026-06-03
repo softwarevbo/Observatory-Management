@@ -108,7 +108,7 @@ def sync_event_to_caldav(event):
         principal = client.principal()
         calendars = principal.calendars()
 
-        # Find or create the IIAP PM calendar
+        # Find or create the IIAP OM calendar
         target_cal = None
         for cal in calendars:
             # Check display name or URL part
@@ -131,7 +131,7 @@ def sync_event_to_caldav(event):
 
         # Create iCalendar event
         ical = Calendar()
-        ical.add("prodid", "-//IIAP PM Calendar//mxm.dk//")
+        ical.add("prodid", "-//IIAP OM Calendar//mxm.dk//")
         ical.add("version", "2.0")
 
         ical_event = Event()

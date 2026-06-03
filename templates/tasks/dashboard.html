@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Dashboard — IIAP PM{% endblock %}
+{% block title %}Dashboard — IIAP OM{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 
 {% block extra_css %}
@@ -61,6 +61,34 @@
         <p>Here's what's happening across your projects today.</p>
     </div>
 </div>
+
+{% if due_today or overdue_tasks %}
+<div class="card" style="border-left: 4px solid var(--red); margin-bottom: 24px;">
+    <div class="card-header" style="padding: 12px 20px 8px 20px;">
+        <div class="card-title" style="color: var(--red); font-size: 14px;"><i class="fas fa-exclamation-circle"></i> Attention Required</div>
+    </div>
+    <div style="padding: 0 20px 16px 20px; display: flex; flex-direction: column; gap: 8px;">
+        {% for task in due_today %}
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 13px; font-weight: 600;">
+                <span class="badge badge-yellow" style="font-size: 9px; margin-right: 6px;">Due Today</span>
+                <a href="{% url 'tasks:task_detail' task.pk %}" style="text-decoration: none; color: var(--text-primary);">{{ task.title }}</a>
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted);">{{ task.project.name }}</span>
+        </div>
+        {% endfor %}
+        {% for task in overdue_tasks %}
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 13px; font-weight: 600;">
+                <span class="badge badge-red" style="font-size: 9px; margin-right: 6px;">Overdue</span>
+                <a href="{% url 'tasks:task_detail' task.pk %}" style="text-decoration: none; color: var(--text-primary);">{{ task.title }}</a>
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Due {{ task.due_date|date:"M d" }} &bull; {{ task.project.name }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 <!-- STAT CARDS -->
 <div class="grid-4" style="margin-bottom:24px">
@@ -171,6 +199,33 @@
             </div>
             {% endif %}
         </div>
+
+        <!-- ACTIVE BUGS -->
+        {% if my_bugs %}
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="fas fa-bug" style="color:var(--red);margin-right:8px"></i>My Active Bugs</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                {% for bug in my_bugs %}
+                <a href="{% url 'tasks:bug_detail' bug.pk %}" class="item-row" style="padding:10px">
+                    <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:
+                        {% if bug.severity == 'critical' %}var(--red)
+                        {% elif bug.severity == 'high' %}var(--yellow)
+                        {% elif bug.severity == 'medium' %}var(--accent)
+                        {% else %}var(--green){% endif %}"></div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ bug.title }}</div>
+                        <div style="font-size:10px;color:var(--text-muted)">{{ bug.project.name }} &bull; {{ bug.get_severity_display }}</div>
+                    </div>
+                    <span class="badge {% if bug.status == 'open' %}badge-red{% elif bug.status == 'in_progress' %}badge-blue{% else %}badge-gray{% endif %}">
+                        {{ bug.get_status_display }}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- NOTIFICATIONS -->
         {% if notifications %}

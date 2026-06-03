@@ -23,6 +23,10 @@ def dashboard(request):
         if db_path and os.path.exists(db_path):
             db_size = os.path.getsize(db_path) / (1024 * 1024)
 
+        from resource_hub.models import Repository
+        from testcases.models import TestCase
+        from tasks.models import AuditLog
+
         projects = Project.objects.all()
         active_projects_count = projects.exclude(
             status__in=["completed", "cancelled"]
@@ -38,11 +42,22 @@ def dashboard(request):
             )
             .exclude(deletion_requested_by_admin=True, deletion_requested_by_pm=True)
             .count(),
+            "total_repos": Repository.objects.count(),
+            "total_test_cases": TestCase.objects.count(),
+            "total_bugs": BugReport.objects.count(),
+            "active_bugs": BugReport.objects.exclude(status__in=["resolved", "closed", "wont_fix"]).count(),
         }
+        
+        recent_logs = AuditLog.objects.select_related("user").order_by("-timestamp")[:6]
+        
         return render(
             request,
-            "tasks/admin_dashboard.html",  # Keep path for now, will move later
-            {"stats": stats, "projects": projects.order_by("-updated_at")[:6]},
+            "tasks/admin_dashboard.html",
+            {
+                "stats": stats,
+                "projects": projects.order_by("-updated_at")[:6],
+                "recent_logs": recent_logs,
+            },
         )
 
     # For PM and regular users
@@ -54,7 +69,7 @@ def dashboard(request):
     else:
         projects = Project.objects.filter(members=user, is_archived=False).distinct()
 
-    all_visible_tasks = get_visible_tasks_qs(user, Task.objects.filter(project__is_archived=False))
+    all_visible_tasks = get_visible_tasks_qs(user, Task.objects.filter(project__is_archived=False)).exclude(linked_bugs__is_in_trash=True)
     my_open_tasks_qs = all_visible_tasks.filter(assignees=user).exclude(status="done")
 
     overdue_tasks_list = [
@@ -63,13 +78,13 @@ def dashboard(request):
     due_today_list = [t for t in my_open_tasks_qs if t.due_date == today]
 
     my_open_bugs_count = (
-        BugReport.objects.filter(assignees=user)
+        BugReport.objects.filter(assignees=user, is_in_trash=False)
         .exclude(status__in=["resolved", "closed", "wont_fix"])
         .count()
     )
 
     my_bugs_display = (
-        BugReport.objects.filter(Q(assignees=user) | Q(reported_by=user))
+        BugReport.objects.filter(Q(assignees=user) | Q(reported_by=user), is_in_trash=False)
         .exclude(status__in=["resolved", "closed", "wont_fix"])
         .distinct()[:5]
     )
