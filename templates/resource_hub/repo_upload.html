@@ -1,0 +1,425 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+.upload-card-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    position: relative;
+}
+@media(min-width: 992px) {
+    .upload-card-layout {
+        grid-template-columns: 2fr 1fr;
+    }
+}
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    padding: 50px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(79, 142, 247, 0.03);
+}
+.drop-zone-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.file-list-preview {
+    margin-top: 20px;
+    width: 100%;
+    max-height: 400px;
+    overflow-y: auto;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: none;
+}
+.file-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+.file-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.file-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-primary);
+    padding: 6px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: monospace;
+}
+.file-list-item-path {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.file-list-item-size {
+    color: var(--text-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    gap: 16px;
+    backdrop-filter: blur(4px);
+}
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div style="font-weight: 700; font-size: 18px;">Uploading & Committing Files...</div>
+    <div style="font-size: 13px; color: var(--text-muted);" id="loadingStatus">Preparing workspace...</div>
+</div>
+
+<form id="uploadForm" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <div class="upload-card-layout">
+        <div>
+            <!-- Drag and drop zone -->
+            <div class="drop-zone" id="dropZone">
+                <i class="fas fa-folder-open" style="font-size: 56px; color: var(--accent); opacity: 0.8; margin-bottom: 16px;"></i>
+                <h4 style="font-size: 18px; color: var(--text-primary); margin-bottom: 6px;">Drag & Drop files or folders here</h4>
+                <p style="color: var(--text-muted); font-size: 13px; margin: 0 0 10px 0;">or use the selection buttons below to select resources</p>
+                
+                <!-- Inputs -->
+                <input type="file" id="fileInput" multiple style="display: none;">
+                <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                
+                <div class="drop-zone-buttons">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-file"></i> Choose Files
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('folderInput').click()">
+                        <i class="fas fa-folder"></i> Choose Folder
+                    </button>
+                </div>
+            </div>
+
+            <!-- Selected Files List -->
+            <div class="file-list-preview" id="fileListPreview">
+                <div class="file-list-header">
+                    <span>Staged Files & Relative Path</span>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="clearStagedFiles()" style="color: #ef4444; padding: 2px 6px;">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+                <div class="file-list-container" id="fileListContainer">
+                    <!-- Javascript will list files here -->
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <!-- Commit metadata panel -->
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; position: sticky; top: 20px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-code-commit" style="color: var(--accent);"></i>
+                    <span>Commit Settings</span>
+                </h3>
+
+                <div style="margin-bottom: 16px;">
+                    <label for="commit_message" style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px;">Commit Message *</label>
+                    <textarea name="commit_message" id="commit_message" rows="4" required class="form-control" placeholder="Describe your uploaded resources (e.g., Upload project schemas and design docs)" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px; width: 100%; outline: none; font-size: 13px; resize: vertical;"></textarea>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label for="branch" style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px;">Target Branch</label>
+                    <select name="branch" id="branch" class="form-control" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 8px 10px; width: 100%; outline: none; font-size: 13px; cursor: pointer;">
+                        {% for b in branches %}
+                            <option value="{{ b }}" {% if b == default_branch %}selected{% endif %}>{{ b }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
+                    <i class="fas fa-cloud-upload-alt"></i> Commit & Push Web Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block repo_extra_js %}
+<script>
+let filesToUpload = [];
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const folderInput = document.getElementById('folderInput');
+const preview = document.getElementById('fileListPreview');
+const container = document.getElementById('fileListContainer');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const loadingStatus = document.getElementById('loadingStatus');
+
+// Register file select callbacks
+fileInput.addEventListener('change', function() {
+    for (let i = 0; i < this.files.length; i++) {
+        let f = this.files[i];
+        addFileToStaged(f, f.name);
+    }
+    updateUI();
+});
+
+folderInput.addEventListener('change', function() {
+    for (let i = 0; i < this.files.length; i++) {
+        let f = this.files[i];
+        addFileToStaged(f, f.webkitRelativePath || f.name);
+    }
+    updateUI();
+});
+
+// Drag & Drop event bindings
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, e => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, false);
+});
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+        dropZone.classList.add('dragover');
+    }, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+        dropZone.classList.remove('dragover');
+    }, false);
+});
+
+dropZone.addEventListener('drop', async e => {
+    const dt = e.dataTransfer;
+    if (dt.items && dt.items.length > 0) {
+        let promises = [];
+        for (let i = 0; i < dt.items.length; i++) {
+            let entry = dt.items[i].webkitGetAsEntry();
+            if (entry) {
+                promises.push(traverseFileTree(entry));
+            }
+        }
+        await Promise.all(promises);
+        updateUI();
+    } else if (dt.files && dt.files.length > 0) {
+        for (let i = 0; i < dt.files.length; i++) {
+            addFileToStaged(dt.files[i], dt.files[i].name);
+        }
+        updateUI();
+    }
+}, false);
+
+// Recursive directory traversal on drop with robust error handling
+function traverseFileTree(item, path = "") {
+    return new Promise((resolve) => {
+        if (item.isFile) {
+            item.file(
+                file => {
+                    addFileToStaged(file, path + file.name);
+                    resolve();
+                },
+                error => {
+                    console.error("Error reading file entry:", error);
+                    resolve();
+                }
+            );
+        } else if (item.isDirectory) {
+            let dirReader = item.createReader();
+            let readAllEntries = () => {
+                dirReader.readEntries(
+                    async entries => {
+                        if (entries.length > 0) {
+                            let subPromises = [];
+                            for (let i = 0; i < entries.length; i++) {
+                                subPromises.push(traverseFileTree(entries[i], path + item.name + "/"));
+                            }
+                            await Promise.all(subPromises);
+                            readAllEntries();
+                        } else {
+                            resolve();
+                        }
+                    },
+                    error => {
+                        console.error("Error reading directory entries:", error);
+                        resolve();
+                    }
+                );
+            };
+            readAllEntries();
+        } else {
+            resolve();
+        }
+    });
+}
+
+function addFileToStaged(file, path) {
+    // Avoid duplicate path staging
+    if (!filesToUpload.some(x => x.path === path)) {
+        filesToUpload.push({ file: file, path: path });
+    }
+}
+
+function clearStagedFiles() {
+    filesToUpload = [];
+    fileInput.value = "";
+    folderInput.value = "";
+    updateUI();
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function updateUI() {
+    if (filesToUpload.length > 0) {
+        preview.style.display = 'block';
+        let html = '';
+        filesToUpload.forEach(item => {
+            html += `
+                <div class="file-list-item">
+                    <span class="file-list-item-path">
+                        <i class="fas fa-file-alt" style="color: var(--text-muted); opacity: 0.7;"></i>
+                        <span>${escapeHtml(item.path)}</span>
+                    </span>
+                    <span class="file-list-item-size">${formatBytes(item.file.size)}</span>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        preview.style.display = 'none';
+        container.innerHTML = '';
+    }
+}
+
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Form Submission intercept using AJAX/FormData
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const commitMsg = document.getElementById('commit_message').value.trim();
+    const branch = document.getElementById('branch').value;
+    
+    if (!commitMsg) {
+        alert("Commit message is required.");
+        return;
+    }
+    
+    if (filesToUpload.length === 0) {
+        alert("Please select or drop at least one file or folder.");
+        return;
+    }
+    
+    loadingOverlay.style.display = 'flex';
+    loadingStatus.textContent = `Preparing upload package of ${filesToUpload.length} files...`;
+    
+    const formData = new FormData();
+    formData.append('commit_message', commitMsg);
+    formData.append('branch', branch);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    for (let i = 0; i < filesToUpload.length; i++) {
+        formData.append('files', filesToUpload[i].file);
+        formData.append('paths', filesToUpload[i].path);
+    }
+    
+    loadingStatus.textContent = 'Transmitting data to server...';
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(async response => {
+        const data = await response.json();
+        return { ok: response.ok, status: response.status, data: data };
+    })
+    .then(res => {
+        if (res.ok && res.data.success) {
+            loadingStatus.textContent = 'Commit successful! Redirecting...';
+            window.location.href = res.data.redirect_url;
+        } else {
+            loadingOverlay.style.display = 'none';
+            alert(res.data.error || 'Commit failed. Please try again.');
+        }
+    })
+    .catch(err => {
+        loadingOverlay.style.display = 'none';
+        alert('Transmission error: ' + err);
+    });
+});
+</script>
+{% endblock %}

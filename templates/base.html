@@ -120,6 +120,10 @@
             class="nav-item {% if request.resolver_match.app_name == 'files' %}active{% endif %}">
             <i class="fas fa-file-archive"></i><span>Resources</span>
         </a>
+        <a href="{% url 'resource_hub:repo_list' %}"
+            class="nav-item {% if request.resolver_match.app_name == 'resource_hub' %}active{% endif %}">
+            <i class="fab fa-git-alt" style="color: #f1502f;"></i><span>Resource Hub</span>
+        </a>
         {% if user.can_access_telescope or user.is_superuser %}
         <a href="/telescope/" class="nav-item {% if request.resolver_match.app_name == 'telescope' %}active{% endif %}">
             <i class="fas fa-binoculars" style="color: #a855f7;"></i><span>Telescope Control</span>

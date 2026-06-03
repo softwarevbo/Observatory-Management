@@ -1,0 +1,194 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<!-- Include Highlight.js CSS for syntax highlighting -->
+<link rel="stylesheet" id="hljs-theme" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+<style>
+:root {
+    --code-bg: #f6f8fa;
+    --code-color: #24292e;
+    --line-num-color: #57606a;
+    --line-num-bg: rgba(0, 0, 0, 0.02);
+}
+[data-theme="dark"] {
+    --code-bg: #0d1117;
+    --code-color: #c9d1d9;
+    --line-num-color: #8b949e;
+    --line-num-bg: rgba(255, 255, 255, 0.03);
+}
+.file-meta-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 12px 16px;
+    border-bottom: none;
+}
+.file-viewer-card {
+    border: 1px solid var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+    background: var(--code-bg);
+    overflow: hidden;
+}
+.code-container {
+    display: flex;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+.line-numbers {
+    padding: 16px 12px;
+    text-align: right;
+    background: var(--line-num-bg);
+    border-right: 1px solid var(--border);
+    color: var(--line-num-color);
+    user-select: none;
+    min-width: 45px;
+}
+.code-block {
+    padding: 16px;
+    margin: 0;
+    flex-grow: 1;
+    overflow: auto;
+}
+.code-block code {
+    font-family: inherit;
+    background: none !important;
+    padding: 0 !important;
+    color: var(--code-color);
+}
+.image-viewer {
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.image-preview {
+    max-width: 100%;
+    max-height: 600px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    background: repeating-conic-gradient(#e0e0e0 0% 25%, #f5f5f5 0% 50%) 50% / 20px 20px;
+}
+[data-theme="dark"] .image-preview {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    background: repeating-conic-gradient(#202020 0% 25%, #181818 0% 50%) 50% / 20px 20px;
+}
+.binary-viewer {
+    padding: 40px;
+    text-align: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+<!-- Breadcrumbs -->
+<div style="margin-bottom: 16px; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+    <a href="{% url 'resource_hub:repo_code' repo.slug %}?ref={{ ref }}" style="color: var(--accent); text-decoration: none;">
+        <i class="fas fa-folder-open"></i> {{ repo.name }}
+    </a>
+    {% for crumb in breadcrumbs %}
+        <span style="color: var(--text-muted);">/</span>
+        {% if forloop.last %}
+            <span style="color: var(--text-primary); font-weight: 600;">{{ crumb.name }}</span>
+        {% else %}
+            <a href="{% url 'resource_hub:repo_code_dir' repo.slug crumb.path %}?ref={{ ref }}" style="color: var(--accent); text-decoration: none;">{{ crumb.name }}</a>
+        {% endif %}
+    {% endfor %}
+</div>
+
+{% if is_image %}
+    <!-- Image File Viewer -->
+    <div class="image-viewer">
+        <img class="image-preview" src="{% url 'resource_hub:repo_raw_view' repo.slug ref path %}" alt="{{ path }}">
+    </div>
+{% elif is_binary %}
+    <!-- Binary File Viewer -->
+    <div class="binary-viewer">
+        <i class="fas fa-file-archive" style="font-size: 48px; color: var(--text-muted); opacity: 0.3; margin-bottom: 16px;"></i>
+        <h4 style="font-size: 16px; color: var(--text-primary); margin-bottom: 8px;">Binary File View Not Supported</h4>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+            This file cannot be displayed because it is binary or uses an unsupported encoding.
+        </p>
+        <a href="{% url 'resource_hub:repo_raw_view' repo.slug ref path %}" class="btn btn-primary" target="_blank">
+            <i class="fas fa-download"></i> Download Raw File
+        </a>
+    </div>
+{% else %}
+    <!-- Text File Viewer -->
+    <div class="file-meta-bar">
+        <div style="font-size: 13px; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-file-code" style="color: var(--text-muted);"></i>
+            <span>{{ path }}</span>
+            <span style="color: var(--text-muted); font-weight: 400;">({{ line_count }} lines)</span>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <a href="{% url 'resource_hub:repo_raw_view' repo.slug ref path %}" class="btn btn-secondary btn-sm" target="_blank">
+                <i class="fas fa-external-link-alt"></i> Raw
+            </a>
+        </div>
+    </div>
+    
+    <div class="file-viewer-card">
+        <div class="code-container">
+            <div class="line-numbers" id="line-numbers-container">
+                <!-- Javascript will populate line numbers -->
+            </div>
+            <pre class="code-block"><code class="language-{{ lang }}" id="code-content-block">{{ content|escape }}</code></pre>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block repo_extra_js %}
+<!-- Include Highlight.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Dynamically set syntax theme based on parent page theme
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    const hljsTheme = document.getElementById('hljs-theme');
+    if (hljsTheme) {
+        if (theme === 'dark') {
+            hljsTheme.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css";
+        } else {
+            hljsTheme.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css";
+        }
+    }
+
+    // Run syntax highlighting
+    if (typeof hljs !== 'undefined') {
+        const codeBlock = document.getElementById('code-content-block');
+        if (codeBlock) {
+            hljs.highlightElement(codeBlock);
+        }
+    }
+    
+    // Generate line numbers for text files
+    const codeBlock = document.getElementById('code-content-block');
+    const numbersContainer = document.getElementById('line-numbers-container');
+    if (codeBlock && numbersContainer) {
+        const lines = codeBlock.textContent.split('\n');
+        // If last line is empty (due to trailing newline), exclude it from line number count
+        const lineCount = lines.length > 1 && lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
+        
+        let numbersHtml = '';
+        for (let i = 1; i <= lineCount; i++) {
+            numbersHtml += `<div>${i}</div>`;
+        }
+        numbersContainer.innerHTML = numbersHtml;
+    }
+});
+</script>
+{% endblock %}

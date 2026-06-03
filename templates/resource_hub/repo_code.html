@@ -1,0 +1,786 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+.code-action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.branch-select {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    outline: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.file-browser-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.file-browser-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.path-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.path-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+.path-link:hover {
+    text-decoration: underline;
+}
+.file-row {
+    display: grid;
+    grid-template-columns: 1.5fr 2fr 1.2fr;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    transition: var(--transition);
+    cursor: pointer;
+}
+.file-row:last-child {
+    border-bottom: none;
+}
+.file-row:hover {
+    background: var(--bg-card-hover);
+}
+.file-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.file-message-cell {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 16px;
+}
+.file-time-cell {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Dropdown Menu styling */
+.dropdown-menu {
+    transition: all 0.2s ease;
+}
+.dropdown-item:hover {
+    background: var(--bg-secondary);
+    color: var(--accent) !important;
+}
+
+/* Fuzzy Finder Modal Styles */
+.finder-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 100px;
+    z-index: 9999;
+}
+.finder-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 600px;
+    max-width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+.finder-search-input {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 16px 20px;
+    font-size: 16px;
+    outline: none;
+}
+.finder-results {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.finder-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-light);
+}
+.finder-item:last-child {
+    border-bottom: none;
+}
+.finder-item.active, .finder-item:hover {
+    background: var(--accent);
+    color: #fff !important;
+}
+.finder-item.active i, .finder-item.active span, .finder-item:hover i, .finder-item:hover span {
+    color: #fff !important;
+}
+.readme-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-top: 24px;
+}
+.readme-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+.setup-guide-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 30px;
+    margin-bottom: 24px;
+}
+.setup-code-block {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    overflow-x: auto;
+    margin: 12px 0 20px 0;
+    line-height: 1.6;
+}
+/* Markdown Rendering Styles */
+.markdown-body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3em;
+}
+.markdown-body h1 { font-size: 1.8em; }
+.markdown-body h2 { font-size: 1.4em; }
+.markdown-body h3 { font-size: 1.2em; border-bottom: none; padding-bottom: 0; }
+.markdown-body h4 { font-size: 1.0em; border-bottom: none; padding-bottom: 0; }
+.markdown-body p {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+.markdown-body ul, .markdown-body ol {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-left: 2em;
+}
+.markdown-body li {
+    margin-top: 0.25em;
+}
+.markdown-body code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: var(--bg-secondary);
+    border-radius: 6px;
+    font-family: monospace;
+}
+.markdown-body pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+.markdown-body pre code {
+    display: inline;
+    max-width: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: transparent;
+    border: 0;
+    font-size: 100%;
+}
+.markdown-body blockquote {
+    padding: 0 1em;
+    color: var(--text-muted);
+    border-left: 0.25em solid var(--border-light);
+    margin: 0 0 16px 0;
+}
+.markdown-body table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+}
+.markdown-body table th, .markdown-body table td {
+    padding: 6px 13px;
+    border: 1px solid var(--border);
+}
+.markdown-body table tr {
+    background-color: var(--bg-card);
+    border-top: 1px solid var(--border);
+}
+.markdown-body table tr:nth-child(2n) {
+    background-color: var(--bg-secondary);
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+{% if empty %}
+    <!-- Empty Repository State -->
+    <div class="setup-guide-box">
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-terminal" style="color: var(--accent);"></i>
+            <span>Quick Setup — Command Line Instructions</span>
+        </h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+            This repository is currently empty. Follow these steps to push code from your local machine, or upload resources using the web portal.
+        </p>
+
+        <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Create a new repository on the command line</h4>
+        <pre class="setup-code-block">git init
+git add .
+git commit -m "first commit"
+git branch -M {{ default_branch }}
+git remote add origin {{ clone_url }}
+git push -u origin {{ default_branch }}</pre>
+
+        <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Push an existing repository from the command line</h4>
+        <pre class="setup-code-block">git remote add origin {{ clone_url }}
+git branch -M {{ default_branch }}
+git push -u origin {{ default_branch }}</pre>
+
+        {% if is_owner_or_admin %}
+        <div style="border-top: 1px solid var(--border); padding-top: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <span style="display: block; font-size: 14px; font-weight: 600; color: var(--text-primary);">Prefer not using the command line?</span>
+                <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px;">You can upload files directly through the web portal to initialize the repository.</span>
+            </div>
+            <a href="{% url 'resource_hub:repo_upload' repo.slug %}" class="btn btn-primary">
+                <i class="fas fa-cloud-upload-alt"></i> Upload Files Now
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+{% else %}
+    <!-- Active Repository State -->
+    <div class="code-action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
+        <!-- Left: Branch selector and search -->
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 12px;">
+                <i class="fas fa-code-branch" style="color: var(--text-muted); font-size: 13px;"></i>
+                <select class="branch-select" onchange="switchBranch(this.value)" style="border: none; background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer; outline: none;">
+                    {% for b in branches %}
+                        <option value="{{ b }}" {% if b == ref %}selected{% endif %}>{{ b }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button class="btn btn-secondary btn-sm" onclick="openFuzzyFinder()" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: var(--radius-sm);">
+                <i class="fas fa-search"></i> Go to file
+            </button>
+        </div>
+
+        <!-- Right: Add file dropdown & Code dropdown -->
+        <div style="display: flex; align-items: center; gap: 10px;">
+            {% if is_owner_or_admin %}
+            <!-- Add file dropdown -->
+            <div class="dropdown-container" style="position: relative; display: inline-block;">
+                <button class="btn btn-secondary btn-sm" onclick="toggleDropdown(event, 'addFileDropdown')" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px;">
+                    <span>Add file</span> <i class="fas fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="addFileDropdown" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); width: 160px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100;">
+                    <a href="{% url 'resource_hub:repo_create_file' repo.slug %}?ref={{ ref }}" style="display: block; padding: 10px 14px; color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 500;" class="dropdown-item">
+                        <i class="fas fa-plus" style="margin-right: 8px; width: 14px; color: var(--accent);"></i> Create new file
+                    </a>
+                    <div style="border-top: 1px solid var(--border);"></div>
+                    <a href="{% url 'resource_hub:repo_upload' repo.slug %}?ref={{ ref }}" style="display: block; padding: 10px 14px; color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 500;" class="dropdown-item">
+                        <i class="fas fa-upload" style="margin-right: 8px; width: 14px; color: var(--accent);"></i> Upload files
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Code Dropdown -->
+            <div class="dropdown-container" style="position: relative; display: inline-block;">
+                <button class="btn btn-primary btn-sm" onclick="toggleDropdown(event, 'codeDropdown')" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 6px 14px; background: #238636; border-color: #238636; color: #fff;">
+                    <i class="fas fa-code"></i> <span>Code</span> <i class="fas fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="codeDropdown" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); width: 320px; padding: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 100;">
+                    <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); text-align: left;">Clone Repository</h4>
+                    
+                    <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+                       <input type="text" id="cloneUrlInput" value="{{ clone_url }}" readonly style="flex-grow: 1; font-family: monospace; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 6px 10px; outline: none;" />
+                       <button class="btn btn-secondary btn-sm" onclick="copyCloneUrl(event)" style="padding: 6px 10px;">
+                           <i class="fas fa-copy"></i>
+                       </button>
+                    </div>
+                    
+                    <div style="border-top: 1px solid var(--border); margin: 12px 0;"></div>
+                    
+                    <a href="{% url 'resource_hub:repo_download_zip' repo.slug ref %}" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-file-archive"></i> Download ZIP
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Browser Table -->
+    <div class="file-browser-card">
+        <div class="file-browser-header">
+            <div class="path-crumbs">
+                <a href="{% url 'resource_hub:repo_code' repo.slug %}?ref={{ ref }}" class="path-link">
+                    <i class="fas fa-folder-open"></i> {{ repo.name }}
+                </a>
+                {% for crumb in breadcrumbs %}
+                    <span style="color: var(--text-muted);">/</span>
+                    <a href="{% url 'resource_hub:repo_code_dir' repo.slug crumb.path %}?ref={{ ref }}" class="path-link">{{ crumb.name }}</a>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if latest_commit %}
+            <div class="latest-commit-bar" style="background: rgba(0,0,0,0.15); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 13px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-user-circle" style="color: var(--text-muted); font-size: 18px;"></i>
+                    <strong style="color: var(--text-primary);">{{ latest_commit.author }}</strong>
+                    <span style="color: var(--text-muted); margin: 0 4px;">committed:</span>
+                    <span style="color: var(--text-primary); font-weight: 500;">{{ latest_commit.message }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
+                    <a href="{% url 'resource_hub:repo_commit_detail' repo.slug latest_commit.hash %}" style="font-family: monospace; color: var(--accent); text-decoration: none; font-weight: 600; background: rgba(79, 142, 247, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(79, 142, 247, 0.2);">
+                        {{ latest_commit.short_hash }}
+                    </a>
+                    <span>{{ latest_commit.date }}</span>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="file-browser-rows">
+            <!-- Go up one directory if we are in a subdirectory -->
+            {% if path %}
+                <div class="file-row" onclick="goUpDirectory()">
+                    <div class="file-name-cell" style="color: var(--accent);">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>..</span>
+                    </div>
+                    <div></div>
+                    <div></div>
+                </div>
+            {% endif %}
+
+            <!-- List Directories and Files -->
+            {% if items %}
+                {% for item in items %}
+                    <div class="file-row" onclick="navigateToItem('{{ item.type }}', '{{ item.path }}')">
+                        <div class="file-name-cell">
+                            {% if item.type == 'tree' %}
+                                <i class="fas fa-folder" style="color: var(--accent);"></i>
+                                <span style="font-weight: 600;">{{ item.name }}</span>
+                            {% else %}
+                                <i class="fas fa-file-alt" style="color: var(--text-muted);"></i>
+                                <span>{{ item.name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="file-message-cell">
+                            {{ item.commit_message }}
+                        </div>
+                        <div class="file-time-cell">
+                            <span>{{ item.commit_time }}</span>
+                            {% if item.type == 'blob' %}
+                                <a href="{% url 'resource_hub:repo_raw_view' repo.slug ref item.path %}" class="btn-copy" onclick="event.stopPropagation()" title="Download Raw File" target="_blank" style="color: var(--text-muted);">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+                    This directory is empty.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ══ README Preview (GitHub-style) ══ -->
+    {% if readme_content %}
+    <div id="readme-panel" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-top: 24px;">
+        <!-- Header bar -->
+        <div style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-book-open" style="color: var(--accent); font-size: 14px;"></i>
+                <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">README.md</span>
+                <span style="font-size: 11px; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); padding: 1px 7px; border-radius: 10px;">
+                    {{ readme_content|length|filesizeformat }}
+                </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <!-- Rendered / Raw toggle -->
+                <div style="display: flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+                    <button id="btnRendered" onclick="showRendered()"
+                            style="padding: 5px 12px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: var(--accent); color: #fff; transition: all 0.15s;">
+                        <i class="fas fa-eye"></i> Preview
+                    </button>
+                    <button id="btnRaw" onclick="showRaw()"
+                            style="padding: 5px 12px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.15s;">
+                        <i class="fas fa-code"></i> Raw
+                    </button>
+                </div>
+                <!-- Copy raw -->
+                <button onclick="copyReadme()" title="Copy raw content"
+                        style="padding: 5px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; font-size: 12px; transition: all 0.15s;"
+                        onmouseover="this.style.borderColor='var(--accent)'"
+                        onmouseout="this.style.borderColor='var(--border)'">
+                    <i class="fas fa-copy" id="readmeCopyIcon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Rendered markdown -->
+        <div id="readme-rendered" class="markdown-body" style="padding: 28px 32px; color: var(--text-primary); line-height: 1.7; min-height: 80px;">
+            <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin"></i> Rendering…
+            </div>
+        </div>
+
+        <!-- Raw text -->
+        <div id="readme-raw" style="display: none; padding: 0;">
+            <pre style="margin: 0; padding: 24px 28px; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 1.7; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; background: var(--bg-secondary); overflow-x: auto;">{{ readme_content|escape }}</pre>
+        </div>
+    </div>
+    {% endif %}
+
+
+    <!-- Fuzzy Finder Modal -->
+    <div id="fuzzyFinderModal" class="finder-modal" onclick="closeFuzzyFinder(event)">
+        <div class="finder-content" onclick="event.stopPropagation()">
+            <input type="text" id="finderSearchInput" class="finder-search-input" placeholder="Search files in repository..." oninput="onFinderSearchInput()" autocomplete="off" />
+            <div id="finderResults" class="finder-results">
+                <!-- Matches will be dynamically populated here -->
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Include the all_files data as a JSON script block -->
+{{ all_files|json_script:"all-files-data" }}
+
+{% endblock %}
+
+{% block repo_extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// Toggle dropdown helper
+function toggleDropdown(event, dropdownId) {
+    event.stopPropagation();
+    const dropdown = document.getElementById(dropdownId);
+    
+    // Close other dropdowns first
+    document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        if (menu.id !== dropdownId) {
+            menu.style.display = 'none';
+        }
+    });
+
+    if (dropdown.style.display === 'none' || !dropdown.style.display) {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+// Copy clone URL script
+function copyCloneUrl(event) {
+    event.stopPropagation();
+    const input = document.getElementById('cloneUrlInput');
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile
+    
+    try {
+        navigator.clipboard.writeText(input.value);
+        alert('Clone URL copied to clipboard!');
+    } catch(err) {
+        // Fallback
+        document.execCommand('copy');
+        alert('Clone URL copied to clipboard!');
+    }
+}
+
+// Close all dropdowns when clicking outside
+window.addEventListener('click', function() {
+    document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.style.display = 'none';
+    });
+});
+
+function switchBranch(branch) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('ref', branch);
+    window.location.href = url.toString();
+}
+
+function navigateToItem(type, path) {
+    if (type === 'tree') {
+        window.location.href = "{% url 'resource_hub:repo_code' repo.slug %}" + "tree/" + path + "?ref={{ ref }}";
+    } else {
+        window.location.href = "{% url 'resource_hub:repo_code' repo.slug %}" + "blob/{{ ref }}/" + path;
+    }
+}
+
+function goUpDirectory() {
+    {% if path %}
+        // Remove the last folder in path
+        const currentPath = "{{ path }}";
+        const parts = currentPath.split('/');
+        parts.pop();
+        if (parts.length === 0) {
+            window.location.href = "{% url 'resource_hub:repo_code' repo.slug %}?ref={{ ref }}";
+        } else {
+            window.location.href = "{% url 'resource_hub:repo_code' repo.slug %}" + "tree/" + parts.join('/') + "?ref={{ ref }}";
+        }
+    {% endif %}
+}
+
+// --- FUZZY FILE FINDER LOGIC ---
+let activeIndex = -1;
+let filteredFiles = [];
+
+function openFuzzyFinder() {
+    const modal = document.getElementById('fuzzyFinderModal');
+    modal.style.display = 'flex';
+    const input = document.getElementById('finderSearchInput');
+    input.value = '';
+    input.focus();
+    activeIndex = -1;
+    onFinderSearchInput();
+}
+
+function closeFuzzyFinder(event) {
+    const modal = document.getElementById('fuzzyFinderModal');
+    modal.style.display = 'none';
+}
+
+function onFinderSearchInput() {
+    const query = document.getElementById('finderSearchInput').value.toLowerCase().trim();
+    let allFiles = [];
+    try {
+        allFiles = JSON.parse(document.getElementById('all-files-data').textContent);
+    } catch(e) {
+        console.error("Could not parse file list: ", e);
+    }
+
+    if (!query) {
+        // Show up to 10 files by default
+        filteredFiles = allFiles.slice(0, 10);
+    } else {
+        // Fuzzy filter: matches containing all typed characters in order
+        filteredFiles = allFiles.filter(file => {
+            let fileLower = file.toLowerCase();
+            let queryIdx = 0;
+            for (let char of query) {
+                queryIdx = fileLower.indexOf(char, queryIdx);
+                if (queryIdx === -1) return false;
+                queryIdx++; // move past current character match
+            }
+            return true;
+        }).slice(0, 10); // cap at 10 results for performance/UX
+    }
+
+    renderFinderResults();
+}
+
+function renderFinderResults() {
+    const resultsContainer = document.getElementById('finderResults');
+    resultsContainer.innerHTML = '';
+    
+    if (filteredFiles.length === 0) {
+        resultsContainer.innerHTML = '<div style="padding: 16px 20px; color: var(--text-muted); font-size: 14px;">No files found matching search.</div>';
+        return;
+    }
+
+    filteredFiles.forEach((file, index) => {
+        const item = document.createElement('a');
+        item.className = 'finder-item' + (index === activeIndex ? ' active' : '');
+        item.href = "{% url 'resource_hub:repo_code' repo.slug %}" + "blob/{{ ref }}/" + file;
+        
+        // Find filename and directory
+        const lastSlash = file.lastIndexOf('/');
+        const dir = lastSlash !== -1 ? file.substring(0, lastSlash + 1) : '';
+        const name = lastSlash !== -1 ? file.substring(lastSlash + 1) : file;
+
+        item.innerHTML = `
+            <i class="fas fa-file-alt" style="color: var(--text-muted);"></i>
+            <div style="display: flex; flex-direction: column; text-align: left;">
+                <span style="font-weight: 600; font-size: 14px;">${name}</span>
+                ${dir ? `<span style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">in ${dir}</span>` : ''}
+            </div>
+        `;
+        
+        // Prevent click navigation during keydown enter
+        item.onclick = function(e) {
+            closeFuzzyFinder();
+        };
+
+        resultsContainer.appendChild(item);
+    });
+}
+
+// Arrow key navigation inside fuzzy finder
+document.getElementById('finderSearchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (filteredFiles.length > 0) {
+            activeIndex = (activeIndex + 1) % filteredFiles.length;
+            renderFinderResults();
+            scrollToActiveItem();
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (filteredFiles.length > 0) {
+            activeIndex = (activeIndex - 1 + filteredFiles.length) % filteredFiles.length;
+            renderFinderResults();
+            scrollToActiveItem();
+        }
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < filteredFiles.length) {
+            const selectedFile = filteredFiles[activeIndex];
+            window.location.href = "{% url 'resource_hub:repo_code' repo.slug %}" + "blob/{{ ref }}/" + selectedFile;
+        } else if (filteredFiles.length > 0) {
+            window.location.href = "{% url 'resource_hub:repo_code' repo.slug %}" + "blob/{{ ref }}/" + filteredFiles[0];
+        }
+    } else if (e.key === 'Escape') {
+        closeFuzzyFinder();
+    }
+});
+
+function scrollToActiveItem() {
+    const container = document.getElementById('finderResults');
+    const activeItem = container.querySelector('.finder-item.active');
+    if (activeItem) {
+        activeItem.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+// Global hotkeys (t or Ctrl+P to open file search)
+document.addEventListener('keydown', function(e) {
+    if ((e.key === 't' || e.key === 'T') && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        openFuzzyFinder();
+    }
+    if (e.key === 'p' && e.ctrlKey) {
+        e.preventDefault();
+        openFuzzyFinder();
+    }
+});
+
+// ── README: render markdown, toggle raw/rendered, copy ──
+const rawReadme = `{{ readme_content|escapejs }}`;
+
+document.addEventListener("DOMContentLoaded", function() {
+    const renderedBox = document.getElementById('readme-rendered');
+    if (!renderedBox) return;
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({ breaks: true, gfm: true });
+        renderedBox.innerHTML = marked.parse(rawReadme);
+    } else {
+        // fallback: plain text if marked fails to load
+        renderedBox.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;">' +
+            rawReadme.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+    }
+});
+
+function showRendered() {
+    document.getElementById('readme-rendered').style.display = 'block';
+    document.getElementById('readme-raw').style.display = 'none';
+    document.getElementById('btnRendered').style.background = 'var(--accent)';
+    document.getElementById('btnRendered').style.color = '#fff';
+    document.getElementById('btnRaw').style.background = 'transparent';
+    document.getElementById('btnRaw').style.color = 'var(--text-muted)';
+}
+function showRaw() {
+    document.getElementById('readme-rendered').style.display = 'none';
+    document.getElementById('readme-raw').style.display = 'block';
+    document.getElementById('btnRaw').style.background = 'var(--accent)';
+    document.getElementById('btnRaw').style.color = '#fff';
+    document.getElementById('btnRendered').style.background = 'transparent';
+    document.getElementById('btnRendered').style.color = 'var(--text-muted)';
+}
+function copyReadme() {
+    navigator.clipboard.writeText(rawReadme).then(() => {
+        const icon = document.getElementById('readmeCopyIcon');
+        if (!icon) return;
+        icon.classList.replace('fa-copy', 'fa-check');
+        icon.style.color = '#10b981';
+        setTimeout(() => {
+            icon.classList.replace('fa-check', 'fa-copy');
+            icon.style.color = '';
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

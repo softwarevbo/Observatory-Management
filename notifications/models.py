@@ -18,6 +18,7 @@ class Notification(models.Model):
         ("task_ready_completion", "Task Ready for Completion"),
         ("chat_message", "New Chat Message"),
         ("bug_reported", "Bug Reported"),
+        ("repo_invite", "Repository Invitation"),
     ]
 
     recipient = models.ForeignKey(

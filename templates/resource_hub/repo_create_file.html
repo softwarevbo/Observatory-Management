@@ -1,0 +1,130 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+.editor-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.editor-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.editor-input {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    flex-grow: 1;
+    font-family: monospace;
+}
+.editor-textarea {
+    width: 100%;
+    min-height: 350px;
+    background: #0d1117; /* Dark editor background */
+    color: #e6edf3;
+    border: none;
+    padding: 16px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+}
+.commit-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 24px;
+}
+.commit-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+.form-group {
+    margin-bottom: 16px;
+}
+.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.form-control {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+}
+.form-control:focus {
+    border-color: var(--accent);
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+<form method="POST" action="{% url 'resource_hub:repo_create_file' repo.slug %}">
+    {% csrf_token %}
+    
+    <div style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;">Create New File</h2>
+        <a href="{% url 'resource_hub:repo_code' repo.slug %}" class="btn btn-secondary btn-sm" style="text-decoration: none;">
+            <i class="fas fa-times"></i> Cancel
+        </a>
+    </div>
+
+    <!-- Editor card -->
+    <div class="editor-card">
+        <div class="editor-header">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">File Path:</span>
+            <input type="text" name="file_path" class="editor-input" placeholder="e.g. docs/readme.txt or main.py" required autofocus />
+        </div>
+        <textarea name="file_content" class="editor-textarea" placeholder="Type or paste your file content here..."></textarea>
+    </div>
+
+    <!-- Commit card -->
+    <div class="commit-card">
+        <h3 class="commit-title">Commit New File</h3>
+        
+        <div class="form-group">
+            <label class="form-label">Commit Message</label>
+            <input type="text" name="commit_message" class="form-control" placeholder="Create new file" />
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div class="form-group">
+                <label class="form-label">Target Branch</label>
+                <select name="branch" class="form-control" style="cursor: pointer;">
+                    {% for b in branches %}
+                        <option value="{{ b }}" {% if b == default_branch %}selected{% endif %}>{{ b }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-file-signature"></i> Commit New File
+        </button>
+    </div>
+</form>
+{% endblock %}

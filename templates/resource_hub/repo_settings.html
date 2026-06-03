@@ -1,0 +1,472 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+/* ── Settings Layout ── */
+.settings-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    grid-template-rows: auto;
+    gap: 24px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .settings-layout { grid-template-columns: 1fr; }
+}
+.settings-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.settings-card-header {
+    padding: 18px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.settings-card-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.settings-card-header p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+}
+.settings-card-body {
+    padding: 20px 24px;
+}
+
+/* ── Form elements ── */
+.field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.field-input {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    font-size: 13px;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+.field-input:focus {
+    border-color: var(--accent);
+}
+.field-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Collaborator rows ── */
+.collab-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+.collab-row:last-child { border-bottom: none; }
+.collab-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+.collab-info { flex: 1; min-width: 0; }
+.collab-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.collab-handle {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ── Pending badge ── */
+.pending-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(245,158,11,0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245,158,11,0.25);
+    flex-shrink: 0;
+}
+
+/* ── Collab notice banner ── */
+.collab-notice {
+    background: rgba(79,142,247,0.08);
+    border: 1px solid rgba(79,142,247,0.2);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+/* ── Danger card ── */
+.danger-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 0;
+}
+.danger-card-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(239,68,68,0.15);
+    background: rgba(239,68,68,0.04);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.danger-action-row {
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.danger-action-row + .danger-action-row {
+    border-top: 1px solid rgba(239,68,68,0.1);
+}
+
+/* ── Section sub-label ── */
+.section-sub-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+
+{% if not is_owner_or_admin %}
+<!-- Collaborator Notice Banner -->
+<div class="collab-notice">
+    <i class="fas fa-info-circle" style="color: var(--accent); font-size: 16px; margin-top: 1px; flex-shrink: 0;"></i>
+    <div>
+        <span style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">Collaborator View</span>
+        <span style="font-size: 12px; color: var(--text-muted);">You are a collaborator on this repository. Settings are read-only — only the owner or administrator can make changes.</span>
+    </div>
+</div>
+{% endif %}
+
+<!-- ══════════════════════════════════════════════
+     2-Column Grid: General (left) + Collaborators (right)
+════════════════════════════════════════════════ -->
+<div class="settings-layout">
+
+    <!-- ── LEFT: General Settings ── -->
+    <div class="settings-card">
+        <div class="settings-card-header">
+            <h3><i class="fas fa-sliders-h" style="color: var(--accent);"></i> General Settings</h3>
+            <p>Rename, describe, and toggle visibility for this repository.</p>
+        </div>
+        <div class="settings-card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update">
+
+                <!-- Name -->
+                <div style="margin-bottom: 18px;">
+                    <label for="name" class="field-label">Repository Name <span style="color:#ef4444;">*</span></label>
+                    <input type="text" name="name" id="name" required
+                           class="field-input"
+                           value="{{ repo.name }}"
+                           {% if not is_owner_or_admin %}disabled{% endif %}>
+                    <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">This also changes the repository slug and the bare git directory name.</span>
+                </div>
+
+                <!-- Description -->
+                <div style="margin-bottom: 18px;">
+                    <label for="description" class="field-label">Description</label>
+                    <textarea name="description" id="description" rows="4"
+                              class="field-input"
+                              {% if not is_owner_or_admin %}disabled{% endif %}
+                              style="resize: vertical;">{{ repo.description }}</textarea>
+                </div>
+
+                <!-- Visibility toggle -->
+                <div style="margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                    <input type="checkbox" name="is_private" id="is_private"
+                           {% if repo.is_private %}checked{% endif %}
+                           {% if not is_owner_or_admin %}disabled{% endif %}
+                           style="margin-top: 3px; cursor: pointer; width: 15px; height: 15px; flex-shrink: 0;">
+                    <label for="is_private" style="cursor: pointer;">
+                        <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-primary);">
+                            <i class="fas fa-lock" style="font-size: 12px; color: #f59e0b;"></i> Make this repository private
+                        </span>
+                        <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.5;">
+                            When private, only the owner, collaborators, and administrators can access it.
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Clone URL info -->
+                <div style="margin-bottom: 20px; padding: 12px 14px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                    <label class="field-label" style="margin-bottom: 6px;">Clone URL</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" value="{{ clone_url }}" readonly class="field-input" id="settingsCloneUrl" style="font-family: monospace; font-size: 12px; opacity: 0.9;">
+                        <button type="button" onclick="copySettingsCloneUrl()" class="btn btn-secondary btn-sm" style="flex-shrink: 0; padding: 8px 12px;" title="Copy clone URL">
+                            <i class="fas fa-copy" id="settingsCopyIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {% if is_owner_or_admin %}
+                <div style="display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border);">
+                    <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- ── RIGHT: Collaborators Panel ── -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <!-- Current Collaborators -->
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3><i class="fas fa-users" style="color: var(--accent);"></i> Collaborators</h3>
+                <p>Members with read &amp; write access to this repository.</p>
+            </div>
+            <div class="settings-card-body" style="padding: 12px 20px;">
+                {% if collaborators %}
+                    {% for collaborator in collaborators %}
+                    <div class="collab-row">
+                        <div class="collab-avatar">{{ collaborator.display_name|slice:":1"|upper }}</div>
+                        <div class="collab-info">
+                            <div class="collab-name">{{ collaborator.display_name }}</div>
+                            <div class="collab-handle">@{{ collaborator.username }}</div>
+                        </div>
+                        {% if is_owner_or_admin %}
+                        <form method="post" style="margin: 0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="remove_collaborator">
+                            <input type="hidden" name="user_id" value="{{ collaborator.pk }}">
+                            <button type="submit" class="btn btn-secondary btn-sm"
+                                    style="color: #ef4444; border-color: rgba(239,68,68,0.2); background: rgba(239,68,68,0.05); padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;"
+                                    onclick="return confirm('Remove {{ collaborator.username }} from collaborators?')">
+                                <i class="fas fa-user-minus"></i> Remove
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px;">
+                        <i class="fas fa-user-friends" style="font-size: 28px; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                        No collaborators yet.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Pending Invitations -->
+        {% if pending_invites %}
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3><i class="fas fa-envelope" style="color: #f59e0b;"></i> Pending Invitations</h3>
+                <p>These users have been invited but haven't responded yet.</p>
+            </div>
+            <div class="settings-card-body" style="padding: 12px 20px;">
+                {% for invite in pending_invites %}
+                <div class="collab-row">
+                    <div class="collab-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+                        {{ invite.invitee.display_name|slice:":1"|upper }}
+                    </div>
+                    <div class="collab-info">
+                        <div class="collab-name">{{ invite.invitee.display_name }}</div>
+                        <div class="collab-handle">@{{ invite.invitee.username }}</div>
+                    </div>
+                    <span class="pending-badge">Pending</span>
+                    {% if is_owner_or_admin %}
+                    <form method="post" style="margin: 0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cancel_invitation">
+                        <input type="hidden" name="invite_id" value="{{ invite.pk }}">
+                        <button type="submit" class="btn btn-secondary btn-sm"
+                                style="color: var(--text-muted); padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Invite New Collaborator -->
+        {% if is_owner_or_admin %}
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3><i class="fas fa-user-plus" style="color: #10b981;"></i> Invite Collaborator</h3>
+                <p>Send an invitation to a system user.</p>
+            </div>
+            <div class="settings-card-body">
+                {% if available_users %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_collaborator">
+                    <label for="collaborator_user_select" class="field-label">Select User</label>
+                    <select name="user_id" id="collaborator_user_select" required
+                            class="field-input"
+                            style="margin-bottom: 12px; cursor: pointer;">
+                        <option value="" disabled selected>Choose a user to invite…</option>
+                        {% for user in available_users %}
+                            <option value="{{ user.pk }}">{{ user.display_name }} (@{{ user.username }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-paper-plane"></i> Send Invitation
+                    </button>
+                </form>
+                {% else %}
+                <div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 13px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 24px; display: block; margin-bottom: 6px;"></i>
+                    All active users are already collaborators or have pending invitations.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div><!-- /right column -->
+</div><!-- /settings-layout -->
+
+<!-- ══════════════════════════════
+     Danger Zone — Full Width Below
+══════════════════════════════════ -->
+{% if is_owner_or_admin %}
+<div class="danger-card" style="margin-top: 24px;">
+    <div class="danger-card-header">
+        <i class="fas fa-exclamation-triangle" style="color: #ef4444; font-size: 15px;"></i>
+        <h3 style="font-size: 14px; font-weight: 700; color: #ef4444; margin: 0;">Danger Zone</h3>
+        <span style="font-size: 12px; color: var(--text-muted); margin-left: 4px;">— Irreversible actions below.</span>
+    </div>
+    <div class="danger-action-row">
+        <div>
+            <span style="display: block; font-size: 14px; font-weight: 600; color: var(--text-primary);">Delete this repository</span>
+            <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 3px;">
+                Permanently removes all files, commit history, and logs. This cannot be undone.
+            </span>
+        </div>
+        <button class="btn btn-danger" onclick="showDeleteModal()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fas fa-trash-alt"></i> Delete Repository
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- ── Delete Confirmation Modal ── -->
+<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-card); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius); padding: 28px; max-width: 480px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+        <h3 style="font-size: 18px; font-weight: 700; color: #ef4444; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-exclamation-triangle"></i> Are you absolutely sure?
+        </h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; line-height: 1.6;">
+            This action <strong style="color: var(--text-primary);">cannot be undone</strong>. This will permanently delete the
+            <strong style="color: var(--text-primary); font-family: monospace; background: var(--bg-secondary); padding: 1px 5px; border-radius: 4px;">{{ repo.name }}</strong>
+            repository, its entire commit history, all uploaded files, and all logs from the server.
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <div style="margin-bottom: 20px;">
+                <label for="confirm_name" style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                    Type <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-size: 13px;">{{ repo.name }}</code> to confirm:
+                </label>
+                <input type="text" name="confirm_name" id="confirm_name" required
+                       placeholder="Type repository name…"
+                       oninput="checkConfirmName(this.value)"
+                       style="background: var(--bg-secondary); border: 1px solid #ef444455; border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 12px; width: 100%; outline: none; font-size: 13px; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="hideDeleteModal()">Cancel</button>
+                <button type="submit" id="deleteBtn" class="btn btn-danger" disabled style="opacity: 0.4; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-trash-alt"></i> Delete permanently
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block repo_extra_js %}
+<script>
+function showDeleteModal() {
+    const m = document.getElementById('deleteModal');
+    m.style.display = 'flex';
+    document.getElementById('confirm_name').value = '';
+    const btn = document.getElementById('deleteBtn');
+    btn.disabled = true; btn.style.opacity = '0.4';
+}
+function hideDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+function checkConfirmName(value) {
+    const btn = document.getElementById('deleteBtn');
+    if (value === "{{ repo.name|escapejs }}") {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+    }
+}
+function copySettingsCloneUrl() {
+    const input = document.getElementById('settingsCloneUrl');
+    navigator.clipboard.writeText(input.value).then(() => {
+        const icon = document.getElementById('settingsCopyIcon');
+        icon.classList.replace('fa-copy', 'fa-check');
+        icon.style.color = '#10b981';
+        setTimeout(() => {
+            icon.classList.replace('fa-check', 'fa-copy');
+            icon.style.color = '';
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

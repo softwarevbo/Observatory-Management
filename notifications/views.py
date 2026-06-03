@@ -64,12 +64,44 @@ def notifications_list(request):
     if request.user.is_admin:
         user_projects = Project.objects.all()
     else:
-        user_projects = Project.objects.filter(models.Q(managers=request.user) | models.Q(members=request.user)).distinct()
-    
+        user_projects = Project.objects.filter(
+            models.Q(managers=request.user) | models.Q(members=request.user)
+        ).distinct()
+
     all_users = User.objects.exclude(id=request.user.id)
 
     paginator = Paginator(notifs, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Build a lookup of pending repo invitations for this user,
+    # keyed by repo name (lowercase) so we can match notification messages.
+    try:
+        from resource_hub.models import RepoInvitation
+        pending_invites = list(
+            RepoInvitation.objects.filter(
+                invitee=request.user, is_accepted=False
+            ).select_related('repository')
+        )
+        # Map: repo_name_lower -> invite
+        pending_by_repo_name = {inv.repository.name.lower(): inv for inv in pending_invites}
+    except Exception:
+        pending_by_repo_name = {}
+
+    for n in page_obj:
+        if n.notification_type == 'repo_invite' and pending_by_repo_name:
+            # Match invite to notification by looking for repo name in message
+            matched = None
+            msg_lower = (n.message or '').lower()
+            for repo_name_lower, inv in pending_by_repo_name.items():
+                if repo_name_lower in msg_lower:
+                    matched = inv
+                    break
+            # Fallback: take the first pending invite if message match fails
+            if matched is None:
+                matched = next(iter(pending_by_repo_name.values()))
+            n.repo_invite = matched
+        else:
+            n.repo_invite = None
 
     return render(
         request,
@@ -98,6 +130,9 @@ def notification_read(request, pk):
     notif.save()
     if notif.notification_type == 'chat_message':
         return redirect("chat:home")
+    if notif.notification_type == 'repo_invite':
+        # Redirect to Resource Hub list — pending invite banners are shown there
+        return redirect("resource_hub:repo_list")
     if notif.task:
         return redirect("tasks:task_detail", pk=notif.task.pk)
     if notif.project:

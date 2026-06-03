@@ -57,25 +57,70 @@
     <div class="card" style="padding:0; width: 100%;">
         {% for n in notifications %}
         <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);{% if not n.is_read %}background:rgba(79,142,247,0.04){% endif %}">
+            <!-- Icon -->
             <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-                background:{% if n.notification_type == 'task_assigned' %}rgba(79,142,247,0.15){% elif n.notification_type == 'task_completed' %}rgba(34,197,94,0.15){% elif n.notification_type == 'overdue' %}rgba(239,68,68,0.15){% else %}rgba(245,158,11,0.15){% endif %};
-                color:{% if n.notification_type == 'task_assigned' %}#4f8ef7{% elif n.notification_type == 'task_completed' %}#22c55e{% elif n.notification_type == 'overdue' %}#ef4444{% else %}#f59e0b{% endif %}">
-                <i class="fas {% if n.notification_type == 'task_assigned' %}fa-user-check{% elif n.notification_type == 'task_completed' %}fa-check-circle{% elif n.notification_type == 'overdue' %}fa-exclamation-triangle{% elif n.notification_type == 'comment_added' %}fa-comment{% else %}fa-bell{% endif %}"></i>
+                background:{% if n.notification_type == 'task_assigned' %}rgba(79,142,247,0.15){% elif n.notification_type == 'task_completed' %}rgba(34,197,94,0.15){% elif n.notification_type == 'overdue' %}rgba(239,68,68,0.15){% elif n.notification_type == 'repo_invite' %}rgba(16,185,129,0.15){% else %}rgba(245,158,11,0.15){% endif %};
+                color:{% if n.notification_type == 'task_assigned' %}#4f8ef7{% elif n.notification_type == 'task_completed' %}#22c55e{% elif n.notification_type == 'overdue' %}#ef4444{% elif n.notification_type == 'repo_invite' %}#10b981{% else %}#f59e0b{% endif %}">
+                <i class="fas {% if n.notification_type == 'task_assigned' %}fa-user-check{% elif n.notification_type == 'task_completed' %}fa-check-circle{% elif n.notification_type == 'overdue' %}fa-exclamation-triangle{% elif n.notification_type == 'comment_added' %}fa-comment{% elif n.notification_type == 'repo_invite' %}fa-code-branch{% else %}fa-bell{% endif %}"></i>
             </div>
-            <div style="flex:1">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+
+            <!-- Body -->
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
                     <span style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ n.title }}</span>
-                    {% if not n.is_read %}<span style="width:7px;height:7px;background:var(--accent);border-radius:50%;display:inline-block"></span>{% endif %}
+                    {% if not n.is_read %}<span style="width:7px;height:7px;background:var(--accent);border-radius:50%;display:inline-block;flex-shrink:0;"></span>{% endif %}
+                    {% if n.notification_type == 'repo_invite' %}
+                    <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.25);">Collaboration Invite</span>
+                    {% endif %}
                 </div>
-                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">{{ n.message }}</p>
-                <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-muted)">
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;line-height:1.5;">{{ n.message }}</p>
+                <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                     <span><i class="fas fa-clock"></i> {{ n.created_at|timesince }} ago</span>
-                    {% if n.sender %}<span>From: {{ n.sender.display_name }}</span>{% endif %}
+                    {% if n.sender %}<span>From: <strong>{{ n.sender.display_name }}</strong></span>{% endif %}
                 </div>
+
+                {% if n.notification_type == 'repo_invite' and n.repo_invite %}
+                <!-- Inline Accept / Decline buttons for repo collaboration invitations -->
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="{% url 'resource_hub:repo_accept_invite' n.repo_invite.pk %}"
+                       class="btn btn-sm"
+                       style="background:#10b981;border-color:#10b981;color:#fff;font-size:12px;font-weight:600;padding:5px 14px;display:inline-flex;align-items:center;gap:5px;border-radius:6px;text-decoration:none;">
+                        <i class="fas fa-check"></i> Accept Invitation
+                    </a>
+                    <a href="{% url 'resource_hub:repo_decline_invite' n.repo_invite.pk %}"
+                       class="btn btn-secondary btn-sm"
+                       style="font-size:12px;font-weight:600;padding:5px 14px;display:inline-flex;align-items:center;gap:5px;border-radius:6px;color:#ef4444;border-color:rgba(239,68,68,0.25);background:rgba(239,68,68,0.05);text-decoration:none;">
+                        <i class="fas fa-times"></i> Decline
+                    </a>
+                    <a href="{% url 'resource_hub:repo_code' n.repo_invite.repository.slug %}"
+                       class="btn btn-secondary btn-sm"
+                       style="font-size:12px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;border-radius:6px;text-decoration:none;">
+                        <i class="fas fa-eye"></i> View Repository
+                    </a>
+                </div>
+                {% elif n.notification_type == 'repo_invite' %}
+                <!-- Invite already accepted or expired -->
+                <div style="margin-top:8px;">
+                    <a href="{% url 'resource_hub:repo_list' %}" class="btn btn-secondary btn-sm" style="font-size:12px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;text-decoration:none;">
+                        <i class="fas fa-code-branch"></i> Go to Resource Hub
+                    </a>
+                </div>
+                {% endif %}
             </div>
-            <a href="{% url 'tasks:notification_read' n.pk %}" class="btn btn-secondary btn-sm">
+
+            <!-- Right: Mark Read / View for non-invite notifications -->
+            {% if n.notification_type != 'repo_invite' %}
+            <a href="{% url 'tasks:notification_read' n.pk %}" class="btn btn-secondary btn-sm" style="flex-shrink:0;white-space:nowrap;">
                 {% if n.task or n.project %}View{% else %}Mark Read{% endif %}
             </a>
+            {% else %}
+            <!-- For repo_invite: just mark as read -->
+            {% if not n.is_read %}
+            <a href="{% url 'tasks:notification_read' n.pk %}" class="btn btn-secondary btn-sm" style="flex-shrink:0;white-space:nowrap;font-size:11px;">
+                <i class="fas fa-check"></i>
+            </a>
+            {% endif %}
+            {% endif %}
         </div>
         {% endfor %}
     </div>

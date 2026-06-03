@@ -1,0 +1,147 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+.logs-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+}
+.logs-title-section {
+    margin-bottom: 20px;
+}
+.logs-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.logs-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 13px;
+}
+.logs-table th {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+.logs-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+}
+.logs-table tr:hover {
+    background: var(--bg-card-hover);
+}
+.badge-action {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.badge-push {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--green);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.badge-pull {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.badge-upload {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+.ip-text {
+    font-family: monospace;
+    color: var(--text-muted);
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+<div class="logs-card">
+    <div class="logs-title-section">
+        <h3 class="logs-title">
+            <i class="fas fa-list-alt" style="color: var(--accent);"></i>
+            <span>Repository Activity Logs</span>
+        </h3>
+        <p class="logs-subtitle">
+            This log is private and visible only to you as the creator of this repository. It records all web uploads and Git command line activity.
+        </p>
+    </div>
+
+    {% if logs %}
+        <div style="overflow-x: auto;">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Description</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                        <tr>
+                            <td style="white-space: nowrap; color: var(--text-muted);">
+                                {{ log.created_at|date:"Y-m-d H:i:s" }}
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                    <strong>{{ log.user.username }}</strong>
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-style: italic;">Anonymous</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.action == 'push' %}
+                                    <span class="badge-action badge-push">Push</span>
+                                {% elif log.action == 'web_upload' %}
+                                    <span class="badge-action badge-upload">Web Upload</span>
+                                {% else %}
+                                    <span class="badge-action badge-pull">Clone/Pull</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ log.description }}
+                            </td>
+                            <td class="ip-text">
+                                {{ log.ip_address|default:"-" }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+            <i class="fas fa-history" style="font-size: 32px; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
+            No activity has been logged on this repository yet.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

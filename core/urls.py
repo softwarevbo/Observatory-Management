@@ -21,6 +21,7 @@ urlpatterns = [
     path("inventory/procurement/", include("procurement.urls")),
     # Telescope Route
     path("telescope/", include("telescope.urls", namespace="telescope")),
+    path("resource-hub/", include("resource_hub.urls", namespace="resource_hub")),
     path("", lambda request: redirect("tasks:dashboard"), name="home"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 if settings.DEBUG:

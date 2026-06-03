@@ -1,0 +1,251 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+.guide-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.guide-section-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+}
+.guide-section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.guide-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 18px;
+}
+.guide-code-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    position: relative;
+    margin-bottom: 20px;
+}
+.guide-code-pre {
+    margin: 0;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    overflow-x: auto;
+    white-space: pre;
+}
+.btn-copy-code {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: var(--transition);
+}
+.btn-copy-code:hover {
+    color: var(--text-primary);
+    border-color: var(--border-light);
+}
+.guide-badge {
+    background: var(--accent-glow);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.step-number {
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.tip-box {
+    background: rgba(16, 185, 129, 0.08);
+    border-left: 4px solid var(--green);
+    padding: 14px 18px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+.tip-icon {
+    color: var(--green);
+    font-size: 16px;
+    margin-top: 2px;
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+<div class="guide-container">
+    <!-- Header Summary Card -->
+    <div class="guide-section-card" style="border-top: 4px solid var(--accent);">
+        <h3 class="guide-section-title">
+            <i class="fas fa-info-circle"></i> Resource Hub Integration Guide
+        </h3>
+        <p class="guide-text" style="font-size: 15px; margin-bottom: 0;">
+            The Resource Hub serves as a central self-hosted Git platform for your files, notebooks, and models. 
+            You can synchronize resources natively using your command-line Git client or manage everything through the dynamic web interface.
+        </p>
+    </div>
+
+    <!-- Web Portal Instructions -->
+    <div class="guide-section-card">
+        <h3 class="guide-section-title">
+            <i class="fas fa-globe"></i> Option A: Using the Web Upload Dashboard
+        </h3>
+        <p class="guide-text">
+            If you do not want to use command-line commands, you can manage files directly from your browser.
+        </p>
+
+        <div class="step-item">
+            <div class="step-number">1</div>
+            <div>
+                <strong style="color: var(--text-primary);">Navigate to the Upload Tab</strong>
+                <span class="guide-text" style="display: block; margin-top: 4px; margin-bottom: 0;">
+                    Click the <strong>Upload Resource</strong> tab in the navigation bar above.
+                </span>
+            </div>
+        </div>
+
+        <div class="step-item">
+            <div class="step-number">2</div>
+            <div>
+                <strong style="color: var(--text-primary);">Select Files, Folders, or Drag-and-Drop</strong>
+                <span class="guide-text" style="display: block; margin-top: 4px; margin-bottom: 0;">
+                    Drag one or multiple files/folders into the drag area, or use the <strong>Choose Files</strong> / <strong>Choose Folder</strong> buttons. 
+                    The web page preserves full nested folder path structures automatically.
+                </span>
+            </div>
+        </div>
+
+        <div class="step-item">
+            <div class="step-number">3</div>
+            <div>
+                <strong style="color: var(--text-primary);">Submit Commit & Push</strong>
+                <span class="guide-text" style="display: block; margin-top: 4px; margin-bottom: 0;">
+                    Provide a descriptive commit message, select your target branch, and click <strong>Commit & Push Web Upload</strong>. The server processes and pushes changes directly to the repository repository.
+                </span>
+            </div>
+        </div>
+
+        <div class="tip-box">
+            <i class="fas fa-lightbulb tip-icon"></i>
+            <div>
+                <strong>Pro-Tip:</strong> The drag-and-drop client automatically reads files recursively! You can drag an entire project folder, and it will keep the exact relative directory layout.
+            </div>
+        </div>
+    </div>
+
+    <!-- Command Line Instructions -->
+    <div class="guide-section-card">
+        <h3 class="guide-section-title">
+            <i class="fas fa-terminal"></i> Option B: Using Native Command Line Git
+        </h3>
+        <p class="guide-text">
+            You can interact with this repository using standard Git commands. All actions authenticate against your main platform login credentials.
+        </p>
+
+        <!-- Command 1: Clone -->
+        <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">1. Clone the repository</h4>
+        <div class="guide-code-box">
+            <button class="btn-copy-code" onclick="copySnippet('cloneCmd')">
+                <i class="fas fa-copy"></i> Copy
+            </button>
+            <pre class="guide-code-pre" id="cloneCmd">git clone {{ clone_url }}</pre>
+        </div>
+
+        <!-- Command 2: New Repo Setup -->
+        <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">2. Set up an existing local directory</h4>
+        <div class="guide-code-box">
+            <button class="btn-copy-code" onclick="copySnippet('setupCmd')">
+                <i class="fas fa-copy"></i> Copy
+            </button>
+            <pre class="guide-code-pre" id="setupCmd">git init
+git remote add origin {{ clone_url }}
+git add .
+git commit -m "Initial commit"
+git branch -M master
+git push -u origin master</pre>
+        </div>
+
+        <!-- Command 3: Push changes -->
+        <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">3. Push updates</h4>
+        <div class="guide-code-box">
+            <button class="btn-copy-code" onclick="copySnippet('pushCmd')">
+                <i class="fas fa-copy"></i> Copy
+            </button>
+            <pre class="guide-code-pre" id="pushCmd">git add .
+git commit -m "Update resources"
+git push origin master</pre>
+        </div>
+
+        <div class="tip-box" style="background: rgba(79, 142, 247, 0.08); border-left-color: var(--accent);">
+            <i class="fas fa-key tip-icon" style="color: var(--accent);"></i>
+            <div>
+                <strong>Authentication Credentials:</strong> When prompted for a username and password by your local Git command line client, enter your own system platform username and password to authenticate.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block repo_extra_js %}
+<script>
+function copySnippet(elementId) {
+    const text = document.getElementById(elementId).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`[onclick="copySnippet('${elementId}')"]`);
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.style.color = '#10b981';
+        btn.style.borderColor = '#10b981';
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.style.color = '';
+            btn.style.borderColor = '';
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

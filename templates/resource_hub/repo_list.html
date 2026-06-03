@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+
+{% block title %}Resource Hub — IIAP PM{% endblock %}
+{% block page_title %}Resource Hub{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'resource_hub:repo_create' %}" class="btn btn-primary btn-sm">
+    <i class="fas fa-plus"></i> New Repository
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Cards ── */
+.repo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+.repo-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none !important;
+    height: 100%;
+    box-sizing: border-box;
+}
+.repo-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+.repo-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--accent);
+    opacity: 0.8;
+}
+.repo-card.private::before { background: #f59e0b; }
+.repo-card.collab::before  { background: #10b981; }
+
+.repo-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+.repo-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.repo-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.badge-public  { background: rgba(79,142,247,0.1);  color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
+.badge-private { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+.badge-collab  { background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+
+.repo-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.repo-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* ── Filter bar ── */
+.filter-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.filter-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.filter-select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.filter-select:focus { border-color: var(--accent); }
+.filter-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    flex-shrink: 0;
+}
+.search-bar-wrap {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0 10px;
+    gap: 8px;
+    transition: border-color 0.15s;
+}
+.search-bar-wrap:focus-within { border-color: var(--accent); }
+.search-bar-input {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    outline: none;
+    padding: 6px 0;
+    font-size: 13px;
+    width: 100%;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Resource Hub</h1>
+        <p>Manage code repositories, assets, and documents versioned via Git.</p>
+    </div>
+</div>
+
+<!-- ── Pending Invitations ── -->
+{% if pending_invitations %}
+<div class="card" style="background: var(--bg-card); border: 1px solid #f59e0b55; border-radius: var(--radius); padding: 18px; margin-bottom: 20px;">
+    <h3 style="font-size: 13px; font-weight: 700; color: #f59e0b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-envelope-open-text"></i> Pending Collaboration Invitations
+    </h3>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+        {% for invitation in pending_invitations %}
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 10px 14px; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b, #ef4444); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;">
+                    {{ invitation.invited_by.display_name|slice:":1"|upper }}
+                </div>
+                <div>
+                    <span style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary);">
+                        {{ invitation.invited_by.display_name }} invited you to <strong>{{ invitation.repository.name }}</strong>
+                    </span>
+                    <span style="font-size: 11px; color: var(--text-muted);">
+                        {% if invitation.repository.is_private %}<i class="fas fa-lock"></i> Private{% else %}<i class="fas fa-globe"></i> Public{% endif %}
+                        repository
+                    </span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <a href="{% url 'resource_hub:repo_accept_invite' invitation.pk %}" class="btn btn-sm" style="background:#22c55e;border-color:#22c55e;color:#fff;font-size:12px;padding:5px 14px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                    <i class="fas fa-check"></i> Accept
+                </a>
+                <a href="{% url 'resource_hub:repo_decline_invite' invitation.pk %}" class="btn btn-secondary btn-sm" style="color:#ef4444;border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.05);font-size:12px;padding:5px 14px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                    <i class="fas fa-times"></i> Decline
+                </a>
+                <a href="{% url 'resource_hub:repo_code' invitation.repository.slug %}" class="btn btn-secondary btn-sm" style="font-size:12px;padding:5px 12px;display:inline-flex;align-items:center;gap:4px;">
+                    <i class="fas fa-eye"></i> Preview
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ── Filter Bar ── -->
+<form method="get" id="filterForm">
+<div class="filter-bar">
+    <!-- Search -->
+    <div class="search-bar-wrap">
+        <i class="fas fa-search" style="color: var(--text-muted); font-size: 12px; flex-shrink: 0;"></i>
+        <input type="text" name="q" class="search-bar-input"
+               placeholder="Search by name or description…"
+               value="{{ query }}">
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <!-- Visibility -->
+    <div class="filter-group">
+        <span class="filter-label">Visibility</span>
+        <select name="visibility" class="filter-select" onchange="document.getElementById('filterForm').submit()">
+            <option value="" {% if not visibility %}selected{% endif %}>All</option>
+            <option value="public"  {% if visibility == 'public'  %}selected{% endif %}>Public</option>
+            <option value="private" {% if visibility == 'private' %}selected{% endif %}>Private</option>
+        </select>
+    </div>
+
+    <!-- Role -->
+    <div class="filter-group">
+        <span class="filter-label">Role</span>
+        <select name="role" class="filter-select" onchange="document.getElementById('filterForm').submit()">
+            <option value="" {% if not role %}selected{% endif %}>All</option>
+            <option value="owner"        {% if role == 'owner'        %}selected{% endif %}>Owner</option>
+            <option value="collaborator" {% if role == 'collaborator' %}selected{% endif %}>Collaborator</option>
+        </select>
+    </div>
+
+    <!-- Sort -->
+    <div class="filter-group">
+        <span class="filter-label">Sort</span>
+        <select name="sort" class="filter-select" onchange="document.getElementById('filterForm').submit()">
+            <option value="updated" {% if sort == 'updated' %}selected{% endif %}>Last Updated</option>
+            <option value="created" {% if sort == 'created' %}selected{% endif %}>Recently Created</option>
+            <option value="name"    {% if sort == 'name'    %}selected{% endif %}>Name A–Z</option>
+        </select>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; font-size: 12px;">
+        <i class="fas fa-search"></i> Apply
+    </button>
+    {% if query or visibility or role or sort != 'updated' %}
+    <a href="{% url 'resource_hub:repo_list' %}" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: 12px;">
+        <i class="fas fa-times"></i> Clear
+    </a>
+    {% endif %}
+</div>
+</form>
+
+<!-- Result count -->
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+    <span style="font-size: 13px; color: var(--text-muted);">
+        Showing <strong style="color: var(--text-primary);">{{ total_count }}</strong> repositor{{ total_count|pluralize:"y,ies" }}
+        {% if query %} matching <em>"{{ query }}"</em>{% endif %}
+    </span>
+</div>
+
+<!-- ── Repos Grid ── -->
+{% if repos %}
+<div class="repo-grid">
+    {% for r in repos %}
+    <a href="{% url 'resource_hub:repo_code' r.slug %}" class="repo-card {% if r.is_private %}private{% endif %} {% if r.owner != request.user and request.user in r.collaborators.all %}collab{% endif %}">
+        <div class="repo-title-row">
+            <div class="repo-title">
+                <i class="fas {% if r.is_private %}fa-lock{% else %}fa-globe{% endif %}" style="opacity:0.75; flex-shrink:0;"></i>
+                <span style="overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</span>
+            </div>
+            <div style="display: flex; gap: 5px; flex-shrink: 0;">
+                <span class="repo-badge {% if r.is_private %}badge-private{% else %}badge-public{% endif %}">
+                    {% if r.is_private %}Private{% else %}Public{% endif %}
+                </span>
+                {% if request.user in r.collaborators.all %}
+                <span class="repo-badge badge-collab">Collab</span>
+                {% endif %}
+                {% if r.owner == request.user %}
+                <span class="repo-badge" style="background:rgba(79,142,247,0.1);color:var(--accent);border:1px solid rgba(79,142,247,0.2);">Owner</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="repo-desc">
+            {% if r.description %}
+                {{ r.description }}
+            {% else %}
+                <span style="font-style: italic; opacity: 0.5;">No description provided.</span>
+            {% endif %}
+        </div>
+
+        <div class="repo-meta">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-user-circle"></i>
+                <span>{{ r.owner.display_name|default:r.owner.username }}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span title="{{ r.updated_at }}"><i class="fas fa-clock" style="margin-right:3px;"></i>{{ r.updated_at|timesince }} ago</span>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="padding: 50px 20px; text-align: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);">
+    <div style="font-size: 48px; color: var(--text-muted); opacity: 0.25; margin-bottom: 16px;">
+        <i class="fas fa-cubes"></i>
+    </div>
+    <h3 style="font-size: 18px; margin-bottom: 8px; color: var(--text-primary);">No Repositories Found</h3>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px; max-width: 380px; margin-left: auto; margin-right: auto;">
+        {% if query or visibility or role %}
+            No repositories match your current filters.
+            <a href="{% url 'resource_hub:repo_list' %}" style="color: var(--accent);">Clear filters</a>
+        {% else %}
+            Create a new repository to start versioning your projects.
+        {% endif %}
+    </p>
+    {% if not query and not visibility and not role %}
+    <a href="{% url 'resource_hub:repo_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Create Repository
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

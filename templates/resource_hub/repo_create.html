@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Repository — IIAP PM{% endblock %}
+{% block page_title %}New Repository{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto; padding-top: 20px;">
+    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px;">
+        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-folder-plus" style="color: var(--accent);"></i>
+            <span>Create a New Repository</span>
+        </h2>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">
+            A repository contains all your project files, including revision history. You can push to this repository using any Git client.
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 20px;">
+                <label for="name" style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">Repository Name *</label>
+                <input type="text" name="name" id="name" required class="form-control" placeholder="e.g. telescope-firmware" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; width: 100%; outline: none; transition: var(--transition);">
+                <small style="display: block; margin-top: 6px; color: var(--text-muted); font-size: 11px;">
+                    Great repository names are short and memorable. Only alphanumeric characters, dashes, and underscores allowed.
+                </small>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label for="description" style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">Description <span style="font-weight: 400; opacity: 0.6;">(Optional)</span></label>
+                <textarea name="description" id="description" rows="3" class="form-control" placeholder="Briefly describe the purpose of this resource hub repository..." style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; width: 100%; outline: none; transition: var(--transition); resize: vertical;"></textarea>
+            </div>
+
+            <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                    <input type="radio" name="is_private_radio" id="visibility_public" checked onclick="document.getElementById('is_private').checked = false;" style="margin-top: 4px; cursor: pointer;">
+                    <label for="visibility_public" style="cursor: pointer;">
+                        <span style="display: block; font-size: 14px; font-weight: 600; color: var(--text-primary);">Public Repository</span>
+                        <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px;">Anyone logged into IIAP PM can clone, view, and read this repository.</span>
+                    </label>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
+
+                <div style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                    <input type="radio" name="is_private_radio" id="visibility_private" onclick="document.getElementById('is_private').checked = true;" style="margin-top: 4px; cursor: pointer;">
+                    <label for="visibility_private" style="cursor: pointer;">
+                        <span style="display: block; font-size: 14px; font-weight: 600; color: var(--text-primary);">Private Repository</span>
+                        <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px;">Only you (the owner) and server administrators can view or access this repository.</span>
+                    </label>
+                </div>
+                
+                <input type="checkbox" name="is_private" id="is_private" style="display: none;">
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
+                <a href="{% url 'resource_hub:repo_list' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create Repository</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

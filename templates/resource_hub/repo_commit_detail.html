@@ -1,0 +1,469 @@
+{% extends 'resource_hub/repo_detail_base.html' %}
+
+{% block repo_extra_css %}
+<style>
+/* ===== Commit Header Card ===== */
+.commit-meta-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+.commit-meta-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--accent);
+}
+.commit-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.commit-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+}
+.commit-hash-pill {
+    font-family: monospace;
+    font-size: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 20px;
+    color: var(--accent);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+.commit-hash-pill:hover {
+    border-color: var(--accent);
+    background: rgba(79,142,247,0.08);
+}
+.commit-author-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+}
+.commit-author-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+    flex-shrink: 0;
+}
+.commit-author-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.commit-stat-pills {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+/* ===== Diff Cards ===== */
+.diff-file-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+    transition: var(--transition);
+}
+.diff-file-card:hover {
+    border-color: var(--border-light);
+}
+.diff-file-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+.diff-file-header:hover {
+    background: rgba(255,255,255,0.03);
+}
+.diff-file-path {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.diff-stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+.badge-added {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.badge-deleted {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.badge-status {
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+/* ===== Diff Table ===== */
+.diff-container {
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    background: #0d1117;
+}
+.diff-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.diff-line-num-old,
+.diff-line-num-new {
+    width: 44px;
+    min-width: 44px;
+    text-align: right;
+    padding: 2px 8px;
+    color: #484f58;
+    user-select: none;
+    background: rgba(0,0,0,0.2);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px;
+    vertical-align: top;
+}
+.diff-line-symbol {
+    width: 20px;
+    min-width: 20px;
+    padding: 2px 4px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+    vertical-align: top;
+    user-select: none;
+}
+.diff-line-content {
+    padding: 2px 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    vertical-align: top;
+}
+.row-added {
+    background-color: rgba(46, 160, 67, 0.15);
+}
+.row-added .diff-line-num-old,
+.row-added .diff-line-num-new {
+    background-color: rgba(46, 160, 67, 0.2);
+}
+.row-added .diff-line-symbol {
+    color: #3fb950;
+}
+.row-added .diff-line-content {
+    color: #3fb950;
+}
+.row-deleted {
+    background-color: rgba(248, 81, 73, 0.12);
+}
+.row-deleted .diff-line-num-old,
+.row-deleted .diff-line-num-new {
+    background-color: rgba(248, 81, 73, 0.18);
+}
+.row-deleted .diff-line-symbol {
+    color: #f85149;
+}
+.row-deleted .diff-line-content {
+    color: #f85149;
+}
+.row-info {
+    background-color: rgba(56, 139, 253, 0.08);
+}
+.row-info .diff-line-content {
+    color: #58a6ff;
+}
+.row-info .diff-line-symbol {
+    color: #58a6ff;
+}
+
+/* Collapsed state */
+.diff-body.collapsed {
+    display: none;
+}
+.diff-file-header .toggle-icon {
+    transition: transform 0.2s ease;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.diff-file-card.collapsed-card .toggle-icon {
+    transform: rotate(-90deg);
+}
+</style>
+{% endblock %}
+
+{% block repo_content %}
+<!-- Commit Meta Card -->
+<div class="commit-meta-card">
+    <div class="commit-title-row">
+        <h2 class="commit-title">{{ commit.message }}</h2>
+        <button class="commit-hash-pill" onclick="copyHash('{{ commit.hash }}')" title="Click to copy full hash">
+            <i class="fas fa-fingerprint"></i>
+            <span id="hashDisplay">{{ commit.short_hash }}</span>
+        </button>
+    </div>
+
+    <div class="commit-author-row">
+        <div class="commit-author-avatar">
+            {{ commit.author|slice:":1"|upper }}
+        </div>
+        <div class="commit-author-info">
+            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">{{ commit.author }}</span>
+            <span style="font-size: 12px; color: var(--text-muted);">{{ commit.email }}</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-left: auto;">
+            <span style="font-size: 12px; color: var(--text-muted);">
+                <i class="fas fa-clock" style="margin-right: 4px;"></i>{{ commit.date }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Summary bar -->
+    <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); flex-wrap: wrap;">
+        <span style="font-size: 12px; color: var(--text-muted);">
+            <i class="fas fa-file-alt" style="margin-right: 4px;"></i>
+            <strong style="color: var(--text-primary);">{{ diff_files|length }}</strong> file{{ diff_files|length|pluralize }} changed
+        </span>
+        <span style="color: #10b981; font-size: 12px; font-weight: 600;">
+            <i class="fas fa-plus"></i>
+            {% with total=0 %}{% for f in diff_files %}{{ f.added_count|add:0 }}{% endfor %}{% endwith %}
+            additions
+        </span>
+        <span style="color: #ef4444; font-size: 12px; font-weight: 600;">
+            <i class="fas fa-minus"></i>
+            deletions
+        </span>
+
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+            <a href="{% url 'resource_hub:repo_commits' repo.slug %}" class="btn btn-secondary btn-sm" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fas fa-arrow-left"></i> Back to Commits
+            </a>
+            <a href="{% url 'resource_hub:repo_code' repo.slug %}?ref={{ commit.hash }}" class="btn btn-secondary btn-sm" style="font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fas fa-folder-open"></i> Browse Files at this Commit
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Diff Controls -->
+{% if diff_files %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+    <span style="font-size: 13px; color: var(--text-muted);">
+        Showing <strong style="color: var(--text-primary);">{{ diff_files|length }}</strong> changed file{{ diff_files|length|pluralize }}
+    </span>
+    <div style="display: flex; gap: 8px;">
+        <button onclick="expandAll()" class="btn btn-secondary btn-sm" style="font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fas fa-expand-alt"></i> Expand All
+        </button>
+        <button onclick="collapseAll()" class="btn btn-secondary btn-sm" style="font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fas fa-compress-alt"></i> Collapse All
+        </button>
+    </div>
+</div>
+
+<!-- Files Changed List (TOC) -->
+<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 20px;">
+    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">Changed Files</div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        {% for file in diff_files %}
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0;">
+            {% if file.status == 'created' %}
+            <i class="fas fa-plus-circle" style="color: #10b981; width: 14px; flex-shrink: 0;"></i>
+            {% elif file.status == 'deleted' %}
+            <i class="fas fa-minus-circle" style="color: #ef4444; width: 14px; flex-shrink: 0;"></i>
+            {% elif file.status == 'renamed' %}
+            <i class="fas fa-arrow-right" style="color: #f59e0b; width: 14px; flex-shrink: 0;"></i>
+            {% else %}
+            <i class="fas fa-pen" style="color: var(--accent); width: 14px; flex-shrink: 0;"></i>
+            {% endif %}
+            <a href="#diff-{{ forloop.counter }}" style="font-family: monospace; color: var(--accent); text-decoration: none; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {% if file.status == 'renamed' %}{{ file.old_path }} → {{ file.new_path }}
+                {% elif file.status == 'deleted' %}{{ file.old_path }}
+                {% else %}{{ file.new_path }}{% endif %}
+            </a>
+            <div style="margin-left: auto; display: flex; gap: 5px; flex-shrink: 0;">
+                {% if file.added_count > 0 %}<span class="diff-stat-badge badge-added">+{{ file.added_count }}</span>{% endif %}
+                {% if file.deleted_count > 0 %}<span class="diff-stat-badge badge-deleted">-{{ file.deleted_count }}</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Diffs -->
+{% for file in diff_files %}
+<div id="diff-{{ forloop.counter }}" class="diff-file-card" data-index="{{ forloop.counter }}">
+    <div class="diff-file-header" onclick="toggleDiff({{ forloop.counter }})">
+        <div class="diff-file-path">
+            {% if file.status == 'created' %}
+            <i class="fas fa-plus-circle" style="color: #10b981;"></i>
+            {% elif file.status == 'deleted' %}
+            <i class="fas fa-minus-circle" style="color: #ef4444;"></i>
+            {% elif file.status == 'renamed' %}
+            <i class="fas fa-arrow-right" style="color: #f59e0b;"></i>
+            {% else %}
+            <i class="fas fa-pen" style="color: var(--accent);"></i>
+            {% endif %}
+
+            <span>
+                {% if file.status == 'deleted' %}
+                    {{ file.old_path }} <span style="font-weight: 400; opacity: 0.6; font-style: italic;">(deleted)</span>
+                {% elif file.status == 'created' %}
+                    {{ file.new_path }} <span style="font-weight: 400; opacity: 0.6; font-style: italic;">(new file)</span>
+                {% elif file.status == 'renamed' %}
+                    {{ file.old_path }} → {{ file.new_path }} <span style="font-weight: 400; opacity: 0.6; font-style: italic;">(renamed)</span>
+                {% else %}
+                    {{ file.new_path }}
+                {% endif %}
+            </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+            {% if file.added_count > 0 %}<span class="diff-stat-badge badge-added">+{{ file.added_count }}</span>{% endif %}
+            {% if file.deleted_count > 0 %}<span class="diff-stat-badge badge-deleted">-{{ file.deleted_count }}</span>{% endif %}
+            {% if file.status == 'created' %}<span class="diff-stat-badge badge-status">New</span>
+            {% elif file.status == 'deleted' %}<span class="diff-stat-badge badge-status">Deleted</span>
+            {% elif file.status == 'renamed' %}<span class="diff-stat-badge badge-status">Renamed</span>{% endif %}
+            {% if file.status != 'deleted' %}
+            <a href="{% url 'resource_hub:repo_file_view' repo.slug commit.hash file.new_path %}" onclick="event.stopPropagation();" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; border-radius: 4px;">
+                <i class="fas fa-eye"></i> View File
+            </a>
+            {% endif %}
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+    </div>
+
+    <div class="diff-body" id="diff-body-{{ forloop.counter }}">
+        <div class="diff-container">
+            {% if file.is_binary %}
+                <div style="padding: 30px; text-align: center; color: var(--text-muted); background: var(--bg-secondary);">
+                    <i class="fas fa-file" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
+                    <span>Binary file — diff not shown.</span>
+                    {% if file.is_image and file.status != 'deleted' %}
+                        <div style="margin-top: 16px;">
+                            <img src="{% url 'resource_hub:repo_raw_view' repo.slug commit.hash file.new_path %}" alt="{{ file.new_path }}" style="max-width: 100%; max-height: 400px; border: 1px solid var(--border); border-radius: var(--radius); display: block; margin: 0 auto; background: #fff; padding: 4px;" />
+                        </div>
+                    {% endif %}
+                    {% if file.status != 'deleted' %}
+                    <div style="margin-top: 16px;">
+                        <a href="{% url 'resource_hub:repo_raw_view' repo.slug commit.hash file.new_path %}" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">
+                            <i class="fas fa-download"></i> Download File
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <table class="diff-table">
+                    <tbody>
+                        {% for line in file.lines %}
+                            <tr class="{% if line.type == 'added' %}row-added{% elif line.type == 'deleted' %}row-deleted{% elif line.type == 'info' %}row-info{% endif %}">
+                                <td class="diff-line-num-old">{% if line.type != 'added' and line.type != 'info' %}{{ forloop.counter }}{% endif %}</td>
+                                <td class="diff-line-num-new">{% if line.type != 'deleted' and line.type != 'info' %}{{ forloop.counter }}{% endif %}</td>
+                                <td class="diff-line-symbol">
+                                    {% if line.type == 'added' %}+{% elif line.type == 'deleted' %}-{% elif line.type == 'info' %}@@{% endif %}
+                                </td>
+                                <td class="diff-line-content">{{ line.text }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="commit-meta-card" style="padding: 40px; text-align: center;">
+    <i class="fas fa-check-circle" style="font-size: 40px; color: #10b981; margin-bottom: 12px; display: block;"></i>
+    <p style="color: var(--text-muted); font-size: 15px; margin: 0;">No file changes were recorded in this commit (e.g. empty commit or merge).</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block repo_extra_js %}
+<script>
+function copyHash(fullHash) {
+    navigator.clipboard.writeText(fullHash).then(() => {
+        const el = document.getElementById('hashDisplay');
+        const orig = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = orig; }, 2000);
+    });
+}
+
+function toggleDiff(index) {
+    const card = document.getElementById('diff-' + index);
+    const body = document.getElementById('diff-body-' + index);
+    card.classList.toggle('collapsed-card');
+    body.classList.toggle('collapsed');
+}
+
+function expandAll() {
+    document.querySelectorAll('.diff-body').forEach(el => el.classList.remove('collapsed'));
+    document.querySelectorAll('.diff-file-card').forEach(el => el.classList.remove('collapsed-card'));
+}
+
+function collapseAll() {
+    document.querySelectorAll('.diff-body').forEach(el => el.classList.add('collapsed'));
+    document.querySelectorAll('.diff-file-card').forEach(el => el.classList.add('collapsed-card'));
+}
+</script>
+{% endblock %}
