@@ -414,56 +414,6 @@
                         </div>
                     </div>
 
-                    <!-- TELESCOPE & OBSERVATORY PREFERENCES -->
-                    <div class="settings-card">
-                        <div class="settings-card-header">
-                            <i class="fas fa-binoculars"></i>
-                            <div class="settings-card-title">Observatory & Hardware Controls</div>
-                        </div>
-                        <div class="settings-form-row">
-                            <div class="form-group">
-                                <label>Default Target Telescope</label>
-                                <select name="default_telescope" id="id_default_telescope" class="form-control" onchange="saveLocalPreference('default_telescope', this.value)">
-                                    <option value="vbt">Vainu Bappu Telescope (VBT)</option>
-                                    <option value="jcbt">Kavalur 2.3m (JCBT)</option>
-                                    <option value="zeiss">Zeiss 1m Telescope</option>
-                                    <option value="cassegrain">Cassegrain 75cm</option>
-                                    <option value="schmidt">Schmidt Telescope</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Dome Auto-Close Timeout</label>
-                                <select name="dome_timeout" id="id_dome_timeout" class="form-control" onchange="saveLocalPreference('dome_timeout', this.value)">
-                                    <option value="10">10 Minutes</option>
-                                    <option value="20">20 Minutes</option>
-                                    <option value="30">30 Minutes</option>
-                                    <option value="never">Never Auto-Close</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="settings-form-row">
-                            <div class="form-group">
-                                <label>FITS File Default Compression</label>
-                                <select name="fits_compression" id="id_fits_compression" class="form-control" onchange="saveLocalPreference('fits_compression', this.value)">
-                                    <option value="rice">Rice Compression</option>
-                                    <option value="gzip">GZIP Compression</option>
-                                    <option value="none">None (Raw FITS)</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="switch-group">
-                            <div class="switch-label">
-                                <div class="switch-title">Exposure Completion Sound Cues</div>
-                                <div class="switch-desc">Play audio alerts when a hardware image acquisition exposure finishes.</div>
-                            </div>
-                            <label class="switch-control">
-                                <input type="checkbox" id="id_audio_cues" onchange="saveLocalPreference('audio_cues', this.checked)">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <i class="fas fa-desktop"></i>
@@ -1128,22 +1078,6 @@ function getLocalPreference(key, defaultValue) {
 }
 
 function initLocalPreferences() {
-    // 1. Target Telescope
-    const telescope = getLocalPreference('default_telescope', 'vbt');
-    document.getElementById('id_default_telescope').value = telescope;
-    
-    // 2. Dome timeout
-    const timeout = getLocalPreference('dome_timeout', '20');
-    document.getElementById('id_dome_timeout').value = timeout;
-    
-    // 3. FITS compression
-    const compression = getLocalPreference('fits_compression', 'rice');
-    document.getElementById('id_fits_compression').value = compression;
-    
-    // 4. Audio alerts
-    const audio = getLocalPreference('audio_cues', false);
-    document.getElementById('id_audio_cues').checked = audio;
-    
     // 5. Sidebar layout
     const compact = getLocalPreference('compact_sidebar', false);
     document.getElementById('id_compact_sidebar').checked = compact;

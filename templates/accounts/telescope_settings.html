@@ -1,0 +1,395 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Telescope Console Settings — VBO{% endblock %}
+{% block tele_title %}Console Settings{% endblock %}
+
+{% block tele_css %}
+<style>
+  .settings-wrapper {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 24px;
+    padding: 0 10px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .settings-wrapper {
+      grid-template-columns: 1fr;
+    }
+  }
+  .settings-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    transition: var(--transition);
+  }
+  .settings-card:hover {
+    border-color: var(--border-light);
+  }
+  .card-section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-section-title i {
+    color: var(--accent);
+  }
+  .form-label-custom {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-control-custom {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    width: 100%;
+    outline: none;
+    transition: var(--transition);
+  }
+  .form-control-custom:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  
+  /* Toggle Switch UI */
+  .switch-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    transition: var(--transition);
+  }
+  .switch-group:hover {
+    border-color: var(--border-light);
+  }
+  .switch-label {
+    flex: 1;
+    padding-right: 16px;
+  }
+  .switch-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .switch-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .switch-control {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+  }
+  .switch-control input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-light);
+    transition: 0.2s ease;
+    border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #ffffff;
+    transition: 0.2s ease;
+    border-radius: 50%;
+  }
+  .switch-control input:checked + .slider {
+    background-color: var(--accent);
+  }
+  .switch-control input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+</style>
+{% endblock %}
+
+{% block tele_content %}
+<div class="container-fluid" style="max-width: 1200px; padding: 0;">
+  {% if messages %}
+  <div style="margin-bottom: 24px;">
+    {% for message in messages %}
+    <div style="padding: 12px 20px; border-radius: 8px; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;
+      {% if message.tags == 'error' %}background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,.3);
+      {% else %}background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,.3);{% endif %}">
+      <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+      <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="settings-wrapper">
+    <!-- LEFT PANEL: OPERATOR DATA & ACCOUNT ACCESS -->
+    <div>
+      <form method="post" enctype="multipart/form-data" action="">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_profile">
+
+        <div class="settings-card">
+          <div class="card-section-title">
+            <i class="fas fa-user-cog"></i>
+            <span>Operator Profile Configuration</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px;">
+            <div id="avatar-preview" style="width: 70px; height: 70px; border-radius: 16px; background: {{ profile_user.avatar_color|default:'#a855f7' }}; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: bold; color: white; overflow: hidden; flex-shrink: 0; box-shadow: var(--shadow);">
+              {% if profile_user.profile_picture %}
+                <img src="{{ profile_user.profile_picture.url }}" style="width: 100%; height: 100%; object-fit: cover;">
+              {% else %}
+                {{ profile_user.initials }}
+              {% endif %}
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 15px; color: var(--text-primary);">{{ profile_user.display_name }}</div>
+              <div style="color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">@{{ profile_user.username }}</div>
+              
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('avatar-input').click()" style="padding: 4px 10px; font-size: 11px;">
+                  <i class="fas fa-camera"></i> Change Picture
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('color-input').click()" style="padding: 4px 10px; font-size: 11px;">
+                  <i class="fas fa-palette"></i> Accent Color
+                </button>
+                <input type="file" name="profile_picture" id="avatar-input" style="display:none;" accept="image/*" onchange="previewAvatar(this)">
+                <input type="color" name="avatar_color" id="color-input" style="display:none;" value="{{ profile_user.avatar_color|default:'#a855f7' }}" onchange="updateAvatarColor(this.value)">
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="first_name" class="form-label-custom">First Name</label>
+              <input type="text" class="form-control-custom" id="first_name" name="first_name" value="{{ profile_user.first_name }}">
+            </div>
+            <div class="col-md-6">
+              <label for="last_name" class="form-label-custom">Last Name</label>
+              <input type="text" class="form-control-custom" id="last_name" name="last_name" value="{{ profile_user.last_name }}">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="nickname" class="form-label-custom">Nickname / Callsign</label>
+              <input type="text" class="form-control-custom" id="nickname" name="nickname" value="{{ profile_user.nickname|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label for="designation" class="form-label-custom">Designation</label>
+              <input type="text" class="form-control-custom" id="designation" name="designation" value="{{ profile_user.designation|default:'' }}">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="phone" class="form-label-custom">Phone Contact</label>
+            <input type="text" class="form-control-custom" id="phone" name="phone" value="{{ profile_user.phone|default:'' }}">
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="card-section-title">
+            <i class="fas fa-lock"></i>
+            <span>Console Access Passcode</span>
+          </div>
+          
+          <div class="mb-3">
+            <label for="new_password" class="form-label-custom">New Passcode</label>
+            <input type="password" class="form-control-custom" id="new_password" name="new_password" placeholder="Leave blank to retain current passcode">
+          </div>
+          
+          <div class="mt-4 d-flex justify-content-end">
+            <button type="submit" class="btn btn-primary px-4 py-2" style="border-radius: 8px; font-weight: 600;">Save Profile Changes</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT PANEL: OBSERVATORY & HARDWARE PREFERENCES (LOCALSTORAGE BACKED) -->
+    <div>
+      <div class="settings-card">
+        <div class="card-section-title">
+          <i class="fas fa-satellite-dish"></i>
+          <span>Observatory & Hardware Controls</span>
+        </div>
+
+        <div class="mb-3">
+          <label for="id_default_telescope" class="form-label-custom">Default Target Telescope</label>
+          <select id="id_default_telescope" class="form-control-custom" onchange="saveLocalPreference('default_telescope', this.value)">
+            <option value="vbt">Vainu Bappu Telescope (VBT)</option>
+            <option value="jcbt">Kavalur 2.3m (JCBT)</option>
+            <option value="zeiss">Zeiss 1m Telescope</option>
+            <option value="cassegrain">Cassegrain 75cm</option>
+            <option value="schmidt">Schmidt Telescope</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="id_dome_timeout" class="form-label-custom">Dome Auto-Close Timeout</label>
+          <select id="id_dome_timeout" class="form-control-custom" onchange="saveLocalPreference('dome_timeout', this.value)">
+            <option value="10">10 Minutes</option>
+            <option value="20">20 Minutes</option>
+            <option value="30">30 Minutes</option>
+            <option value="never">Never Auto-Close</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="id_fits_compression" class="form-label-custom">FITS File Default Compression</label>
+          <select id="id_fits_compression" class="form-control-custom" onchange="saveLocalPreference('fits_compression', this.value)">
+            <option value="rice">Rice Compression</option>
+            <option value="gzip">GZIP Compression</option>
+            <option value="none">None (Raw FITS)</option>
+          </select>
+        </div>
+
+        <div class="switch-group mt-4">
+          <div class="switch-label">
+            <div class="switch-title">Exposure Completion Sound Cues</div>
+            <div class="switch-desc">Play audio alerts when a hardware image acquisition exposure finishes.</div>
+          </div>
+          <label class="switch-control">
+            <input type="checkbox" id="id_audio_cues" onchange="saveLocalPreference('audio_cues', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="card-section-title">
+          <i class="fas fa-sliders-h"></i>
+          <span>Theme & Interface Settings</span>
+        </div>
+
+        <div class="switch-group">
+          <div class="switch-label">
+            <div class="switch-title">Night Mode Theme</div>
+            <div class="switch-desc">Force Night Vision Theme layout for telescope operators in dome environment.</div>
+          </div>
+          <label class="switch-control">
+            <input type="checkbox" id="id_night_theme" onchange="toggleNightTheme(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="switch-group">
+          <div class="switch-label">
+            <div class="switch-title">Keyboard Shortcuts</div>
+            <div class="switch-desc">Show quick navigation helpers across telemetry interfaces.</div>
+          </div>
+          <label class="switch-control">
+            <input type="checkbox" id="id_keyboard_shortcuts" onchange="saveLocalPreference('keyboard_shortcuts', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block tele_js %}
+<script>
+const LOCAL_PREF_PREFIX = 'iiap_om_pref_';
+
+function saveLocalPreference(key, value) {
+    localStorage.setItem(LOCAL_PREF_PREFIX + key, value);
+}
+
+function getLocalPreference(key, defaultValue) {
+    const val = localStorage.getItem(LOCAL_PREF_PREFIX + key);
+    if (val === null) return defaultValue;
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    return val;
+}
+
+function initLocalPreferences() {
+    // 1. Target Telescope
+    const telescope = getLocalPreference('default_telescope', 'vbt');
+    document.getElementById('id_default_telescope').value = telescope;
+    
+    // 2. Dome timeout
+    const timeout = getLocalPreference('dome_timeout', '20');
+    document.getElementById('id_dome_timeout').value = timeout;
+    
+    // 3. FITS compression
+    const compression = getLocalPreference('fits_compression', 'rice');
+    document.getElementById('id_fits_compression').value = compression;
+    
+    // 4. Audio alerts
+    const audio = getLocalPreference('audio_cues', false);
+    document.getElementById('id_audio_cues').checked = audio;
+
+    // 5. Night Theme
+    const nightTheme = getLocalPreference('night_theme', false);
+    document.getElementById('id_night_theme').checked = nightTheme;
+
+    // 6. Keyboard shortcuts
+    const shortcuts = getLocalPreference('keyboard_shortcuts', true);
+    document.getElementById('id_keyboard_shortcuts').checked = shortcuts;
+}
+
+function toggleNightTheme(enabled) {
+    saveLocalPreference('night_theme', enabled);
+    if (enabled) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.setAttribute('data-bs-theme', 'light');
+    }
+}
+
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('avatar-preview');
+            preview.innerHTML = `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function updateAvatarColor(color) {
+    const preview = document.getElementById('avatar-preview');
+    // Update background color if img is not present
+    if (!preview.querySelector('img')) {
+        preview.style.backgroundColor = color;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initLocalPreferences);
+</script>
+{% endblock %}

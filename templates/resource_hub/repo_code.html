@@ -557,17 +557,57 @@ function toggleDropdown(event, dropdownId) {
 function copyCloneUrl(event) {
     event.stopPropagation();
     const input = document.getElementById('cloneUrlInput');
+    if (!input) return;
     input.select();
     input.setSelectionRange(0, 99999); // For mobile
     
-    try {
-        navigator.clipboard.writeText(input.value);
-        alert('Clone URL copied to clipboard!');
-    } catch(err) {
-        // Fallback
-        document.execCommand('copy');
-        alert('Clone URL copied to clipboard!');
+    const command = 'git clone ' + input.value;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(command).then(() => {
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-check';
+                icon.style.color = '#10b981';
+                setTimeout(() => {
+                    icon.className = 'fas fa-copy';
+                    icon.style.color = '';
+                }, 2000);
+            }
+        }).catch(() => {
+            fallbackCopyText(command, event.currentTarget);
+        });
+    } else {
+        fallbackCopyText(command, event.currentTarget);
     }
+}
+
+function fallbackCopyText(text, btn) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.position = 'fixed';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful && btn) {
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-check';
+                icon.style.color = '#10b981';
+                setTimeout(() => {
+                    icon.className = 'fas fa-copy';
+                    icon.style.color = '';
+                }, 2000);
+            }
+        }
+    } catch (err) {
+        console.error('Fallback copy failed', err);
+    }
+    document.body.removeChild(textarea);
 }
 
 // Close all dropdowns when clicking outside
@@ -771,16 +811,43 @@ function showRaw() {
     document.getElementById('btnRendered').style.color = 'var(--text-muted)';
 }
 function copyReadme() {
-    navigator.clipboard.writeText(rawReadme).then(() => {
-        const icon = document.getElementById('readmeCopyIcon');
-        if (!icon) return;
-        icon.classList.replace('fa-copy', 'fa-check');
-        icon.style.color = '#10b981';
-        setTimeout(() => {
-            icon.classList.replace('fa-check', 'fa-copy');
-            icon.style.color = '';
-        }, 2000);
-    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(rawReadme).then(() => {
+            const icon = document.getElementById('readmeCopyIcon');
+            if (!icon) return;
+            icon.classList.replace('fa-copy', 'fa-check');
+            icon.style.color = '#10b981';
+            setTimeout(() => {
+                icon.classList.replace('fa-check', 'fa-copy');
+                icon.style.color = '';
+            }, 2000);
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = rawReadme;
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                const icon = document.getElementById('readmeCopyIcon');
+                if (icon) {
+                    icon.classList.replace('fa-copy', 'fa-check');
+                    icon.style.color = '#10b981';
+                    setTimeout(() => {
+                        icon.classList.replace('fa-check', 'fa-copy');
+                        icon.style.color = '';
+                    }, 2000);
+                }
+            }
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textarea);
+    }
 }
 </script>
 {% endblock %}

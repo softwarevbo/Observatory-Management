@@ -38,8 +38,6 @@ def file_list(request):
     saved_view = request.session.get("file_view_preference", "tree")
     resource_view = request.GET.get("resource_view")
     if resource_view:
-        if resource_view == "grid":
-            resource_view = "repository"
         request.session["file_view_preference"] = resource_view
     else:
         resource_view = saved_view
@@ -51,6 +49,21 @@ def file_list(request):
         request.GET.get("module", ""),
         request.GET.get("repo_cat_id"),
     )
+
+    # Sort support
+    sort = request.GET.get("sort", "name_asc")
+    SORT_MAP = {
+        "name_asc":      "original_name",
+        "name_desc":     "-original_name",
+        "size_desc":     "-file_size",
+        "size_asc":      "file_size",
+        "modified_desc": "-updated_at",
+        "modified_asc":  "updated_at",
+        "created_desc":  "-created_at",
+        "created_asc":   "created_at",
+        "type_asc":      "file_type",
+    }
+    sort_field = SORT_MAP.get(sort, "original_name")
     current_repo_cat = (
         get_object_or_404(FileCategory, pk=repo_cat_id, is_in_trash=False) if repo_cat_id else None
     )
@@ -60,13 +73,6 @@ def file_list(request):
         [],
         [],
     )
-    if current_project and not current_repo_cat:
-        root_categories = current_project.file_categories.filter(parent=None, is_in_trash=False).order_by(
-            "name"
-        )
-        uncategorized_files = current_project.files.filter(category=None, is_in_trash=False).order_by(
-            "original_name"
-        )
     q_filter = (
         Q(uploaded_by=user)
         | Q(project__managers=user)
@@ -76,7 +82,7 @@ def file_list(request):
         | Q(task__module__members__user=user)
         | Q(access_rights__user=user, access_rights__can_view=True)
     )
-    files = ProjectFile.objects.filter(q_filter, versions__isnull=True, is_in_trash=False).distinct()
+    files = ProjectFile.objects.filter(q_filter, versions__isnull=True, is_in_trash=False).distinct().order_by(sort_field)
     if search:
         files = files.filter(
             Q(original_name__icontains=search)
@@ -123,30 +129,157 @@ def file_list(request):
     uncategorized_files_qs = ProjectFile.objects.none()
     latest_files_qs = ProjectFile.objects.none()
 
+    # ── Base trash-safe personal-files queryset (used by both tree & repo views) ──
+    personal_files_base = ProjectFile.objects.filter(
+        q_filter, project__isnull=True, versions__isnull=True, is_in_trash=False
+    ).distinct().order_by(sort_field)
+
+    # Recent last-5 modified files — always sorted by modified date regardless of sort param
+    recent_files_qs = ProjectFile.objects.filter(q_filter, versions__isnull=True, is_in_trash=False)
+    if proj_filter:
+        recent_files_qs = recent_files_qs.filter(project_id=proj_filter)
+    recent_files = recent_files_qs.select_related('project', 'uploaded_by', 'category').order_by('-updated_at')[:5]
+
     if resource_view == "repository":
         if current_repo_cat:
+            # latest_files property already filters is_in_trash=False
             latest_files_qs = current_repo_cat.latest_files
+            if sort_field != "original_name":
+                latest_files_qs = latest_files_qs.order_by(sort_field)
             page_obj = Paginator(latest_files_qs, 20).get_page(page_num)
         elif current_project:
-            uncategorized_files_qs = current_project.files.filter(category=None, is_in_trash=False).order_by("original_name")
+            uncategorized_files_qs = current_project.files.filter(
+                category=None, versions__isnull=True, is_in_trash=False
+            ).order_by(sort_field)
             page_obj = Paginator(uncategorized_files_qs, 20).get_page(page_num)
         else:
-            files_no_project_qs = ProjectFile.objects.filter(q_filter, project__isnull=True).distinct().order_by("original_name")
+            # Root repo view: personal files only — must exclude trash
+            files_no_project_qs = personal_files_base
             page_obj = Paginator(files_no_project_qs, 20).get_page(page_num)
+    elif resource_view == "grid":
+        # Grid/flat view: paginate the main files list
+        page_obj = Paginator(files, 20).get_page(page_num)
+    else:
+        # Tree view: personal files section also needs trash filtering
+        files_no_project_qs = personal_files_base
 
     projects_qs = (
         Project.objects.filter(Q(managers=user) | Q(members=user))
         .distinct()
         .prefetch_related(
+            'files',
             'file_categories',
             'file_categories__children',
-            'file_categories__children__children',  # 3 levels deep
+            'file_categories__children__children',
             'managers',
             'members',
         )
     )
     if proj_filter:
         projects_qs = projects_qs.filter(pk=proj_filter)
+
+    # ── Sort hierarchy of categories & files for Windows/Ubuntu style view ──
+    project_ids = list(projects_qs.values_list('pk', flat=True))
+
+    CAT_SORT_MAP = {
+        "name_asc":      "name",
+        "name_desc":     "-name",
+        "size_desc":     "name",
+        "size_asc":      "name",
+        "modified_desc": "-created_at",
+        "modified_asc":  "created_at",
+        "created_desc":  "-created_at",
+        "created_asc":   "created_at",
+        "type_asc":      "name",
+    }
+    cat_sort_field = CAT_SORT_MAP.get(sort, "name")
+
+    all_files_for_tree = ProjectFile.objects.filter(
+        project_id__in=project_ids,
+        versions__isnull=True,
+        is_in_trash=False
+    ).distinct().order_by(sort_field)
+
+    all_categories_for_tree = FileCategory.objects.filter(
+        project_id__in=project_ids,
+        is_in_trash=False
+    ).distinct().order_by(cat_sort_field)
+
+    # Calculate category sizes recursively
+    cat_parents = {cat.pk: cat.parent_id for cat in all_categories_for_tree}
+    category_sizes = {cat.pk: 0 for cat in all_categories_for_tree}
+    for f in all_files_for_tree:
+        if f.category_id:
+            curr = f.category_id
+            while curr in category_sizes:
+                category_sizes[curr] += f.file_size
+                curr = cat_parents.get(curr)
+
+    # Sort categories by size if requested
+    if sort in ["size_desc", "size_asc"]:
+        sorted_cats = sorted(
+            all_categories_for_tree,
+            key=lambda c: category_sizes.get(c.pk, 0),
+            reverse=(sort == "size_desc")
+        )
+    else:
+        sorted_cats = list(all_categories_for_tree)
+
+    # Group categories and files by parent/project
+    project_root_cats = {pid: [] for pid in project_ids}
+    project_root_files = {pid: [] for pid in project_ids}
+    cat_children = {cat.pk: [] for cat in all_categories_for_tree}
+    cat_files = {cat.pk: [] for cat in all_categories_for_tree}
+
+    for cat in sorted_cats:
+        size_in_bytes = category_sizes.get(cat.pk, 0)
+        if size_in_bytes < 1024:
+            cat.temp_size_display = f"{size_in_bytes} B"
+        elif size_in_bytes < 1024**2:
+            cat.temp_size_display = f"{size_in_bytes / 1024:.1f} KB"
+        else:
+            cat.temp_size_display = f"{size_in_bytes / 1024**2:.1f} MB"
+
+        if cat.parent_id:
+            if cat.parent_id in cat_children:
+                cat_children[cat.parent_id].append(cat)
+        else:
+            if cat.project_id in project_root_cats:
+                project_root_cats[cat.project_id].append(cat)
+
+    for f in all_files_for_tree:
+        if f.category_id:
+            if f.category_id in cat_files:
+                cat_files[f.category_id].append(f)
+        else:
+            if f.project_id in project_root_files:
+                project_root_files[f.project_id].append(f)
+
+    # Assign dynamically sorted lists as attributes
+    for cat in all_categories_for_tree:
+        cat.temp_children = cat_children[cat.pk]
+        cat.temp_files = cat_files[cat.pk]
+
+    for p in projects_qs:
+        p.temp_categories = project_root_cats.get(p.pk, [])
+        p.temp_files = project_root_files.get(p.pk, [])
+
+    # Populate current project repository lists
+    if current_project and not current_repo_cat:
+        root_categories = project_root_cats.get(current_project.pk, [])
+        uncategorized_files = project_root_files.get(current_project.pk, [])
+
+    # Populate current subfolder repository lists
+    if current_repo_cat:
+        match = next((c for c in all_categories_for_tree if c.pk == current_repo_cat.pk), None)
+        if match:
+            current_repo_cat.temp_children = match.temp_children
+            current_repo_cat.temp_files = match.temp_files
+            current_repo_cat.temp_size_display = match.temp_size_display
+        else:
+            current_repo_cat.temp_children = []
+            current_repo_cat.temp_files = []
+            current_repo_cat.temp_size_display = "0 B"
 
     return render(
         request,
@@ -155,18 +288,34 @@ def file_list(request):
             "files": page_obj,
             "page_obj": page_obj,
             "projects": projects_qs,
-            "files_no_project": page_obj.object_list if not current_project and not current_repo_cat and resource_view == "repository" else files_no_project_qs,
+            # Repository root personal files come from paginator; tree view gets the base qs
+            "files_no_project": (
+                page_obj.object_list
+                if (not current_project and not current_repo_cat and resource_view == "repository")
+                else files_no_project_qs
+            ),
             "stats": stats,
             "type_choices": ProjectFile.FILE_TYPE_CHOICES,
             "search": search,
             "type_filter": type_filter,
             "proj_filter": proj_filter,
+            "module_filter": module_filter,
             "resource_view": resource_view,
+            "sort": sort,
             "current_repo_cat": current_repo_cat,
             "current_project": current_project,
             "root_categories": root_categories,
-            "uncategorized_files": page_obj.object_list if current_project and not current_repo_cat and resource_view == "repository" else uncategorized_files_qs,
-            "latest_files": page_obj.object_list if current_repo_cat and resource_view == "repository" else latest_files_qs,
+            "uncategorized_files": (
+                page_obj.object_list
+                if (current_project and not current_repo_cat and resource_view == "repository")
+                else uncategorized_files_qs
+            ),
+            "latest_files": (
+                page_obj.object_list
+                if (current_repo_cat and resource_view == "repository")
+                else latest_files_qs
+            ),
+            "recent_files": recent_files,
         },
     )
 

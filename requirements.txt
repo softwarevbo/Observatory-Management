@@ -1,7 +1,7 @@
 Django
 channels
 daphne
-google-generativeai
+
 Pillow
 xlrd
 openpyxl
@@ -9,9 +9,7 @@ djangorestframework
 xhtml2pdf
 fpdf
 caldav
-google-api-python-client
-google-auth-oauthlib
-google-auth-httplib2
+
 radicale
 XlsxWriter
 black

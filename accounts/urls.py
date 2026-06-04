@@ -39,4 +39,10 @@ urlpatterns = [
     path("profile/", views.profile_view, name="profile"),
     path("change-password/", views.change_password, name="change_password"),
     path("settings/", views.settings_view, name="settings"),
+    # Inventory Profile & Settings
+    path("inventory/profile/", views.inventory_profile_view, name="inventory_profile"),
+    path("inventory/settings/", views.inventory_settings_view, name="inventory_settings"),
+    # Telescope Profile & Settings
+    path("telescope/profile/", views.telescope_profile_view, name="telescope_profile"),
+    path("telescope/settings/", views.telescope_settings_view, name="telescope_settings"),
 ]

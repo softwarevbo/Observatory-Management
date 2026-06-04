@@ -120,6 +120,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
+# Ensure static directory exists to prevent W004 warning
+(BASE_DIR / "static").mkdir(exist_ok=True)
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
@@ -142,3 +144,22 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 DATA_UPLOAD_MAX_NUMBER_FILES = None
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10GB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10GB
+
+# Dynamic CSRF Trusted Origins for local network and development
+import socket
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://192.168.100.175:8000",
+    "http://192.168.100.175",
+]
+try:
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    CSRF_TRUSTED_ORIGINS.extend([
+        f"http://{local_ip}:8000",
+        f"http://{local_ip}",
+    ])
+except Exception:
+    pass
+

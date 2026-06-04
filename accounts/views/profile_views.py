@@ -167,3 +167,97 @@ def settings_view(request):
             )[0],
         },
     )
+
+
+@login_required
+def inventory_profile_view(request):
+    from inventory.models import InventoryAdjustment, Rental
+    u = request.user
+    stats = {
+        "adjustments_count": InventoryAdjustment.objects.filter(created_by=u).count(),
+        "rentals_count": Rental.objects.filter(created_by=u).count(),
+    }
+    return render(
+        request,
+        "accounts/inventory_profile.html",
+        {
+            "profile_user": u,
+            "stats": stats,
+        }
+    )
+
+
+@login_required
+def inventory_settings_view(request):
+    u = request.user
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "update_profile":
+            u.email = request.POST.get("email", u.email)
+            new_pw = request.POST.get("new_password")
+            if new_pw:
+                u.set_password(new_pw)
+                update_session_auth_hash(request, u)
+            u.save()
+            messages.success(request, "Inventory profile updated successfully.")
+            return redirect("accounts:inventory_settings")
+    return render(
+        request,
+        "accounts/inventory_settings.html",
+        {
+            "profile_user": u,
+        }
+    )
+
+
+@login_required
+def telescope_profile_view(request):
+    from telescope.models import Telescope
+    u = request.user
+    is_tele_admin = u.is_superuser or getattr(u, 'is_telescope_admin', False)
+    telescopes = Telescope.objects.all()
+    return render(
+        request,
+        "accounts/telescope_profile.html",
+        {
+            "profile_user": u,
+            "is_tele_admin": is_tele_admin,
+            "telescopes": telescopes,
+        }
+    )
+
+
+@login_required
+def telescope_settings_view(request):
+    u = request.user
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "update_profile":
+            u.first_name = request.POST.get("first_name", u.first_name)
+            u.last_name = request.POST.get("last_name", u.last_name)
+            u.nickname = request.POST.get("nickname", u.nickname)
+            u.designation = request.POST.get("designation", u.designation)
+            u.phone = request.POST.get("phone", u.phone)
+            if "profile_picture" in request.FILES:
+                u.profile_picture = request.FILES["profile_picture"]
+            if "avatar_color" in request.POST:
+                u.avatar_color = request.POST.get("avatar_color")
+            new_pw = request.POST.get("new_password")
+            if new_pw:
+                u.set_password(new_pw)
+                update_session_auth_hash(request, u)
+            u.save()
+            messages.success(request, "Telescope control profile updated successfully.")
+            return redirect("accounts:telescope_settings")
+        elif action == "update_preferences":
+            u.theme_preference = request.POST.get("theme_preference", u.theme_preference)
+            u.save()
+            messages.success(request, "Preferences updated successfully.")
+            return redirect("accounts:telescope_settings")
+    return render(
+        request,
+        "accounts/telescope_settings.html",
+        {
+            "profile_user": u,
+        }
+    )

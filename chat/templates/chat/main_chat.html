@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block body_class %}chat-mode{% endblock %}
 {% block title %}Chat | Observatory Management System{% endblock %}
 
 {% block extra_css %}
@@ -298,6 +299,143 @@ body, .sidebar, .sidebar *, .btn-logout {
   gap: 6px;
 }
 #chtSendDropBtn:hover { background: #4f46e5; }
+
+/* ── Bubble Wrapper Relative Container ── */
+.cht-bw {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* ── Floating Actions Toolbar (Permanently Visible) ── */
+.cht-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 2px !important;
+  opacity: 1 !important;
+  pointer-events: all !important;
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 100 !important;
+  visibility: visible !important;
+  background: var(--c-surface) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: 24px !important;
+  padding: 3px 6px !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16) !important;
+}
+
+.me .cht-actions {
+  right: 100% !important;
+  margin-right: 12px !important;
+  left: auto !important;
+}
+
+.them .cht-actions {
+  left: 100% !important;
+  margin-left: 12px !important;
+  right: auto !important;
+}
+
+/* Rounded, flat buttons inside floating bar */
+.cht-act-btn {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--c-muted) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  padding: 0 !important;
+}
+
+.cht-act-btn:hover {
+  background-color: var(--c-accent-ghost) !important;
+  color: var(--c-accent) !important;
+  transform: none !important;
+}
+
+.cht-act-btn.del:hover {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  color: var(--c-danger) !important;
+}
+
+/* ── Modal & Pop Up Premium Styling ── */
+.modal-content {
+  background: var(--c-surface) !important;
+  color: var(--c-text) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25) !important;
+}
+.modal-header {
+  border-bottom: 1px solid var(--c-border) !important;
+  background: var(--c-bg) !important;
+  padding: 16px 20px !important;
+}
+.modal-body {
+  background: var(--c-surface) !important;
+  padding: 20px !important;
+}
+.cht-modal-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 14px !important;
+  margin-bottom: 8px !important;
+  border-radius: 12px !important;
+  background: var(--c-bg) !important;
+  border: 1px solid var(--c-border) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+.cht-modal-item:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-sm) !important;
+  border-color: var(--c-accent) !important;
+}
+
+/* Clean centered modals with no dark or white background overlays */
+.modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  z-index: 99999 !important;
+}
+.modal.show {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.modal-backdrop {
+  display: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  opacity: 0 !important;
+}
+.modal-dialog {
+  margin: auto !important;
+  max-width: 380px !important;
+  width: 90% !important;
+  display: block !important;
+}
+.modal-content {
+  border-radius: 20px !important;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25) !important;
+  background: var(--c-surface) !important;
+  border: 1px solid var(--c-border) !important;
+}
 </style>
 {% endblock %}
 
@@ -1227,25 +1365,35 @@ const Chat = (() => {
           if (diff < 10) canEdit = true;
       }
 
-      html += '<div class="cht-actions">';
-      html += '<button type="button" class="cht-act-btn" title="Reply" onclick="event.preventDefault(); event.stopPropagation(); Chat.startReply(\'' + mid + '\',\'' + ss + '\',\'' + st.substring(0,60) + '\')"><i class="fas fa-reply"></i></button>';
-      html += '<button type="button" class="cht-act-btn" title="Forward" onclick="event.preventDefault(); event.stopPropagation(); Chat.openForwardModal(\'' + mid + '\')"><i class="fas fa-share"></i></button>';
-      html += '<button type="button" class="cht-act-btn cht-react-trigger" title="React">';
-      html += '<i class="far fa-smile"></i>';
-      html += '<div class="cht-react-picker">';
-      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'👍\')">👍</span>';
-      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'❤️\')">❤️</span>';
-      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😂\')">😂</span>';
-      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😮\')">😮</span>';
-      html += '<span onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😢\')">😢</span>';
-      html += '</div>';
-      html += '</button>';
-      html += '<button type="button" class="cht-act-btn" title="Pin Message" onclick="event.preventDefault(); event.stopPropagation(); Chat.pinMessage(\'' + mid + '\',\'' + st.substring(0,100).replace(/'/g, "\\'") + '\')"><i class="fas fa-thumbtack"></i></button>';
+      html += '<div class="cht-actions dropdown">';
+      html += '<button type="button" class="cht-act-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Actions"><i class="fas fa-ellipsis-v"></i></button>';
+      html += '<ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:13px; min-width:140px; border-radius:12px; background:var(--c-surface); border:1px solid var(--c-border); z-index: 1050; padding: 4px 0;">';
+      
+      // Reply
+      html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.startReply(\'' + mid + '\',\'' + ss + '\',\'' + st.substring(0,60) + '\')"><i class="fas fa-reply me-2 text-primary"></i>Reply</a></li>';
+      
+      // Forward
+      html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.openForwardModal(\'' + mid + '\')"><i class="fas fa-share me-2 text-info"></i>Forward</a></li>';
+      
+      // Pin
+      html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.pinMessage(\'' + mid + '\',\'' + st.substring(0,100).replace(/'/g, "\\'") + '\')"><i class="fas fa-thumbtack me-2 text-warning"></i>Pin</a></li>';
+      
+      // React Quick Bar
+      html += '<li><hr class="dropdown-divider"></li>';
+      html += '<li class="px-2 py-1 d-flex gap-2" style="font-size:16px; justify-content: space-around;">';
+      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'👍\')">👍</span>';
+      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'❤️\')">❤️</span>';
+      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😂\')">😂</span>';
+      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😮\')">😮</span>';
+      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😢\')">😢</span>';
+      html += '</li>';
       
       if (canEdit) {
-        html += '<button type="button" class="cht-act-btn" title="Edit"   onclick="event.preventDefault(); event.stopPropagation(); Chat.startEdit(\'' + mid + '\',\'' + st + '\')"><i class="fas fa-pen"></i></button>';
-        html += '<button type="button" class="cht-act-btn del" title="Delete" onclick="event.preventDefault(); event.stopPropagation(); Chat.delMsg(\'' + mid + '\')"><i class="fas fa-trash"></i></button>';
+        html += '<li><hr class="dropdown-divider"></li>';
+        html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.startEdit(\'' + mid + '\',\'' + st + '\')"><i class="fas fa-pen me-2 text-muted"></i>Edit</a></li>';
+        html += '<li><a class="dropdown-item py-2 text-danger" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.delMsg(\'' + mid + '\')"><i class="fas fa-trash me-2"></i>Delete</a></li>';
       }
+      html += '</ul>';
       html += '</div>';
     }
 
@@ -1286,19 +1434,46 @@ const Chat = (() => {
       '<path d="M5.5 8.5L8.5 5.5L14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
       '</svg>';
     var timeStr = 'now';
+    var fullTooltip = '';
     if (d.raw_timestamp) {
       try {
         var msgDate = new Date(d.raw_timestamp);
-        var hours = String(msgDate.getHours()).padStart(2, '0');
-        var minutes = String(msgDate.getMinutes()).padStart(2, '0');
-        timeStr = hours + ':' + minutes;
+        if (!isNaN(msgDate.getTime())) {
+          fullTooltip = msgDate.toLocaleString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          var now = new Date();
+          var hours = msgDate.getHours();
+          var minutes = String(msgDate.getMinutes()).padStart(2, '0');
+          var ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          var timePart = hours + ':' + minutes + ' ' + ampm;
+          
+          if (msgDate.toDateString() === now.toDateString()) {
+            timeStr = timePart;
+          } else {
+            var yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            if (msgDate.toDateString() === yesterday.toDateString()) {
+              timeStr = 'Yesterday, ' + timePart;
+            } else {
+              var options = { month: 'short', day: 'numeric' };
+              if (msgDate.getFullYear() !== now.getFullYear()) {
+                options.year = 'numeric';
+              }
+              var datePart = msgDate.toLocaleDateString(undefined, options);
+              timeStr = datePart + ', ' + timePart;
+            }
+          }
+        } else {
+          timeStr = d.timestamp || 'now';
+        }
       } catch(e) {
         timeStr = d.timestamp || 'now';
       }
     } else {
       timeStr = d.timestamp || 'now';
     }
-    html += '<div class="cht-meta">' + (d.is_edited ? '<span class="cht-edited">edited \u00b7</span>' : '') + '<span>' + timeStr + '</span>' + (isMe ? ticksSvg : '') + '</div>';
+    html += '<div class="cht-meta">' + (d.is_edited ? '<span class="cht-edited">edited \u00b7</span>' : '') + '<span title="' + h(fullTooltip) + '">' + timeStr + '</span>' + (isMe ? ticksSvg : '') + '</div>';
     html += '</div></div></div>';
 
     row.innerHTML = html;
@@ -1692,34 +1867,31 @@ const Chat = (() => {
     
     currentParticipants.forEach(p => {
       const item = document.createElement('div');
-      item.className = 'd-flex align-items-center gap-3 py-3 border-bottom';
-      item.style.borderColor = 'var(--c-border)';
-      item.style.transition = 'all .2s';
-      item.style.cursor = 'default';
+      item.className = 'cht-modal-item';
       
       const avatarUrl = p.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.username)}&background=random&size=100&bold=true`;
       
       item.innerHTML = `
-        <div class="position-relative">
-          <img src="${avatarUrl}" class="cg-user-av" style="width:44px; height:44px; object-fit:cover; border-radius:12px; border:2px solid var(--c-border);">
-          <span class="presence-dot ${p.is_online ? 'online' : ''}" data-user-id="${p.id}" style="position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; border:2.5px solid var(--c-surface);"></span>
-        </div>
-        <div class="flex-grow-1 min-w-0">
-          <div class="d-flex align-items-center justify-content-between">
-            <span style="font-size:15px; font-weight:600; color:var(--c-text);">
-              ${h(p.username)}
-              ${p.username === created_by ? '<span class="badge bg-primary ms-1" style="font-size:10px; font-weight:500;">Group Admin</span>' : ''}
-              ${p.username === ME ? '<span class="text-muted fw-normal ms-1" style="font-size:12px;">(You)</span>' : ''}
-            </span>
-            ${p.username !== ME ? `<button class="btn btn-sm btn-secondary py-1 px-2" style="font-size:11px;" onclick="bootstrap.Modal.getInstance(document.getElementById('membersModal')).hide(); Chat.open('DM-${p.id}', '${p.username}', 'direct')">Message</button>` : ''}
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <div class="position-relative flex-shrink-0">
+            <img src="${avatarUrl}" class="cg-user-av" style="width:40px; height:40px; object-fit:cover; border-radius:12px; border:2px solid var(--c-border);">
+            <span class="presence-dot ${p.is_online ? 'online' : ''}" data-user-id="${p.id}" style="position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; border:2.5px solid var(--c-surface);"></span>
           </div>
-          <div style="font-size:12px; color:var(--c-muted);">${p.is_online ? 'Online' : 'offline'}</div>
+          <div class="min-w-0">
+            <div style="font-size:14px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+              ${h(p.username)}
+              ${p.username === created_by ? '<span class="badge bg-primary ms-1" style="font-size:9px; font-weight:500;">Admin</span>' : ''}
+              ${p.username === ME ? '<span class="text-muted fw-normal ms-1" style="font-size:11px;">(You)</span>' : ''}
+            </div>
+            <div style="font-size:11px; color:var(--c-muted); margin-top:2px;">${p.is_online ? 'Online' : 'Offline'}</div>
+          </div>
+        </div>
+        <div>
+          ${p.username !== ME ? `<button class="btn btn-sm btn-secondary py-1 px-2" style="font-size:11px;" onclick="bootstrap.Modal.getInstance(document.getElementById('membersModal')).hide(); Chat.open('DM-${p.id}', '${p.username}', 'direct')">Message</button>` : ''}
         </div>
       `;
       list.appendChild(item);
     });
-    // Remove last border
-    if (list.lastElementChild) list.lastElementChild.style.borderBottom = 'none';
     
     const modal = new bootstrap.Modal(document.getElementById('membersModal'));
     modal.show();
@@ -1765,34 +1937,28 @@ const Chat = (() => {
     
     groups.forEach(g => {
       const item = document.createElement('div');
-      item.className = 'd-flex align-items-center justify-content-between p-2 rounded';
-      item.style.background = 'var(--c-bg-card)';
-      item.style.border = '1px solid var(--c-border)';
-      item.style.marginBottom = '6px';
+      item.className = 'cht-modal-item';
       
       item.innerHTML = `
-        <div class="d-flex align-items-center gap-2 min-w-0">
-          <img src="${g.avatar_url}" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
-          <span style="font-size:13px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(g.name)}</span>
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <img src="${g.avatar_url}" style="width:40px; height:40px; border-radius:12px; object-fit:cover; border:2px solid var(--c-border); flex-shrink:0;">
+          <span style="font-size:14px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(g.name)}</span>
         </div>
-        <button class="btn btn-sm btn-primary" onclick="Chat.forwardTo('${g.room_id}', this)">Send</button>
+        <button class="btn btn-sm btn-primary py-1 px-3" onclick="Chat.forwardTo('${g.room_id}', this)">Send</button>
       `;
       list.appendChild(item);
     });
 
     peoples.forEach(p => {
       const item = document.createElement('div');
-      item.className = 'd-flex align-items-center justify-content-between p-2 rounded';
-      item.style.background = 'var(--c-bg-card)';
-      item.style.border = '1px solid var(--c-border)';
-      item.style.marginBottom = '6px';
+      item.className = 'cht-modal-item';
       
       item.innerHTML = `
-        <div class="d-flex align-items-center gap-2 min-w-0">
-          <img src="${p.avatar_url}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
-          <span style="font-size:13px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(p.display_name)}</span>
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <img src="${p.avatar_url}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid var(--c-border); flex-shrink:0;">
+          <span style="font-size:14px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(p.display_name)}</span>
         </div>
-        <button class="btn btn-sm btn-primary" onclick="Chat.forwardTo('${p.room_id}', this)">Send</button>
+        <button class="btn btn-sm btn-primary py-1 px-3" onclick="Chat.forwardTo('${p.room_id}', this)">Send</button>
       `;
       list.appendChild(item);
     });

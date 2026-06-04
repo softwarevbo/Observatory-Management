@@ -1392,7 +1392,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body>
+<body class="{% block body_class %}{% endblock %}">
     <!-- SIDEBAR -->
     {% block sidebar %}{% endblock %}
 

@@ -132,13 +132,13 @@ def get_messages(request, room_id):
             try:
                 other_user = User.objects.get(id=participant_id)
                 room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
-                room, created = ChatRoom.objects.get_or_create(
-                    name=room_name,
-                    defaults={'room_type': 'direct'}
-                )
-                if created or not room.participants.filter(id=request.user.id).exists():
+                # Use filter+first to survive duplicate rows in DB
+                room = ChatRoom.objects.filter(name=room_name).order_by('pk').first()
+                if not room:
+                    room = ChatRoom.objects.create(name=room_name, room_type='direct')
+                if not room.participants.filter(id=request.user.id).exists():
                     room.participants.add(request.user)
-                if created or not room.participants.filter(id=other_user.id).exists():
+                if not room.participants.filter(id=other_user.id).exists():
                     room.participants.add(other_user)
             except User.DoesNotExist:
                 pass
@@ -217,14 +217,17 @@ def upload_chat_file(request):
             # Handle DM room_id format
             actual_room_id = room_id
             if str(room_id).startswith('DM-'):
-                # For DMs, find or create the room
-                participants_ids = room_id.split('-')[1:]
-                users = User.objects.filter(id__in=participants_ids)
-                # Find room with exactly these participants
-                room = ChatRoom.objects.filter(room_type='direct', participants__in=users).annotate(p_count=models.Count('participants')).filter(p_count=len(users)).first()
+                # For DMs, find or create the room using standardized name lookup
+                participant_id = room_id.split('-')[1]
+                other_user = User.objects.get(id=participant_id)
+                room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
+                room = ChatRoom.objects.filter(name=room_name).order_by('pk').first()
                 if not room:
-                    room = ChatRoom.objects.create(room_type='direct')
-                    room.participants.set(users)
+                    room = ChatRoom.objects.create(name=room_name, room_type='direct')
+                if not room.participants.filter(id=request.user.id).exists():
+                    room.participants.add(request.user)
+                if not room.participants.filter(id=other_user.id).exists():
+                    room.participants.add(other_user)
                 actual_room_id = room.room_id
             
             room = ChatRoom.objects.get(room_id=actual_room_id)
@@ -478,10 +481,10 @@ def forward_message(request):
             if target_room_id.startswith('DM-'):
                 participant_id = target_room_id.split('-')[1]
                 room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
-                room, _ = ChatRoom.objects.get_or_create(
-                    name=room_name,
-                    defaults={'room_type': 'direct'}
-                )
+                # Use filter+first to survive duplicate rows in DB
+                room = ChatRoom.objects.filter(name=room_name).order_by('pk').first()
+                if not room:
+                    room = ChatRoom.objects.create(name=room_name, room_type='direct')
                 room.participants.add(request.user)
                 try:
                     other_user = User.objects.get(id=participant_id)

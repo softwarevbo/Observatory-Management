@@ -25,12 +25,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if self.room_name.startswith('DM-'):
                 participant_id = self.room_name.split('-')[1]
                 normalized_name = f"DM-{min(str(self.user.id), str(participant_id))}-{max(str(self.user.id), str(participant_id))}"
-                
-                # Get or create the room
-                self.room, _ = await database_sync_to_async(ChatRoom.objects.get_or_create)(
-                    name=normalized_name,
-                    defaults={'room_type': 'direct'}
-                )
+
+                # Use filter+first to survive duplicate rows, then get_or_create by name
+                existing = await database_sync_to_async(
+                    ChatRoom.objects.filter(name=normalized_name).order_by('pk').first
+                )()
+                if existing:
+                    self.room = existing
+                else:
+                    self.room, _ = await database_sync_to_async(
+                        ChatRoom.objects.get_or_create
+                    )(name=normalized_name, defaults={'room_type': 'direct'})
+
                 # Ensure current user is in participants
                 await database_sync_to_async(self.room.participants.add)(self.user)
                 # Ensure other user is in participants
@@ -46,7 +52,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     print(f"[ChatConsumer] Room not found: {self.room_name} - {e}")
                     await self.close()
                     return
-            
+
             # Consistently resolve the group name
             self.room_group_name = await self.get_room_group_name_async(self.room)
         except Exception as e:
@@ -85,21 +91,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
-        
-        # Update presence
-        await self.update_user_presence(False)
-        
-        # Notify others
-        await self.channel_layer.group_send("presence", {
-            "type": "presence_change",
-            "user_id": self.user.id,
-            "status": "offline"
-        })
+        # Guard: if connect() failed before setting room_group_name, skip room ops
+        if hasattr(self, 'room_group_name'):
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
+
+        # Guard: only update presence if user is authenticated
+        if hasattr(self, 'user') and self.user.is_authenticated:
+            await self.update_user_presence(False)
+            await self.channel_layer.group_send("presence", {
+                "type": "presence_change",
+                "user_id": self.user.id,
+                "status": "offline"
+            })
         await self.channel_layer.group_discard("presence", self.channel_name)
 
     async def receive(self, text_data):
@@ -439,3 +445,11 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'unread_count': event['unread_count'],
             'notification': event['notification']
         }))
+
+
+class DummyConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        # Gracefully accept and close to avoid server-side errors on scanner probes/accidental roots
+        await self.accept()
+        await self.close(code=4000)
+

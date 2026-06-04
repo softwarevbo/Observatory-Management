@@ -1944,19 +1944,46 @@
       html += `<div class="qc-msg-text">${escapeHTML(msg.content || msg.message || '')}</div>`;
     }
     let timeStr = 'now';
+    let fullTooltip = '';
     if (msg.raw_timestamp) {
       try {
         const msgDate = new Date(msg.raw_timestamp);
-        const hours = String(msgDate.getHours()).padStart(2, '0');
-        const minutes = String(msgDate.getMinutes()).padStart(2, '0');
-        timeStr = hours + ':' + minutes;
+        if (!isNaN(msgDate.getTime())) {
+          fullTooltip = msgDate.toLocaleString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const now = new Date();
+          let hours = msgDate.getHours();
+          const minutes = String(msgDate.getMinutes()).padStart(2, '0');
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const timePart = `${hours}:${minutes} ${ampm}`;
+          
+          if (msgDate.toDateString() === now.toDateString()) {
+            timeStr = timePart;
+          } else {
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            if (msgDate.toDateString() === yesterday.toDateString()) {
+              timeStr = `Yesterday, ${timePart}`;
+            } else {
+              const options = { month: 'short', day: 'numeric' };
+              if (msgDate.getFullYear() !== now.getFullYear()) {
+                options.year = 'numeric';
+              }
+              const datePart = msgDate.toLocaleDateString(undefined, options);
+              timeStr = `${datePart}, ${timePart}`;
+            }
+          }
+        } else {
+          timeStr = msg.timestamp || 'now';
+        }
       } catch(e) {
         timeStr = msg.timestamp || 'now';
       }
     } else {
       timeStr = msg.timestamp || 'now';
     }
-    html += `<div class="qc-msg-meta">${timeStr}</div>`;
+    html += `<div class="qc-msg-meta" title="${escapeHTML(fullTooltip)}">${timeStr}</div>`;
     html += `</div>`; // Close qc-msg-bubble
     
     // Group and render reactions

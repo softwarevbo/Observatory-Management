@@ -441,12 +441,36 @@
 {% block repo_extra_js %}
 <script>
 function copyHash(fullHash) {
-    navigator.clipboard.writeText(fullHash).then(() => {
-        const el = document.getElementById('hashDisplay');
-        const orig = el.textContent;
-        el.textContent = 'Copied!';
-        setTimeout(() => { el.textContent = orig; }, 2000);
-    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fullHash).then(() => {
+            showHashCopiedState();
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = fullHash;
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showHashCopiedState();
+            }
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textarea);
+    }
+}
+
+function showHashCopiedState() {
+    const el = document.getElementById('hashDisplay');
+    if (!el) return;
+    const orig = el.textContent;
+    el.textContent = 'Copied!';
+    setTimeout(() => { el.textContent = orig; }, 2000);
 }
 
 function toggleDiff(index) {

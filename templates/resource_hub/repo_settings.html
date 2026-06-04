@@ -458,15 +458,40 @@ function checkConfirmName(value) {
 }
 function copySettingsCloneUrl() {
     const input = document.getElementById('settingsCloneUrl');
-    navigator.clipboard.writeText(input.value).then(() => {
-        const icon = document.getElementById('settingsCopyIcon');
-        icon.classList.replace('fa-copy', 'fa-check');
-        icon.style.color = '#10b981';
-        setTimeout(() => {
-            icon.classList.replace('fa-check', 'fa-copy');
-            icon.style.color = '';
-        }, 2000);
-    });
+    if (!input) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            showSettingsCopiedState();
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = input.value;
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showSettingsCopiedState();
+            }
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textarea);
+    }
+}
+
+function showSettingsCopiedState() {
+    const icon = document.getElementById('settingsCopyIcon');
+    if (!icon) return;
+    icon.classList.replace('fa-copy', 'fa-check');
+    icon.style.color = '#10b981';
+    setTimeout(() => {
+        icon.classList.replace('fa-check', 'fa-copy');
+        icon.style.color = '';
+    }, 2000);
 }
 </script>
 {% endblock %}

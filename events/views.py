@@ -6,7 +6,6 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.conf import settings
-from google_auth_oauthlib.flow import Flow
 
 from tasks.models import Project, Task, AuditLog
 from tasks.decorators import admin_required
@@ -185,62 +184,21 @@ def event_delete(request, pk):
     )
 
 
-# ─── GOOGLE CALENDAR OAUTH ───────────────────────────────────────────────────
-
-CLIENT_SECRETS_FILE = os.path.join(settings.BASE_DIR, "client_secret.json")
-SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
-
+# ─── GOOGLE CALENDAR OAUTH (DISABLED) ────────────────────────────────────────
 
 @login_required
 @admin_required
 def google_calendar_init(request):
-    """Start Google OAuth flow."""
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=request.build_absolute_uri(
-            reverse("tasks:google_calendar_callback")
-        ),
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type="offline", include_granted_scopes="true"
-    )
-    request.session["google_oauth_state"] = state
-    return redirect(authorization_url)
+    """Google Calendar Sync is disabled."""
+    messages.error(request, "Google Calendar integration is disabled.")
+    return redirect("accounts:settings")
 
 
 @login_required
 @admin_required
 def google_calendar_callback(request):
-    """Handle Google OAuth callback."""
-    state = request.session.get("google_oauth_state")
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        state=state,
-        redirect_uri=request.build_absolute_uri(
-            reverse("tasks:google_calendar_callback")
-        ),
-    )
-
-    flow.fetch_token(
-        authorization_response=request.build_absolute_uri(request.get_full_path())
-    )
-    credentials = flow.credentials
-
-    user_settings, _ = UserCalendarSettings.objects.get_or_create(user=request.user)
-    user_settings.google_oauth_token = {
-        "token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
-        "scopes": credentials.scopes,
-    }
-    user_settings.is_google_synced = True
-    user_settings.save()
-
-    messages.success(request, "Google Calendar connected successfully!")
+    """Google Calendar Sync is disabled."""
+    messages.error(request, "Google Calendar integration is disabled.")
     return redirect("accounts:settings")
 
 

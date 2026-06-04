@@ -2,6 +2,21 @@
 
 {% block title %}VBO Telescope Control Console{% endblock %}
 
+{% block extra_head %}
+<script>
+  (function() {
+    const nightTheme = localStorage.getItem('iiap_om_pref_night_theme');
+    if (nightTheme === 'true') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.setAttribute('data-bs-theme', 'dark');
+    } else if (nightTheme === 'false') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+    }
+  })();
+</script>
+{% endblock %}
+
 {% block extra_css %}
 <style>
 :root {
@@ -21,7 +36,7 @@
   --space-text-muted: var(--text-muted);
 }
 
-body[data-theme] {
+body {
   background: var(--bg-primary) !important;
   color: var(--text-primary) !important;
 }
@@ -128,8 +143,8 @@ body[data-theme] {
       </div>
       <i class="fas fa-chevron-up" style="font-size:10px;color:var(--text-muted)"></i>
       <div class="user-dropdown" id="userMenu">
-        <a href="{% url 'accounts:profile' %}"><i class="fas fa-user"></i> My Profile</a>
-        <a href="{% url 'accounts:settings' %}"><i class="fas fa-cog"></i> Settings</a>
+        <a href="{% url 'accounts:telescope_profile' %}"><i class="fas fa-user"></i> My Profile</a>
+        <a href="{% url 'accounts:telescope_settings' %}"><i class="fas fa-cog"></i> Settings</a>
         <a href="{% url 'accounts:logout' %}" class="danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
       </div>
     </div>
@@ -217,4 +232,8 @@ function updateSiderealTime() {
 updateSiderealTime();
 setInterval(updateSiderealTime, 1000);
 </script>
+{% endblock %}
+
+{% block extra_js %}
+{% block tele_js %}{% endblock %}
 {% endblock %}

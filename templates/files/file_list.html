@@ -11,22 +11,124 @@
 {% endblock %}
 {% block extra_css %}
 <style>
-.file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; }
+/* ── File grid (grid view) ── */
+.file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
 .file-card {
     background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
-    padding:16px; cursor:pointer; transition:var(--transition); text-decoration:none; display:block;
+    padding:14px; cursor:pointer; transition:var(--transition); text-decoration:none; display:block;
 }
 .file-card:hover { border-color:var(--border-light); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.3); }
 .file-icon-wrap {
-    width:52px; height:52px; border-radius:10px; display:flex; align-items:center;
-    justify-content:center; font-size:22px; margin-bottom:12px;
+    width:48px; height:48px; border-radius:10px; display:flex; align-items:center;
+    justify-content:center; font-size:20px; margin-bottom:10px;
 }
-.file-name { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-name { font-size:12px; font-weight:600; color:var(--text-primary); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .file-meta { font-size:11px; color:var(--text-muted); }
 .view-toggle { display:flex; gap:4px; }
 .view-btn { padding:6px 10px; border-radius:var(--radius-sm); cursor:pointer; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); transition:var(--transition); }
 .view-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
 
+/* ── Two-column layout ── */
+.files-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 1024px) {
+    .files-layout { grid-template-columns: 1fr; }
+    .files-sidebar { order: -1; }
+}
+
+/* ── Recent Changes sidebar card ── */
+.recent-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    position: sticky;
+    top: 80px;
+}
+.recent-card-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.recent-card-header h4 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+}
+.recent-file-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.recent-file-item:last-child { border-bottom: none; }
+.recent-file-item:hover { background: rgba(79,142,247,0.06); }
+.recent-file-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.recent-file-info { flex: 1; min-width: 0; }
+.recent-file-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    margin-bottom: 3px;
+}
+.recent-file-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.recent-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+.recent-card-footer {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    text-align: center;
+}
+.recent-card-footer a {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    transition: opacity 0.15s;
+}
+.recent-card-footer a:hover { opacity: 0.8; }
 </style>
 {% endblock %}
 {% block content %}
@@ -36,6 +138,9 @@
         <p>{{ stats.total }} files · {{ stats.total_size_display }} total</p>
     </div>
 </div>
+
+<div class="files-layout">
+<div class="files-main">
 
 <!-- Stats Section -->
 <div class="grid-4" style="margin-bottom:24px; gap: 16px;">
@@ -95,12 +200,25 @@
             {% for m in modules %}<option value="{{ m.pk }}"{% if module_filter == m.pk|stringformat:"s" %} selected{% endif %}>{{ m.name }} ({{ m.project.name }})</option>{% endfor %}
         </select>
         {% endif %}
+        <select name="sort" class="filter-select" onchange="this.form.submit()" title="Sort by">
+            <option value="name_asc"  {% if sort == 'name_asc'  or not sort %}selected{% endif %}>&#x1F504; Name A→Z</option>
+            <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>&#x1F504; Name Z→A</option>
+            <option value="size_desc" {% if sort == 'size_desc' %}selected{% endif %}>&#x1F4CF; Size (Largest)</option>
+            <option value="size_asc"  {% if sort == 'size_asc'  %}selected{% endif %}>&#x1F4CF; Size (Smallest)</option>
+            <option value="modified_desc" {% if sort == 'modified_desc' %}selected{% endif %}>&#x1F550; Modified (Newest)</option>
+            <option value="modified_asc"  {% if sort == 'modified_asc'  %}selected{% endif %}>&#x1F550; Modified (Oldest)</option>
+            <option value="created_desc"  {% if sort == 'created_desc'  %}selected{% endif %}>&#x1F4C5; Created (Newest)</option>
+            <option value="created_asc"   {% if sort == 'created_asc'   %}selected{% endif %}>&#x1F4C5; Created (Oldest)</option>
+            <option value="type_asc"  {% if sort == 'type_asc'  %}selected{% endif %}>&#x1F3F7; File Type</option>
+        </select>
         {% if search or type_filter or proj_filter or module_filter %}<a href="{% url 'files:file_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-times"></i> Clear</a>{% endif %}
+        
+        <div class="view-toggle" style="margin-left:auto; display:flex; gap:4px;">
+            <button type="button" class="view-btn {% if resource_view == 'tree' %}active{% endif %}" id="treeViewBtn" onclick="setView('tree')" title="Tree Explorer"><i class="fas fa-folder-tree"></i></button>
+            <button type="button" class="view-btn {% if resource_view == 'repository' or not resource_view %}active{% endif %}" id="repoViewBtn" onclick="setView('repository')" title="Repository View"><i class="fas fa-folder-open"></i></button>
+            <button type="button" class="view-btn {% if resource_view == 'grid' %}active{% endif %}" id="gridViewBtn" onclick="setView('grid')" title="Grid/List View"><i class="fas fa-th-large"></i></button>
+        </div>
     </form>
-    <div class="view-toggle">
-        <button class="view-btn {% if resource_view == 'tree' %}active{% endif %}" id="treeViewBtn" onclick="setView('tree')" title="Tree View"><i class="fas fa-folder-tree"></i></button>
-        <button class="view-btn {% if resource_view == 'repository' or not resource_view %}active{% endif %}" id="repoViewBtn" onclick="setView('repository')" title="Repository View"><i class="fas fa-folder-open"></i></button>
-    </div>
 </div>
 
 <!-- TREE VIEW -->
@@ -122,10 +240,9 @@
             </div>
             <div class="vscode-tree">
                 {% for project in projects|dictsort:"name" %}
-                {% if not proj_filter or proj_filter == project.pk|stringformat:'s' %}
-                <div class="tree-item folder-item {% if proj_filter == project.pk|stringformat:'s' %}open{% endif %}">
-                    <div class="tree-row" onclick="window.location='?resource_view={{ resource_view }}{% if proj_filter != project.pk|stringformat:'s' %}&project={{ project.pk }}{% endif %}'">
-                        <i class="fas {% if proj_filter == project.pk|stringformat:'s' %}fa-chevron-down{% else %}fa-chevron-right{% endif %} chevron"></i>
+                <div class="tree-item folder-item" id="proj-tree-{{ project.pk }}">
+                    <div class="tree-row" onclick="toggleFolder(this)">
+                        <i class="fas fa-chevron-right chevron"></i>
                         <i class="fas fa-project-diagram folder-icon" style="color:var(--purple)"></i>
                         <span class="tree-label" style="font-weight:600;">{{ project.name }}</span>
                         <div class="actions-group" onclick="event.stopPropagation();">
@@ -134,17 +251,15 @@
                             {% endif %}
                         </div>
                     </div>
-                    {% if proj_filter == project.pk|stringformat:'s' %}
-                    <div class="tree-children" style="display:block;">
-                        <!-- Root Categories (Folders) -->
-                        {% include 'files/category_tree.html' with categories=project.file_categories.all %}
-                        
-                        {% if not project.file_categories.exists and not project.files.exists %}
+                    <div class="tree-children" style="display:none;">
+                        {% include 'files/category_tree.html' with categories=project.temp_categories|default:project.file_categories.all %}
+
+                        {% if not project.temp_categories and not project.temp_files and not project.file_categories.exists and not project.files.exists %}
                         <div class="tree-empty-text">Empty project</div>
                         {% endif %}
-                        
-                        <!-- Files without category in this project -->
-                        {% for f in project.files.all|dictsort:"original_name" %}
+
+                        <!-- Uncategorized files in this project -->
+                        {% for f in project.temp_files|default:project.files.all %}
                             {% if not f.category and not f.is_in_trash %}
                             <div class="tree-item">
                                 <div class="tree-row file-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
@@ -162,9 +277,7 @@
                             {% endif %}
                         {% endfor %}
                     </div>
-                    {% endif %}
                 </div>
-                {% endif %}
                 {% endfor %}
 
                 {% if files_no_project and not proj_filter %}
@@ -230,11 +343,13 @@
     </form>
 </div>
 
-<!-- REPOSITORY VIEW (GitHub Style) -->
+<!-- REPOSITORY VIEW (GitHub Style) — with bulk select -->
 <div id="repositoryView" style="display:none;">
+<form id="repoBulkForm" method="post" action="{% url 'files:bulk_file_action' %}">
+    {% csrf_token %}
     <div class="github-repo-style" style="border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--bg-card);">
         <!-- Repo Header -->
-        <div style="background:var(--bg-secondary); padding:10px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:var(--bg-secondary); padding:10px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div style="display:flex; align-items:center; gap:8px;">
                 {% if current_repo_cat %}
                     <a href="?resource_view=repository{% if current_repo_cat.parent %}&repo_cat_id={{ current_repo_cat.parent.pk }}{% else %}&project={{ current_repo_cat.project.pk }}{% endif %}" class="btn btn-ghost btn-sm" style="padding:4px 8px;"><i class="fas fa-arrow-left"></i></a>
@@ -249,118 +364,145 @@
                     <span style="color:var(--text-muted); font-size:13px;">Explore projects and files</span>
                 {% endif %}
             </div>
+            <!-- Select-all / Deselect-all toggle (always visible in repo view) -->
+            <div style="display:flex; align-items:center; gap:6px;">
+                <button type="button" id="repoSelectAllBtn"
+                        class="btn btn-secondary btn-sm"
+                        onclick="repoToggleSelectAll()"
+                        style="padding:3px 10px; font-size:11px; min-width:110px;">
+                    <i class="fas fa-check-square" id="repoSelectAllIcon"></i>
+                    <span id="repoSelectAllText">Select All</span>
+                </button>
+            </div>
         </div>
-        
+
         <div class="repo-file-list">
             {% if not current_project and not current_repo_cat %}
-                <!-- Show Projects as Folders -->
+                <!-- Root: show project folders — no checkboxes here, just navigate -->
                 {% for p in projects|dictsort:"name" %}
-                <div class="repo-row" onclick="window.location='?resource_view=repository&project={{ p.pk }}'">
+                <div class="repo-row" data-nav-url="?resource_view=repository&project={{ p.pk }}">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <i class="fas fa-project-diagram" style="color:var(--purple); opacity:0.8;"></i>
                         <span style="font-size:13px; font-weight:600;">{{ p.name }}</span>
                     </div>
                     <div style="font-size:13px; color:var(--text-muted);">Project Root</div>
                     <div style="font-size:12px; color:var(--text-muted); text-align:right;">{{ p.file_categories.count }} folder{{ p.file_categories.count|pluralize }}, {{ p.files.count }} file{{ p.files.count|pluralize }}</div>
+                    <div></div>
                 </div>
                 {% endfor %}
 
                 {% if files_no_project %}
                     <div style="padding:10px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border); font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Personal Files</div>
                     {% for f in files_no_project %}
-                    <div class="repo-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
+                    <div class="repo-row" data-nav-url="{% url 'files:file_detail' f.pk %}">
                         <div style="display:flex; align-items:center; gap:10px;">
+                            <input type="checkbox" class="repo-file-cb" name="selected_files" value="{{ f.pk }}"
+                                   style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);">
                             <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }}; opacity:0.8;"></i>
                             <span style="font-size:13px;">{{ f.display_name }}</span>
                         </div>
                         <div style="font-size:13px; color:var(--text-muted);">{{ f.get_file_type_display }}</div>
                         <div style="font-size:12px; color:var(--text-muted); text-align:right;">{{ f.file_size_display }}</div>
                         <div style="display:flex; justify-content:flex-end;">
-                            <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage">
+                            <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}" class="btn btn-icon btn-ghost btn-sm" title="Manage">
                                 <i class="fas fa-cog"></i>
                             </a>
                         </div>
                     </div>
                     {% endfor %}
                 {% endif %}
+
             {% elif current_project and not current_repo_cat %}
-                <!-- Show Root Categories of Project -->
+                <!-- Project root: folders + uncategorized files, both selectable -->
                 {% for cat in root_categories %}
-                <div class="repo-row" onclick="window.location='?resource_view=repository&repo_cat_id={{ cat.pk }}&project={{ current_project.pk }}'">
+                <div class="repo-row" data-nav-url="?resource_view=repository&repo_cat_id={{ cat.pk }}&project={{ current_project.pk }}">
                     <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" class="repo-folder-cb" name="selected_folders" value="{{ cat.pk }}"
+                               style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);">
                         <i class="fas fa-folder" style="color:var(--accent); opacity:0.8;"></i>
                         <span style="font-size:13px; font-weight:600;">{{ cat.name }}</span>
                     </div>
                     <div style="font-size:13px; color:var(--text-muted);">Directory</div>
-                    <div style="font-size:12px; color:var(--text-muted); text-align:right;">{{ cat.children.count }} folder{{ cat.children.count|pluralize }}, {{ cat.files.count }} file{{ cat.files.count|pluralize }}</div>
+                    <div style="font-size:12px; color:var(--text-muted); text-align:right;">
+                        {{ cat.children.count }} folder{{ cat.children.count|pluralize }}, {{ cat.files.count }} file{{ cat.files.count|pluralize }}
+                        {% if cat.temp_size_display %} ({{ cat.temp_size_display }}){% endif %}
+                    </div>
                     <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
-                        <a href="{% url 'files:download_folder' cat.pk %}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Download ZIP">
+                        <a href="{% url 'files:download_folder' cat.pk %}" class="btn btn-icon btn-ghost btn-sm" title="Download ZIP">
                             <i class="fas fa-download"></i>
                         </a>
-                        <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage">
+                        <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}" class="btn btn-icon btn-ghost btn-sm" title="Manage">
                             <i class="fas fa-cog"></i>
                         </a>
                     </div>
                 </div>
                 {% endfor %}
-                
-                <!-- Files without category in this project -->
+
                 {% for f in uncategorized_files %}
-                <div class="repo-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
+                <div class="repo-row" data-nav-url="{% url 'files:file_detail' f.pk %}">
                     <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" class="repo-file-cb" name="selected_files" value="{{ f.pk }}"
+                               style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);">
                         <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }}; opacity:0.8;"></i>
                         <span style="font-size:13px;">{{ f.display_name }}</span>
                     </div>
                     <div style="font-size:13px; color:var(--text-muted);">{{ f.get_file_type_display }}</div>
                     <div style="font-size:12px; color:var(--text-muted); text-align:right;">{{ f.file_size_display }}</div>
                     <div style="display:flex; justify-content:flex-end;">
-                        <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage">
+                        <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}" class="btn btn-icon btn-ghost btn-sm" title="Manage">
                             <i class="fas fa-cog"></i>
                         </a>
                     </div>
                 </div>
                 {% endfor %}
+
             {% else %}
-                <!-- Subcategories -->
-                {% for cat in current_repo_cat.children.all|dictsort:"name" %}
+                <!-- Inside a subfolder: sub-folders + files, both selectable -->
+                {% for cat in current_repo_cat.temp_children|default:current_repo_cat.children.all %}
                 {% if not cat.is_in_trash %}
-                <div class="repo-row" onclick="window.location='?resource_view=repository&repo_cat_id={{ cat.pk }}&project={{ cat.project.pk }}'">
+                <div class="repo-row" data-nav-url="?resource_view=repository&repo_cat_id={{ cat.pk }}&project={{ cat.project.pk }}">
                     <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" class="repo-folder-cb" name="selected_folders" value="{{ cat.pk }}"
+                               style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);">
                         <i class="fas fa-folder" style="color:var(--accent); opacity:0.8;"></i>
                         <span style="font-size:13px; font-weight:600;">{{ cat.name }}</span>
                     </div>
                     <div style="font-size:13px; color:var(--text-muted);">Directory</div>
-                    <div style="font-size:12px; color:var(--text-muted); text-align:right;">{{ cat.children.count }} folder{{ cat.children.count|pluralize }}, {{ cat.files.count }} file{{ cat.files.count|pluralize }}</div>
+                    <div style="font-size:12px; color:var(--text-muted); text-align:right;">
+                        {{ cat.children.count }} folder{{ cat.children.count|pluralize }}, {{ cat.files.count }} file{{ cat.files.count|pluralize }}
+                        {% if cat.temp_size_display %} ({{ cat.temp_size_display }}){% endif %}
+                    </div>
                     <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
-                        <a href="{% url 'files:download_folder' cat.pk %}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Download ZIP">
+                        <a href="{% url 'files:download_folder' cat.pk %}" class="btn btn-icon btn-ghost btn-sm" title="Download ZIP">
                             <i class="fas fa-download"></i>
                         </a>
-                        <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage">
+                        <a href="{% url 'files:manage_resource' %}?type=folder&id={{ cat.pk }}" class="btn btn-icon btn-ghost btn-sm" title="Manage">
                             <i class="fas fa-cog"></i>
                         </a>
                     </div>
                 </div>
                 {% endif %}
                 {% endfor %}
-                
-                <!-- Files in this Category -->
+
                 {% for f in latest_files %}
-                <div class="repo-row" onclick="window.location='{% url 'files:file_detail' f.pk %}'">
+                <div class="repo-row" data-nav-url="{% url 'files:file_detail' f.pk %}">
                     <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" class="repo-file-cb" name="selected_files" value="{{ f.pk }}"
+                               style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);">
                         <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }}; opacity:0.8;"></i>
                         <span style="font-size:13px;">{{ f.display_name }}</span>
                     </div>
                     <div style="font-size:13px; color:var(--text-muted);">{{ f.get_file_type_display }}</div>
                     <div style="font-size:12px; color:var(--text-muted); text-align:right;">{{ f.file_size_display }}</div>
                     <div style="display:flex; justify-content:flex-end;">
-                        <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();" title="Manage">
+                        <a href="{% url 'files:manage_resource' %}?type=file&id={{ f.pk }}" class="btn btn-icon btn-ghost btn-sm" title="Manage">
                             <i class="fas fa-cog"></i>
                         </a>
                     </div>
                 </div>
                 {% endfor %}
             {% endif %}
-            
+
             {% if current_repo_cat and not current_repo_cat.children.exists and not current_repo_cat.files.exists %}
                 <div style="padding:40px; text-align:center; color:var(--text-muted);">
                     <i class="fas fa-folder-open" style="font-size:32px; margin-bottom:12px; opacity:0.3;"></i>
@@ -369,6 +511,64 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Floating Bulk-Action Bar for Repository View -->
+    <div id="repoBulkBar" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:1001;
+         background:var(--bg-card); border:1px solid var(--border);
+         border-radius:14px; padding:12px 20px;
+         align-items:center; gap:14px; box-shadow:0 8px 32px rgba(0,0,0,.35);
+         flex-wrap:wrap; min-width:480px; max-width:90vw;">
+
+        <!-- Left: count -->
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:rgba(79,142,247,0.12);display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-layer-group" style="color:var(--accent);font-size:14px;"></i>
+            </div>
+            <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);"><span id="repoSelectedCount">0</span> selected</div>
+                <div style="font-size:10px;color:var(--text-muted);">files &amp; folders</div>
+            </div>
+        </div>
+
+        <div style="width:1px;height:36px;background:var(--border);flex-shrink:0;"></div>
+
+        <!-- Move To -->
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:220px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap;">Move to:</label>
+            <select name="target_category_id" class="filter-select" style="flex:1;height:32px;font-size:12px;">
+                <option value="">(Root / No Folder)</option>
+                {% for project in projects|dictsort:"name" %}
+                    <optgroup label="{{ project.name }}">
+                        <option value="">{{ project.name }} / (Root)</option>
+                        {% for cat in project.file_categories.all %}
+                            <option value="{{ cat.pk }}">&#160;&#160;{{ cat.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                {% endfor %}
+            </select>
+            <button type="submit" name="action" value="move" class="btn btn-primary btn-sm" style="white-space:nowrap;height:32px;padding:0 14px;">
+                <i class="fas fa-arrows-alt"></i> Move
+            </button>
+        </div>
+
+        <div style="width:1px;height:36px;background:var(--border);flex-shrink:0;"></div>
+
+        <!-- Delete -->
+        <button type="button" id="repoDeleteBtn"
+                class="btn btn-danger btn-sm"
+                style="height:32px;padding:0 16px;white-space:nowrap;"
+                onclick="openRepoDeleteConfirm();">
+            <i class="fas fa-trash"></i> Delete
+        </button>
+
+        <!-- Close bar -->
+        <button type="button" onclick="repoSelectAll(false)"
+                style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;font-size:16px;margin-left:2px;"
+                title="Clear selection">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+</form>
 </div>
 
 <!-- GRID VIEW -->
@@ -399,9 +599,61 @@
     {% endif %}
 </div>
 
-
-
 {% include 'pagination.html' %}
+
+</div><!-- /files-main -->
+
+<!-- ═══ RIGHT: Recent Changes Sidebar ═══ -->
+<aside class="files-sidebar">
+
+    <div class="recent-card">
+        <div class="recent-card-header">
+            <i class="fas fa-history" style="color:var(--accent); font-size:14px;"></i>
+            <h4>Recent Changes</h4>
+            {% if current_project %}
+            <span style="margin-left:auto; font-size:10px; color:var(--text-muted); font-weight:500;">{{ current_project.name|truncatechars:16 }}</span>
+            {% endif %}
+        </div>
+
+        {% if recent_files %}
+            {% for f in recent_files %}
+            <a href="{% url 'files:file_detail' f.pk %}" class="recent-file-item" title="{{ f.display_name }}">
+                <div class="recent-file-icon" style="background:{{ f.icon_color }}18;">
+                    <i class="fas {{ f.icon_class }}" style="color:{{ f.icon_color }};"></i>
+                </div>
+                <div class="recent-file-info">
+                    <span class="recent-file-name">{{ f.display_name|truncatechars:26 }}</span>
+                    <div class="recent-file-meta">
+                        <span><i class="fas fa-clock" style="margin-right:3px;"></i>{{ f.updated_at|timesince }} ago</span>
+                        {% if f.project %}<span style="color:var(--accent);">{{ f.project.name|truncatechars:20 }}</span>{% endif %}
+                        {% if f.category %}<span>📁 {{ f.category.name|truncatechars:18 }}</span>{% endif %}
+                    </div>
+                    <span class="recent-badge" style="background:{{ f.icon_color }}20; color:{{ f.icon_color }};">{{ f.get_file_type_display }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div style="padding:28px 16px; text-align:center; color:var(--text-muted);">
+                <i class="fas fa-folder-open" style="font-size:28px; opacity:0.3; margin-bottom:8px; display:block;"></i>
+                <span style="font-size:12px;">No recent activity</span>
+            </div>
+        {% endif %}
+
+        <div class="recent-card-footer" style="display:flex; gap:8px;">
+            <a href="{% url 'files:file_list' %}?sort=modified_desc&resource_view=grid{% if current_project %}&project={{ current_project.pk }}{% endif %}"
+               style="display:inline-flex; align-items:center; gap:5px; flex:1; justify-content:center;">
+                <i class="fas fa-history"></i> View All Recent
+            </a>
+            <a href="{% url 'files:file_list' %}?resource_view=tree{% if current_project %}&project={{ current_project.pk }}{% endif %}"
+               style="display:inline-flex; align-items:center; gap:5px; flex:1; justify-content:center;">
+                <i class="fas fa-folder-open"></i> All Files
+            </a>
+        </div>
+    </div>
+
+</aside>
+
+</div><!-- /files-layout -->
 
 {% endblock %}
 {% block extra_js %}
@@ -423,13 +675,13 @@ function toggleFolder(el) {
 // Applies the chosen view visually (no page reload)
 function applyView(v) {
     if (document.getElementById('gridView')) {
-        document.getElementById('gridView').style.display = 'none';
+        document.getElementById('gridView').style.display = v === 'grid' ? '' : 'none';
     }
     document.getElementById('treeView').style.display = v === 'tree' ? '' : 'none';
     document.getElementById('repositoryView').style.display = v === 'repository' ? '' : 'none';
 
     if (document.getElementById('gridViewBtn')) {
-        document.getElementById('gridViewBtn').classList.remove('active');
+        document.getElementById('gridViewBtn').classList.toggle('active', v === 'grid');
     }
     document.getElementById('treeViewBtn').classList.toggle('active', v === 'tree');
     document.getElementById('repoViewBtn').classList.toggle('active', v === 'repository');
@@ -501,6 +753,91 @@ function openCreateFolderModal(projectPk, parentId, parentName) {
 function closeCreateFolderModal() {
     document.getElementById('createFolderModal').style.display = 'none';
 }
+
+// ── Repository View: delegated click handler ─────────────────────────────────
+// Handles row navigation via data-nav-url and checkbox toggling without conflicts.
+document.addEventListener('DOMContentLoaded', function () {
+    const repoView = document.getElementById('repositoryView');
+    if (!repoView) return;
+
+    repoView.addEventListener('click', function (e) {
+        const row = e.target.closest('.repo-row');
+        if (!row) return;
+
+        // If clicked element is a checkbox — toggle it and update count, don't navigate
+        if (e.target.matches('input[type="checkbox"]')) {
+            repoHandleChange();
+            return;
+        }
+
+        // If clicked element is inside an <a> or <button> — let the browser handle it
+        if (e.target.closest('a') || e.target.closest('button')) return;
+
+        // Otherwise navigate
+        const url = row.dataset.navUrl;
+        if (url) window.location = url;
+    });
+});
+
+function repoHandleChange() {
+    const fileCBs   = document.querySelectorAll('#repositoryView .repo-file-cb');
+    const folderCBs = document.querySelectorAll('#repositoryView .repo-folder-cb');
+    let count = 0;
+    fileCBs.forEach(cb   => { if (cb.checked) count++; });
+    folderCBs.forEach(cb => { if (cb.checked) count++; });
+
+    const bar     = document.getElementById('repoBulkBar');
+    const countEl = document.getElementById('repoSelectedCount');
+    if (bar && countEl) {
+        countEl.textContent = count;
+        bar.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    // Update Select All button state
+    const total = fileCBs.length + folderCBs.length;
+    const icon = document.getElementById('repoSelectAllIcon');
+    const text = document.getElementById('repoSelectAllText');
+    if (icon && text) {
+        const allSelected = (count === total && total > 0);
+        icon.className = allSelected ? 'far fa-square' : 'fas fa-check-square';
+        text.textContent  = allSelected ? 'Deselect All' : 'Select All';
+    }
+}
+
+function repoSelectAll(select) {
+    document.querySelectorAll('#repositoryView .repo-file-cb').forEach(cb   => { cb.checked = select; });
+    document.querySelectorAll('#repositoryView .repo-folder-cb').forEach(cb => { cb.checked = select; });
+    repoHandleChange();
+}
+
+function repoToggleSelectAll() {
+    const fileCBs   = document.querySelectorAll('#repositoryView .repo-file-cb');
+    const folderCBs = document.querySelectorAll('#repositoryView .repo-folder-cb');
+    const total   = fileCBs.length + folderCBs.length;
+    const checked = [...fileCBs, ...folderCBs].filter(cb => cb.checked).length;
+    repoSelectAll(checked < total);
+}
+
+function openRepoDeleteConfirm() {
+    const count = parseInt(document.getElementById('repoSelectedCount').textContent, 10);
+    document.getElementById('repoDeleteCountMsg').textContent =
+        count + ' item' + (count !== 1 ? 's' : '');
+    document.getElementById('repoDeleteModal').style.display = 'flex';
+}
+function closeRepoDeleteModal() {
+    document.getElementById('repoDeleteModal').style.display = 'none';
+}
+function confirmRepoDelete() {
+    closeRepoDeleteModal();
+    // Submit the form with action=delete
+    const form = document.getElementById('repoBulkForm');
+    const hidden = document.createElement('input');
+    hidden.type  = 'hidden';
+    hidden.name  = 'action';
+    hidden.value = 'delete';
+    form.appendChild(hidden);
+    form.submit();
+}
 </script>
 
 <!-- Create Folder Modal -->
@@ -524,4 +861,42 @@ function closeCreateFolderModal() {
         </form>
     </div>
 </div>
+
+<!-- ══ Delete Confirmation Modal (Repo Bulk Delete) ══ -->
+<div id="repoDeleteModal" style="display:none; position:fixed; z-index:3000; inset:0;
+     background:rgba(0,0,0,0.6); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+     align-items:center; justify-content:center;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
+                width:420px; max-width:92vw; padding:28px;
+                box-shadow:0 24px 60px rgba(0,0,0,0.4);">
+        <!-- Icon -->
+        <div style="text-align:center; margin-bottom:20px;">
+            <div style="width:60px;height:60px;border-radius:50%;
+                        background:rgba(239,68,68,0.12);
+                        display:flex;align-items:center;justify-content:center;
+                        margin:0 auto 14px;">
+                <i class="fas fa-trash-alt" style="font-size:26px;color:#ef4444;"></i>
+            </div>
+            <h3 style="margin:0 0 10px;font-size:18px;font-weight:700;color:var(--text-primary);">Move to Trash?</h3>
+            <p style="margin:0;font-size:13px;color:var(--text-muted);line-height:1.7;">
+                You are about to trash
+                <strong id="repoDeleteCountMsg" style="color:var(--text-primary);">0 items</strong>.<br>
+                <span style="font-size:12px;">Folders will include <em>all</em> their contents.</span>
+            </p>
+        </div>
+        <!-- Buttons -->
+        <div style="display:flex;gap:12px;">
+            <button type="button" onclick="closeRepoDeleteModal()"
+                    class="btn btn-secondary" style="flex:1;">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+            <button type="button" onclick="confirmRepoDelete()"
+                    class="btn btn-danger" style="flex:1;">
+                <i class="fas fa-trash"></i> Yes, Move to Trash
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
+

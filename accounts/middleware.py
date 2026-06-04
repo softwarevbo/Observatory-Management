@@ -47,7 +47,7 @@ class InventoryAccessMiddleware:
         # 1. Provide Context for Inventory Paths
         # CRITICAL: Do NOT override request.user for /admin/ paths, as Django Admin expects standard User model
         if (
-            path.startswith("/inventory/") or path.startswith("/api/inventory/")
+            path.startswith("/inventory/") or path.startswith("/api/inventory/") or path.startswith("/accounts/inventory/")
         ) and not path.startswith("/admin/"):
             if inv_user:
                 # Override request.user to prevent rewriting 100+ lines of codebase!

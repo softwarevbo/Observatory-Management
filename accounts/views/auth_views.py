@@ -2,9 +2,11 @@ from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.cache import never_cache
 from ..forms import LoginForm, UserSelfPasswordChangeForm
 
 
+@never_cache
 def login_view(request):
     if request.user.is_authenticated:
         return redirect(reverse("tasks:dashboard"))
@@ -36,6 +38,7 @@ def login_view(request):
     return render(request, "accounts/login.html", {"form": form})
 
 
+@never_cache
 def inventory_login(request):
     if request.method == "POST":
         username, password = request.POST.get("username"), request.POST.get("password")
@@ -94,6 +97,7 @@ def change_password(request):
     return render(request, "accounts/change_password.html", {"form": form})
 
 
+@never_cache
 def telescope_login(request):
     if request.method == "POST":
         from django.contrib.auth import authenticate

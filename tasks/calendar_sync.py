@@ -4,8 +4,6 @@ from datetime import datetime
 
 import caldav
 from django.conf import settings
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 from icalendar import Calendar, Event
 
 from events.models import CalendarEvent, UserCalendarSettings
@@ -14,62 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_google_service(user_settings):
-    """Get Google Calendar service for a user."""
-    if not user_settings.google_oauth_token:
-        return None
-
-    creds = Credentials.from_authorized_user_info(
-        user_settings.google_oauth_token,
-        ["https://www.googleapis.com/auth/calendar.events"],
-    )
-    return build("calendar", "v3", credentials=creds)
+    """Google Calendar Service is disabled."""
+    return None
 
 
 def sync_event_to_google(event):
-    """Sync a Django CalendarEvent to Google Calendar."""
-    user_settings = UserCalendarSettings.objects.filter(user=event.created_by).first()
-    if not user_settings or not user_settings.is_google_synced:
-        print(
-            f"[Sync] Creator {event.created_by} has no Google sync enabled. Falling back to Admin settings..."
-        )
-        from accounts.models import User
-
-        admin_user = User.objects.filter(role="admin").first()
-        if admin_user:
-            user_settings = UserCalendarSettings.objects.filter(user=admin_user).first()
-
-    if not user_settings or not user_settings.is_google_synced:
-        return
-
-    service = get_google_service(user_settings)
-    if not service:
-        return
-
-    body = {
-        "summary": event.title,
-        "description": event.description,
-        "start": {"dateTime": event.start_datetime.isoformat()},
-        "end": {"dateTime": event.end_datetime.isoformat()},
-        "location": event.meeting_link or "",
-    }
-
-    try:
-        if event.google_event_id:
-            service.events().update(
-                calendarId=user_settings.google_calendar_id,
-                eventId=event.google_event_id,
-                body=body,
-            ).execute()
-        else:
-            res = (
-                service.events()
-                .insert(calendarId=user_settings.google_calendar_id, body=body)
-                .execute()
-            )
-            event.google_event_id = res["id"]
-            event.save(update_fields=["google_event_id"])
-    except Exception as e:
-        logger.error(f"Error syncing to Google Calendar: {e}")
+    """Sync a Django CalendarEvent to Google Calendar (Disabled)."""
+    return
 
 
 def sync_event_to_caldav(event):
@@ -172,31 +121,8 @@ def sync_event_to_caldav(event):
 
 
 def delete_from_external_calendars(event):
-    """Delete event from Google and CalDAV."""
+    """Delete event from CalDAV (Google sync disabled)."""
     print(f"[Sync] Deleting external event: {event.title}")
-
-    # Delete from Google
-    google_settings = UserCalendarSettings.objects.filter(user=event.created_by).first()
-    if not google_settings or not google_settings.is_google_synced:
-        from accounts.models import User
-
-        admin_user = User.objects.filter(role="admin").first()
-        if admin_user:
-            google_settings = UserCalendarSettings.objects.filter(
-                user=admin_user
-            ).first()
-
-    if google_settings and google_settings.is_google_synced and event.google_event_id:
-        try:
-            service = get_google_service(google_settings)
-            if service:
-                service.events().delete(
-                    calendarId=google_settings.google_calendar_id,
-                    eventId=event.google_event_id,
-                ).execute()
-                print("[Sync] Deleted from Google Calendar.")
-        except Exception as e:
-            logger.error(f"Error deleting from Google Calendar: {e}")
 
     # Delete from CalDAV
     caldav_settings = UserCalendarSettings.objects.filter(user=event.created_by).first()

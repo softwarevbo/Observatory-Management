@@ -189,22 +189,105 @@
 <script>
 function copyCloneUrl() {
     const input = document.getElementById('cloneUrlInput');
+    if (!input) return;
     input.select();
     input.setSelectionRange(0, 99999); /* For mobile devices */
     
-    navigator.clipboard.writeText(input.value).then(() => {
-        const icon = document.getElementById('copyIcon');
-        icon.classList.remove('fa-copy');
-        icon.classList.add('fa-check');
-        icon.style.color = '#10b981'; // Green color
-        
-        setTimeout(() => {
-            icon.classList.remove('fa-check');
-            icon.classList.add('fa-copy');
-            icon.style.color = '';
-        }, 2000);
-    });
+    const command = 'git clone ' + input.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(command).then(() => {
+            const icon = document.getElementById('copyIcon');
+            if (icon) {
+                icon.classList.remove('fa-copy');
+                icon.classList.add('fa-check');
+                icon.style.color = '#10b981'; // Green color
+                
+                setTimeout(() => {
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-copy');
+                    icon.style.color = '';
+                }, 2000);
+            }
+        }).catch(() => {
+            fallbackCopyText(command);
+        });
+    } else {
+        fallbackCopyText(command);
+    }
 }
+
+function fallbackCopyText(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.position = 'fixed';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            const icon = document.getElementById('copyIcon');
+            if (icon) {
+                icon.classList.remove('fa-copy');
+                icon.classList.add('fa-check');
+                icon.style.color = '#10b981';
+                setTimeout(() => {
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-copy');
+                    icon.style.color = '';
+                }, 2000);
+            }
+        }
+    } catch (err) {
+        console.error('Fallback copy failed', err);
+    }
+    document.body.removeChild(textarea);
+}
+
+// Dynamically update all git URLs to match the current browser origin (handles local network IP addresses)
+document.addEventListener("DOMContentLoaded", function() {
+    const origin = window.location.origin;
+    
+    // 1. Update inputs
+    const inputs = document.querySelectorAll('#cloneUrlInput, #settingsCloneUrl, .repo-clone-input');
+    inputs.forEach(input => {
+        if (input && input.value) {
+            const pathIdx = input.value.indexOf('/resource-hub/git/');
+            if (pathIdx !== -1) {
+                input.value = origin + input.value.substring(pathIdx);
+            }
+        }
+    });
+    
+    // 2. Update cloneCmd pre block
+    const cloneCmd = document.getElementById('cloneCmd');
+    if (cloneCmd) {
+        const txt = cloneCmd.textContent;
+        const pathIdx = txt.indexOf('/resource-hub/git/');
+        if (pathIdx !== -1) {
+            cloneCmd.textContent = 'git clone ' + origin + txt.substring(pathIdx);
+        }
+    }
+    
+    // 3. Update setupCmd pre block
+    const setupCmd = document.getElementById('setupCmd');
+    if (setupCmd) {
+        let txt = setupCmd.textContent;
+        const regex = /http[s]?:\/\/[^\/\s]+(\/resource-hub\/git\/[^\/\s]+)/g;
+        setupCmd.textContent = txt.replace(regex, origin + '$1');
+    }
+
+    // 4. Update setup-code-block pre elements (for empty repos)
+    const codeBlocks = document.querySelectorAll('.setup-code-block');
+    codeBlocks.forEach(block => {
+        if (block) {
+            let txt = block.textContent;
+            const regex = /http[s]?:\/\/[^\/\s]+(\/resource-hub\/git\/[^\/\s]+)/g;
+            block.textContent = txt.replace(regex, origin + '$1');
+        }
+    });
+});
 </script>
 {% block repo_extra_js %}{% endblock %}
 {% endblock %}

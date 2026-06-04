@@ -233,19 +233,43 @@ git push origin master</pre>
 <script>
 function copySnippet(elementId) {
     const text = document.getElementById(elementId).textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.querySelector(`[onclick="copySnippet('${elementId}')"]`);
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        btn.style.color = '#10b981';
-        btn.style.borderColor = '#10b981';
-        
-        setTimeout(() => {
-            btn.innerHTML = originalHtml;
-            btn.style.color = '';
-            btn.style.borderColor = '';
-        }, 2000);
-    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showCopiedState(elementId);
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showCopiedState(elementId);
+            }
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textarea);
+    }
+}
+
+function showCopiedState(elementId) {
+    const btn = document.querySelector(`[onclick="copySnippet('${elementId}')"]`);
+    if (!btn) return;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
+    
+    setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.style.color = '';
+        btn.style.borderColor = '';
+    }, 2000);
 }
 </script>
 {% endblock %}

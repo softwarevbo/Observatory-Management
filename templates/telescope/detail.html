@@ -1,7 +1,7 @@
 {% extends 'telescope/base.html' %}
-
-{% block tele_title %}{{ t.name }} — Control Room Console{% endblock %}
-
+ 
+{% block title %}{{ t.name }} — Control Room Console{% endblock %}
+ 
 {% block tele_css %}
 <style>
 .detail-container {
@@ -9,13 +9,13 @@
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
-
+ 
 @media (max-width: 992px) {
   .detail-container {
     grid-template-columns: 1fr;
   }
 }
-
+ 
 /* Hero card */
 .telescope-hero-card {
   background: var(--bg-card);
@@ -24,7 +24,7 @@
   overflow: hidden;
   box-shadow: var(--shadow);
 }
-
+ 
 .telescope-photo {
   width: 100%;
   height: 280px;
@@ -32,7 +32,7 @@
   background-position: center;
   border-bottom: 1px solid var(--border);
 }
-
+ 
 .telescope-photo-fallback {
   width: 100%;
   height: 280px;
@@ -44,28 +44,28 @@
   color: var(--accent);
   border-bottom: 1px solid var(--border);
 }
-
+ 
 .telescope-body {
   padding: 24px;
 }
-
+ 
 /* Specs table */
 .specs-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 16px;
 }
-
+ 
 .specs-table td {
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
-
+ 
 .specs-table tr:last-child td {
   border-bottom: none;
 }
-
+ 
 .specs-label {
   color: var(--text-muted);
   font-weight: 600;
@@ -74,12 +74,12 @@
   letter-spacing: 0.5px;
   width: 42%;
 }
-
+ 
 .specs-value {
   color: var(--text-primary);
   font-weight: 500;
 }
-
+ 
 /* Info pane */
 .info-pane {
   background: var(--bg-card);
@@ -91,7 +91,7 @@
   flex-direction: column;
   gap: 24px;
 }
-
+ 
 .info-section-title {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 12px;
@@ -103,37 +103,13 @@
   margin-bottom: 12px;
   letter-spacing: 0.8px;
 }
-
+ 
 .info-text {
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
 }
-
-/* Telemetry live feed - intentionally dark (monochrome display) */
-.telemetry-feed {
-  background: #010409;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 12px;
-  height: 200px;
-  overflow-y: auto;
-  color: #38bdf8;
-  line-height: 1.6;
-}
-
-/* Operator action bar */
-.ops-bar {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-}
-
+ 
 /* Admin bar */
 .admin-bar {
   display: flex;
@@ -143,7 +119,7 @@
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
-
+ 
 .admin-badge {
   background: var(--red-dim);
   color: var(--red);
@@ -155,7 +131,7 @@
   text-transform: uppercase;
   align-self: center;
 }
-
+ 
 .badge-status {
   padding: 4px 10px;
   border-radius: 20px;
@@ -169,14 +145,14 @@
 .badge-status.maintenance { background: var(--red-dim); color: var(--red); }
 </style>
 {% endblock %}
-
+ 
 {% block tele_content %}
 <div style="margin-bottom: 20px;">
   <a href="{% url 'telescope:dashboard' %}" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
     <i class="fas fa-arrow-left"></i> Back to Control Room
   </a>
 </div>
-
+ 
 <div class="detail-container">
   
   <!-- Hero Card with Photo and Specifications -->
@@ -238,20 +214,7 @@
           <td class="specs-value" id="specTracking">{{ t.tracking }}</td>
         </tr>
       </table>
-      
-      <!-- Operations Row (If operator) -->
-      {% if t.id_name == 'vbt_234' and user.can_operate_vbt or t.id_name == 'jcbt_130' and user.can_operate_jcbt or t.id_name == 'zeiss_100' and user.can_operate_zeiss or t.id_name == 'cassegrain_75' and user.can_operate_cassegrain or t.id_name == 'schmidt_45' and user.can_operate_schmidt or user.is_superuser %}
-      <div class="ops-bar">
-        <button class="btn btn-secondary" onclick="actionSlew()"><i class="fas fa-compass"></i> Slew Mount</button>
-        {% if user.can_command_dome or user.is_superuser %}
-          <button class="btn btn-secondary" onclick="actionDome()"><i class="fas fa-door-open"></i> Dome Shutter</button>
-        {% endif %}
-        {% if user.can_trigger_exposures or user.is_superuser %}
-          <button class="btn btn-secondary" onclick="actionExposure()"><i class="fas fa-camera"></i> Trigger CCD</button>
-        {% endif %}
-      </div>
-      {% endif %}
-
+ 
       <!-- Admin Actions -->
       {% if user.is_superuser or user.is_telescope_admin %}
       <div class="admin-bar">
@@ -262,7 +225,7 @@
       {% endif %}
     </div>
   </div>
-
+ 
   <!-- Detailed Information and History from VBO Site -->
   <div class="info-pane">
     <div>
@@ -284,77 +247,7 @@
       </div>
     </div>
     {% endif %}
-
-    <div>
-      <div class="info-section-title"><i class="fas fa-microchip"></i> Live System Log</div>
-      <div class="telemetry-feed" id="feedLines">
-        <div style="color:#4ade80">[STATUS] Connection established with {{ t.name }} encoder channels.</div>
-        <div style="color:#64748b">[INFO] Local sidereal offset matches nominal alignment.</div>
-      </div>
-    </div>
   </div>
-
+ 
 </div>
-
-<script>
-const feed = document.getElementById('feedLines');
-function addFeedLog(text, color = '#38bdf8') {
-  if(!feed) return;
-  const line = document.createElement('div');
-  const now = new Date();
-  const timeStr = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
-  line.style.color = color;
-  line.innerText = `${timeStr} ${text}`;
-  feed.appendChild(line);
-  feed.scrollTop = feed.scrollHeight;
-}
-
-function actionSlew() {
-  const target = prompt("Specify coordinates or catalog target (e.g. NGC 4594):");
-  if(!target) return;
-  addFeedLog(`Slewing axis coordinates towards target: ${target}...`, '#fbbf24');
-  
-  setTimeout(() => {
-    document.getElementById('specTarget').innerText = target;
-    const ra = `${Math.floor(Math.random()*24)}h ${Math.floor(Math.random()*60)}m ${Math.floor(Math.random()*60)}s`;
-    const dec = `${Math.random() > 0.5 ? '+' : '-'}${Math.floor(Math.random()*90)}° ${Math.floor(Math.random()*60)}′ ${Math.floor(Math.random()*60)}″`;
-    document.getElementById('specRa').innerText = ra;
-    document.getElementById('specDec').innerText = dec;
-    document.getElementById('specTracking').innerText = "Enabled";
-    addFeedLog(`Slew finalized. Target lock acquired at RA ${ra} / DEC ${dec}. Tracking activated.`, '#4ade80');
-  }, 2000);
-}
-
-function actionDome() {
-  const domeVal = document.getElementById('specDome');
-  const current = domeVal.innerText.trim();
-  const next = current === 'Open' ? 'Closed' : 'Open';
-  
-  addFeedLog(`Command sent to dome drive controller. Rotation initialized. Shutter action: ${next}...`, '#38bdf8');
-  domeVal.innerText = "Slewing...";
-  
-  setTimeout(() => {
-    domeVal.innerText = next;
-    addFeedLog(`Dome shutter successfully locked in position: ${next}.`, '#4ade80');
-  }, 2000);
-}
-
-function actionExposure() {
-  addFeedLog(`Triggering cryogenic CCD array exposure. Integrating shutter...`, '#38bdf8');
-  setTimeout(() => {
-    addFeedLog(`Exposure cycle completed. Raw FITS file frame stored in local storage buffer.`, '#4ade80');
-  }, 2000);
-}
-
-setInterval(() => {
-  const telemetryMsgs = [
-    ["Guider camera tracking correction computed.", "#64748b"],
-    ["CCD cooling subsystem running nominally.", "#4ade80"],
-    ["Telescope structural temperature matching thermal dome equilibrium.", "#4ade80"],
-    ["Guide error RA: 0.05 arcsec, DEC: -0.02 arcsec.", "#38bdf8"]
-  ];
-  const rand = telemetryMsgs[Math.floor(Math.random() * telemetryMsgs.length)];
-  addFeedLog(rand[0], rand[1]);
-}, 6000);
-</script>
 {% endblock %}
