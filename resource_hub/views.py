@@ -288,7 +288,16 @@ def repo_list(request):
 @login_required
 def repo_create(request):
     """Form and view to create a repository."""
+    git_available = shutil.which('git') is not None
+    
     if request.method == 'POST':
+        if not git_available:
+            messages.error(
+                request, 
+                "Git executable not found. Please install Git and make sure it is available on your system PATH before creating repositories."
+            )
+            return render(request, 'resource_hub/repo_create.html')
+
         name = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
         is_private = request.POST.get('is_private') == 'on'

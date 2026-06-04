@@ -3,9 +3,35 @@
 {% block title %}Create Repository — IIAP OM{% endblock %}
 {% block page_title %}New Repository{% endblock %}
 
+{% block extra_css %}
+<style>
+.os-tab-btn.active-tab {
+    color: var(--accent) !important;
+    border-bottom-color: var(--accent) !important;
+    background: rgba(79, 142, 247, 0.05) !important;
+}
+.os-tab-btn:hover {
+    color: var(--text-primary) !important;
+}
+.os-tab-content code {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 90%;
+}
+[data-theme="light"] .os-tab-content code {
+    background: rgba(0, 0, 0, 0.05);
+    color: #c7254e;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div style="max-width: 600px; margin: 0 auto; padding-top: 20px;">
-    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px;">
+    <!-- Repository Creation Card -->
+    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; box-shadow: var(--shadow);">
         <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
             <i class="fas fa-folder-plus" style="color: var(--accent);"></i>
             <span>Create a New Repository</span>
@@ -14,12 +40,27 @@
             A repository contains all your project files, including revision history. You can push to this repository using any Git client.
         </p>
 
+        <!-- Git System Status Alert -->
+        {% if not git_available %}
+        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius); padding: 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 14px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--red); font-size: 18px; flex-shrink: 0;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <h3 style="font-size: 14px; font-weight: 700; color: var(--red); margin-bottom: 4px;">Git Executable Missing</h3>
+                <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 0;">
+                    Git is not installed or available in the system PATH on this server. Please follow the setup guide below to install Git before creating a repository.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
         <form method="post">
             {% csrf_token %}
             
             <div style="margin-bottom: 20px;">
                 <label for="name" style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">Repository Name *</label>
-                <input type="text" name="name" id="name" required class="form-control" placeholder="e.g. telescope-firmware" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; width: 100%; outline: none; transition: var(--transition);">
+                <input type="text" name="name" id="name" required class="form-control" placeholder="e.g. telescope-firmware" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; width: 100%; outline: none; transition: var(--transition);" {% if not git_available %}disabled placeholder="Git missing on server..."{% endif %}>
                 <small style="display: block; margin-top: 6px; color: var(--text-muted); font-size: 11px;">
                     Great repository names are short and memorable. Only alphanumeric characters, dashes, and underscores allowed.
                 </small>
@@ -27,12 +68,12 @@
 
             <div style="margin-bottom: 20px;">
                 <label for="description" style="display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">Description <span style="font-weight: 400; opacity: 0.6;">(Optional)</span></label>
-                <textarea name="description" id="description" rows="3" class="form-control" placeholder="Briefly describe the purpose of this resource hub repository..." style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; width: 100%; outline: none; transition: var(--transition); resize: vertical;"></textarea>
+                <textarea name="description" id="description" rows="3" class="form-control" placeholder="Briefly describe the purpose of this resource hub repository..." style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; width: 100%; outline: none; transition: var(--transition); resize: vertical;" {% if not git_available %}disabled{% endif %}></textarea>
             </div>
 
             <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 14px;">
                 <div style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
-                    <input type="radio" name="is_private_radio" id="visibility_public" checked onclick="document.getElementById('is_private').checked = false;" style="margin-top: 4px; cursor: pointer;">
+                    <input type="radio" name="is_private_radio" id="visibility_public" checked onclick="document.getElementById('is_private').checked = false;" style="margin-top: 4px; cursor: pointer;" {% if not git_available %}disabled{% endif %}>
                     <label for="visibility_public" style="cursor: pointer;">
                         <span style="display: block; font-size: 14px; font-weight: 600; color: var(--text-primary);">Public Repository</span>
                         <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px;">Anyone logged into IIAP OM can clone, view, and read this repository.</span>
@@ -42,7 +83,7 @@
                 <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
 
                 <div style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
-                    <input type="radio" name="is_private_radio" id="visibility_private" onclick="document.getElementById('is_private').checked = true;" style="margin-top: 4px; cursor: pointer;">
+                    <input type="radio" name="is_private_radio" id="visibility_private" onclick="document.getElementById('is_private').checked = true;" style="margin-top: 4px; cursor: pointer;" {% if not git_available %}disabled{% endif %}>
                     <label for="visibility_private" style="cursor: pointer;">
                         <span style="display: block; font-size: 14px; font-weight: 600; color: var(--text-primary);">Private Repository</span>
                         <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px;">Only you (the owner) and server administrators can view or access this repository.</span>
@@ -54,9 +95,123 @@
 
             <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
                 <a href="{% url 'resource_hub:repo_list' %}" class="btn btn-secondary">Cancel</a>
-                <button type="submit" class="btn btn-primary">Create Repository</button>
+                <button type="submit" class="btn btn-primary" {% if not git_available %}disabled style="opacity: 0.5; cursor: not-allowed;" title="Git executable missing on server PATH"{% endif %}>Create Repository</button>
             </div>
         </form>
     </div>
+
+    <!-- Interactive Git Installation & Setup Guide -->
+    <div class="card" id="git-setup-guide" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; margin-top: 24px; box-shadow: var(--shadow);">
+        <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-tools" style="color: var(--accent);"></i>
+            <span>Git Installation & System Path Guide</span>
+        </h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; line-height: 1.6;">
+            Git must be installed on the host operating system running this application server. Choose your operating system below to set up Git correctly:
+        </p>
+
+        <!-- OS Tab Selector -->
+        <div style="display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; gap: 4px; overflow-x: auto; white-space: nowrap; scrollbar-width: none;">
+            <button onclick="switchOsTab('ubuntu')" id="tab-btn-ubuntu" class="os-tab-btn active-tab" style="background: none; border: none; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: var(--transition);">
+                <i class="fab fa-ubuntu" style="color: #E95420; margin-right: 4px;"></i> Ubuntu / Debian
+            </button>
+            <button onclick="switchOsTab('windows')" id="tab-btn-windows" class="os-tab-btn" style="background: none; border: none; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: var(--transition);">
+                <i class="fab fa-windows" style="color: #0078D6; margin-right: 4px;"></i> Windows
+            </button>
+            <button onclick="switchOsTab('macos')" id="tab-btn-macos" class="os-tab-btn" style="background: none; border: none; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: var(--transition);">
+                <i class="fab fa-apple" style="color: var(--text-primary); margin-right: 4px;"></i> macOS
+            </button>
+        </div>
+
+        <!-- Ubuntu Content -->
+        <div id="os-content-ubuntu" class="os-tab-content" style="display: block;">
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                On Ubuntu or Debian-based Linux servers, install Git using the package manager:
+            </p>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-family: monospace; font-size: 12px; color: var(--text-primary); margin-bottom: 16px; position: relative;">
+                <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;">sudo apt update
+sudo apt install git -y</pre>
+            </div>
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                Verify the installation and path using:
+            </p>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-family: monospace; font-size: 12px; color: var(--text-primary); margin-bottom: 16px;">
+                <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;">git --version
+which git</pre>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid var(--green); padding: 12px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                <strong>Tip:</strong> If installing via script or non-standard paths, make sure the directory containing the <code>git</code> executable is appended to the system PATH variable in <code>/etc/environment</code> or <code>~/.bashrc</code>.
+            </div>
+        </div>
+
+        <!-- Windows Content -->
+        <div id="os-content-windows" class="os-tab-content" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                <div>
+                    <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">1. Download & Install Git:</strong>
+                    Download the official Git for Windows installer from <a href="https://git-scm.com/download/win" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">git-scm.com</a> and run it.
+                </div>
+                <div>
+                    <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">2. Choose the correct PATH option:</strong>
+                    During installation, on the <strong>"Adjusting your PATH environment"</strong> screen, make sure to select:
+                    <div style="margin-top: 6px; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); font-weight: 600; color: var(--text-primary);">
+                        "Git from the command line and also from 3rd-party software"
+                    </div>
+                </div>
+                <div>
+                    <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">3. Adding to Environment Variables Manually:</strong>
+                    If Git commands are still not found, add it to your System PATH:
+                    <ol style="margin-left: 20px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                        <li>Open the Start Menu, search for <strong>"environment variables"</strong>, and choose <strong>"Edit the system environment variables"</strong>.</li>
+                        <li>Click <strong>"Environment Variables..."</strong>.</li>
+                        <li>Under <strong>"System variables"</strong>, find <strong>"Path"</strong> and click <strong>"Edit..."</strong>.</li>
+                        <li>Click <strong>"New"</strong> and paste the path to your Git cmd folder, which is typically: <br><code style="word-break: break-all;">C:\Program Files\Git\cmd</code></li>
+                        <li>Click <strong>"OK"</strong> on all windows to save the settings.</li>
+                    </ol>
+                </div>
+                <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--yellow); padding: 12px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                    <strong>Crucial Step:</strong> Once PATH is updated, you <strong>must restart</strong> your terminal, command prompt, or development server (e.g. running <code>python manage.py runserver</code>) for changes to take effect.
+                </div>
+            </div>
+        </div>
+
+        <!-- macOS Content -->
+        <div id="os-content-macos" class="os-tab-content" style="display: none;">
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                On macOS, you can install Git using Homebrew or Apple's developer command tools:
+            </p>
+            <strong style="color: var(--text-primary); font-size: 13px; display: block; margin-bottom: 6px;">Option 1: Using Homebrew (Recommended)</strong>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-family: monospace; font-size: 12px; color: var(--text-primary); margin-bottom: 16px;">
+                <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;">brew install git</pre>
+            </div>
+            
+            <strong style="color: var(--text-primary); font-size: 13px; display: block; margin-bottom: 6px;">Option 2: Using Xcode Tools</strong>
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                Simply run this command to trigger macOS command line tools downloader:
+            </p>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-family: monospace; font-size: 12px; color: var(--text-primary); margin-bottom: 16px;">
+                <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;">xcode-select --install</pre>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchOsTab(os) {
+    // Hide all tab contents
+    document.querySelectorAll('.os-tab-content').forEach(el => {
+        el.style.display = 'none';
+    });
+    // Remove active class from all tabs
+    document.querySelectorAll('.os-tab-btn').forEach(btn => {
+        btn.classList.remove('active-tab');
+    });
+    // Show selected tab content
+    document.getElementById('os-content-' + os).style.display = 'block';
+    // Add active class to clicked tab button
+    document.getElementById('tab-btn-' + os).classList.add('active-tab');
+}
+</script>
 {% endblock %}

@@ -98,6 +98,23 @@
     <span style="color: var(--text-muted);">{{ repo.name }}</span>
 </div>
 
+{% if not git_available %}
+<div class="card" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius); padding: 18px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 14px;">
+    <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--red); font-size: 18px; flex-shrink: 0;">
+        <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <div style="flex-grow: 1;">
+        <h3 style="font-size: 14px; font-weight: 700; color: var(--red); margin-bottom: 4px;">Git Server Dependency Missing</h3>
+        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 8px;">
+            The Git command-line tool is not installed on this server. File browsing, commit history, pushes, and uploads are currently disabled.
+        </p>
+        <a href="{% url 'resource_hub:repo_create' %}#git-setup-guide" class="btn btn-danger btn-sm" style="font-size: 12px; font-weight: 600; padding: 5px 12px; border-color: rgba(239,68,68,0.4); text-transform: none; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fas fa-tools"></i> View Installation Instructions
+        </a>
+    </div>
+</div>
+{% endif %}
+
 <div class="repo-header-container">
     <div class="repo-header-title">
         <div class="repo-name-section">
