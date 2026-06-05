@@ -12,6 +12,10 @@ from django.utils.decorators import method_decorator
 from ..models import InventoryUser, SystemSettings, Branch
 from tasks.decorators import admin_required
 
+"""
+This module processes system configurations settings, database backup triggers, and permission matrices.
+"""
+
 PERMISSION_FIELDS = [
     ("can_access_adjustments_page", "Adjustments: Page Access"),
     ("can_manage_adjustments", "Adjustments: Manage Actions"),
@@ -30,6 +34,10 @@ PERMISSION_FIELDS = [
 
 @method_decorator(admin_required, name="dispatch")
 class DatabaseBackupView(LoginRequiredMixin, View):
+    """
+    View class handling JSON imports / exports of the inventory databases
+    and processing permission checkboxes updates.
+    """
     def get(self, request):
         inventory_users = InventoryUser.objects.all().order_by("role", "username")
         return render(
@@ -44,6 +52,7 @@ class DatabaseBackupView(LoginRequiredMixin, View):
     def post(self, request):
         action = request.POST.get("action")
         if action == "update_controls":
+            # Updates user permissions based on checkbox inputs
             inventory_users = InventoryUser.objects.all()
             field_names = [field for field, _ in PERMISSION_FIELDS]
             for inventory_user in inventory_users:
@@ -61,6 +70,7 @@ class DatabaseBackupView(LoginRequiredMixin, View):
             return redirect("inventory_settings")
 
         if action == "export":
+            # Dumps database parameters to a JSON response stream
             out = io.StringIO()
             call_command(
                 "dumpdata",
@@ -78,6 +88,7 @@ class DatabaseBackupView(LoginRequiredMixin, View):
             return response
 
         elif action == "import":
+            # Restores database state using django loaddata command
             backup_file = request.FILES.get("backup_file")
             if not backup_file:
                 messages.error(request, "Please provide a valid backup json file.")
@@ -97,11 +108,15 @@ class DatabaseBackupView(LoginRequiredMixin, View):
 
 
 class SystemSettingsView(View):
+    """
+    View class handling system settings configuration changes (site name, logo, notifications).
+    Handles settings at either the global level (Super Admin) or branch level (Branch Admin).
+    """
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
         context = {"is_global": False, "permission_fields": PERMISSION_FIELDS}
-        if request.user.is_super_admin:
+        if getattr(request.user, "is_super_admin", False):
             global_settings = SystemSettings.get_settings()
             branches = Branch.objects.all()
             inventory_users = InventoryUser.objects.all().order_by("role", "username")
@@ -113,7 +128,7 @@ class SystemSettingsView(View):
                     "is_global": True,
                 }
             )
-        elif request.user.branch:
+        elif getattr(request.user, "branch", None):
             branch_settings = SystemSettings.get_settings(branch=request.user.branch)
             context.update({"settings": branch_settings})
         else:
@@ -125,10 +140,10 @@ class SystemSettingsView(View):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
         branch_id = request.POST.get("branch_id")
-        if branch_id and request.user.is_super_admin:
+        if branch_id and getattr(request.user, "is_super_admin", False):
             branch = Branch.objects.get(id=branch_id)
             settings = SystemSettings.get_settings(branch=branch)
-        elif not request.user.is_super_admin and request.user.branch:
+        elif not getattr(request.user, "is_super_admin", False) and getattr(request.user, "branch", None):
             settings = SystemSettings.get_settings(branch=request.user.branch)
         else:
             settings = SystemSettings.get_settings()

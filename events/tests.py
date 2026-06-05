@@ -9,14 +9,27 @@ from events.forms import CalendarEventForm
 
 User = get_user_model()
 
+"""
+This module contains unit tests validating the events application lifecycle.
+Specifically:
+1. post_save and post_delete signal synchronizations.
+2. Form dynamic query filtering.
+"""
+
 class CalendarSignalsAndFormTests(TestCase):
+    """
+    Test suite validating calendar signals, forms, and mock sync behaviors.
+    """
     def setUp(self):
+        # Create standard test user profile
         self.user = User.objects.create_user(
             username="testuser",
             password="password123",
             role="project_manager",
             is_active=True
         )
+        
+        # Create test project
         self.project = Project.objects.create(
             name="Test Project",
             created_by=self.user,
@@ -24,12 +37,15 @@ class CalendarSignalsAndFormTests(TestCase):
             visibility="public"
         )
         self.project.managers.add(self.user)
+        
+        # Create test task
         self.task = Task.objects.create(
             title="Test Task",
             project=self.project,
             created_by=self.user
         )
-        # Create user settings for calendar sync
+        
+        # Setup sync configuration parameters
         self.settings = UserCalendarSettings.objects.create(
             user=self.user,
             is_google_synced=True,
@@ -42,7 +58,10 @@ class CalendarSignalsAndFormTests(TestCase):
     @patch('events.signals.sync_event_to_google')
     @patch('events.signals.sync_event_to_caldav')
     def test_calendar_event_save_signals(self, mock_sync_caldav, mock_sync_google):
-        # Create an event
+        """
+        Validates that creating or updating a calendar event triggers external calendar sync hooks.
+        """
+        # Create a calendar event
         event = CalendarEvent.objects.create(
             title="Meeting Title",
             start_datetime=timezone.now(),
@@ -51,24 +70,27 @@ class CalendarSignalsAndFormTests(TestCase):
             project=self.project
         )
         
-        # Verify sync signals were called
+        # Verify sync signals are triggered upon creation
         mock_sync_google.assert_called_once_with(event)
         mock_sync_caldav.assert_called_once_with(event)
 
-        # Reset mock calls
+        # Reset mock call counters
         mock_sync_google.reset_mock()
         mock_sync_caldav.reset_mock()
 
-        # Update event
+        # Update event attributes
         event.title = "Updated Meeting Title"
         event.save()
 
-        # Verify sync signals were called again
+        # Verify sync signals are triggered upon update
         mock_sync_google.assert_called_once_with(event)
         mock_sync_caldav.assert_called_once_with(event)
 
     @patch('events.signals.delete_from_external_calendars')
     def test_calendar_event_delete_signal(self, mock_delete_external):
+        """
+        Validates that deleting a calendar event triggers cleanup methods for external platforms.
+        """
         # Create an event
         event = CalendarEvent.objects.create(
             title="Meeting Title",
@@ -78,14 +100,16 @@ class CalendarSignalsAndFormTests(TestCase):
             project=self.project
         )
         
-        # Delete the event
+        # Delete event record
         event.delete()
 
-        # Verify delete signal was called
+        # Verify delete signal was dispatched to cleanup methods
         mock_delete_external.assert_called_once_with(event)
 
     def test_calendar_event_form_dynamic_queryset(self):
-        # Test that task queryset resolves correctly when project is provided in self.data (POST data)
+        """
+        Validates that tasks list options are dynamically filtered to match the selected project in forms.
+        """
         data = {
             "title": "New Event",
             "description": "Event description",
@@ -97,9 +121,9 @@ class CalendarSignalsAndFormTests(TestCase):
             "color": "#6366f1",
         }
         
-        # Instantiate form with data and user
+        # Instantiate form with POST data and active user context
         form = CalendarEventForm(data=data, user=self.user)
         
-        # Check task field queryset has task
+        # Verify choices list includes project tasks and validates form fields successfully
         self.assertIn(self.task, form.fields["task"].queryset)
         self.assertTrue(form.is_valid(), form.errors)

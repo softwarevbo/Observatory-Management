@@ -1,0 +1,3 @@
+"""
+Procurement Management Application Package.
+"""

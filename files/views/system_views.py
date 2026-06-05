@@ -4,7 +4,12 @@ from django.contrib import messages
 from ..models import SystemSettings
 from django import forms
 
+"""
+This module processes system settings configuration dashboards.
+"""
+
 class SystemSettingsForm(forms.ModelForm):
+    """Form to adjust maximum upload constraints bounds."""
     class Meta:
         model = SystemSettings
         fields = ['max_file_size_gb']
@@ -14,6 +19,9 @@ class SystemSettingsForm(forms.ModelForm):
 
 @login_required
 def system_settings(request):
+    """
+    Validates user credentials and redirects admin users to the system settings panels page.
+    """
     if not request.user.is_admin:
         messages.error(request, "Access denied. Admins only.")
         return redirect('tasks:dashboard')

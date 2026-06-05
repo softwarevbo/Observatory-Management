@@ -10,9 +10,18 @@ from tasks.models import Project
 from accounts.models import User
 from .models import Notification
 
+"""
+This module processes views and controllers for checking and managing user notifications.
+"""
+
 
 @login_required
 def notifications_list(request):
+    """
+    Renders user's notifications, supporting pagination and filters
+    (by unread status, type, project, sender, and timeframe).
+    Synchronizes repository invitation states for invite notification clicks.
+    """
     notifs = Notification.objects.filter(recipient=request.user).select_related(
         "sender", "task", "project"
     )
@@ -73,8 +82,7 @@ def notifications_list(request):
     paginator = Paginator(notifs, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
-    # Build a lookup of pending repo invitations for this user,
-    # keyed by repo name (lowercase) so we can match notification messages.
+    # Map repository invitations to notifications of type repo_invite
     try:
         from resource_hub.models import RepoInvitation
         pending_invites = list(
@@ -82,23 +90,19 @@ def notifications_list(request):
                 invitee=request.user, is_accepted=False
             ).select_related('repository')
         )
-        # Map: repo_name_lower -> invite
         pending_by_repo_name = {inv.repository.name.lower(): inv for inv in pending_invites}
     except Exception:
         pending_by_repo_name = {}
 
     for n in page_obj:
         if n.notification_type == 'repo_invite' and pending_by_repo_name:
-            # Match invite to notification by looking for repo name in message
             matched = None
             msg_lower = (n.message or '').lower()
             for repo_name_lower, inv in pending_by_repo_name.items():
                 if repo_name_lower in msg_lower:
                     matched = inv
                     break
-            # Fallback: take the first pending invite if message match fails
-            if matched is None:
-                matched = next(iter(pending_by_repo_name.values()))
+            # Do not fall back to an unrelated invitation if no matching repository invite is active
             n.repo_invite = matched
         else:
             n.repo_invite = None
@@ -125,13 +129,16 @@ def notifications_list(request):
 
 @login_required
 def notification_read(request, pk):
+    """
+    Marks a single notification as read and redirects the user to the corresponding action target
+    (e.g., chat room, repository invitation list, task detail, or project page).
+    """
     notif = get_object_or_404(Notification, pk=pk, recipient=request.user)
     notif.is_read = True
     notif.save()
     if notif.notification_type == 'chat_message':
         return redirect("chat:home")
     if notif.notification_type == 'repo_invite':
-        # Redirect to Resource Hub list — pending invite banners are shown there
         return redirect("resource_hub:repo_list")
     if notif.task:
         return redirect("tasks:task_detail", pk=notif.task.pk)

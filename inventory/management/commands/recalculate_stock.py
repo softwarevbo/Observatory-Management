@@ -3,8 +3,16 @@ from inventory.models import BranchStock, Branch
 from products.models import Product
 from inventory.signals import recalculate_branch_stock
 
+"""
+This module contains the recalculate_stock Django custom administrative management command.
+Allows administrative recalculations of Branch Stock from StockEntry and InventoryAdjustment listings.
+"""
+
 
 class Command(BaseCommand):
+    """
+    Recalculates all branch stock quantities based on StockEntry and InventoryAdjustment records.
+    """
     help = "Recalculates all branch stock quantities based on StockEntry and InventoryAdjustment records."
 
     def handle(self, *args, **options):

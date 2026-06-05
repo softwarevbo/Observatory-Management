@@ -14,11 +14,18 @@ from ..serializers import SerialNumberSerializer
 from ..notifications import notify_inventory_admins
 from ..utils import get_isolated_products, filter_by_branch
 
+"""
+This module processes serial number registers search queries, sync commands, and REST APIs.
+"""
 
 def _inventory_permission_redirect(request, access_field=None, manage_field=None):
+    """
+    Utility checking user credentials on specific sub-modules.
+    Super admin and branch admin bypass this validation.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
-    if request.user.is_super_admin or request.user.is_branch_admin:
+    if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
         return None
     if access_field and not getattr(request.user, access_field, True):
         messages.error(request, "You do not have access to this inventory module.")
@@ -36,6 +43,10 @@ def _inventory_permission_redirect(request, access_field=None, manage_field=None
 
 
 class SerialNumbersPageView(View):
+    """
+    View class displaying serial registers, supporting search queries,
+    and triggering batch synchronization commands on POST.
+    """
     def get(self, request):
         permission_redirect = _inventory_permission_redirect(
             request, "can_access_serials_page"
@@ -110,7 +121,7 @@ class SerialNumbersPageView(View):
             request,
             f"Serial numbers synced! Created: {created_count}, Updated: {updated_count}",
         )
-        if not request.user.is_admin and (created_count or updated_count):
+        if not getattr(request.user, "is_admin", False) and (created_count or updated_count):
             notify_inventory_admins(
                 request.user,
                 "inventory_action",
@@ -122,12 +133,16 @@ class SerialNumbersPageView(View):
 
 
 class SerialNumberPagination(PageNumberPagination):
+    """Custom pagination layout for serial numbers listings."""
     page_size = 50
     page_size_query_param = "page_size"
     max_page_size = 100
 
 
 class SerialNumbersAPI(ListCreateAPIView):
+    """
+    DRF API endpoint listing and creating Serial Numbers.
+    """
     serializer_class = SerialNumberSerializer
     permission_classes = [IsAuthenticated]
 

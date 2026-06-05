@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from .models import (
     Alert,
     Branch,
@@ -6,11 +7,17 @@ from .models import (
     InventoryAdjustment,
     QuantityLimit,
     SerialNumber,
+    InventoryNotification,
+    InventoryUser
 )
 
+"""
+This module registers Inventory application models in the Django Admin panel.
+"""
 
 @admin.register(Branch)
 class BranchAdmin(admin.ModelAdmin):
+    """Admin configuration representing physical repository branches."""
     list_display = ("name", "code", "contact_number", "is_active", "created_at")
     search_fields = ("name", "code")
     list_filter = ("is_active",)
@@ -18,6 +25,7 @@ class BranchAdmin(admin.ModelAdmin):
 
 @admin.register(BranchStock)
 class BranchStockAdmin(admin.ModelAdmin):
+    """Admin configuration displaying real-time branch stock quantities and locations."""
     list_display = (
         "product",
         "branch",
@@ -34,6 +42,7 @@ class BranchStockAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryAdjustment)
 class InventoryAdjustmentAdmin(admin.ModelAdmin):
+    """Admin configuration representing stock adjustment transactions."""
     list_display = (
         "product",
         "adjustment_type",
@@ -48,6 +57,7 @@ class InventoryAdjustmentAdmin(admin.ModelAdmin):
 
 @admin.register(SerialNumber)
 class SerialNumberAdmin(admin.ModelAdmin):
+    """Admin configuration tracking unique hardware equipment serial codes."""
     list_display = ("serial_number", "product", "status", "created_at")
     list_filter = ("status", "created_at")
     search_fields = ("serial_number", "product__name")
@@ -55,6 +65,7 @@ class SerialNumberAdmin(admin.ModelAdmin):
 
 @admin.register(QuantityLimit)
 class QuantityLimitAdmin(admin.ModelAdmin):
+    """Admin configuration defining custom low stock triggers per product."""
     list_display = (
         "product",
         "limit_quantity",
@@ -69,6 +80,7 @@ class QuantityLimitAdmin(admin.ModelAdmin):
 
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
+    """Admin panel displaying active stock shortage alerts."""
     list_display = (
         "product",
         "alert_type",
@@ -83,12 +95,8 @@ class AlertAdmin(admin.ModelAdmin):
     list_editable = ("status",)
 
 
-from django import forms
-
-from .models import InventoryNotification, InventoryUser
-
-
 class InventoryUserForm(forms.ModelForm):
+    """Custom model form protecting InventoryUser passwords in django admin."""
     password = forms.CharField(
         widget=forms.PasswordInput(
             attrs={"placeholder": "Leave blank to keep current password"}
@@ -104,6 +112,7 @@ class InventoryUserForm(forms.ModelForm):
 
 @admin.register(InventoryUser)
 class InventoryUserAdmin(admin.ModelAdmin):
+    """Admin configuration governing dedicated isolated inventory staff login records."""
     form = InventoryUserForm
     list_display = ("username", "role", "email", "is_active", "created_at")
     list_filter = ("role", "is_active")
@@ -111,6 +120,7 @@ class InventoryUserAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at",)
 
     def save_model(self, request, obj, form, change):
+        """Hashes the user password using set_password if a new password was provided."""
         password = form.cleaned_data.get("password")
         if password:
             obj.set_password(password)
@@ -119,6 +129,7 @@ class InventoryUserAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryNotification)
 class InventoryNotificationAdmin(admin.ModelAdmin):
+    """Admin configuration displaying internal alert logs dispatched to inventory workers."""
     list_display = ("recipient", "notification_type", "title", "is_read", "created_at")
     list_filter = ("notification_type", "is_read", "created_at")
     search_fields = ("recipient__username", "sender__username", "title", "message")

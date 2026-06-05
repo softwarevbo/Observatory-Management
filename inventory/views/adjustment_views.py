@@ -14,11 +14,18 @@ from ..serializers import InventoryAdjustmentSerializer
 from ..notifications import notify_inventory_admins
 from ..utils import get_isolated_products, filter_by_branch, has_global_inventory_access
 
+"""
+This module processes stock adjustments tracking, permission routing overrides, and DRF API endpoints.
+"""
 
 def _inventory_permission_redirect(request, access_field=None, manage_field=None):
+    """
+    Utility checking user credentials on specific sub-modules.
+    Super admin and branch admin bypass this validation.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
-    if request.user.is_super_admin or request.user.is_branch_admin:
+    if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
         return None
     if access_field and not getattr(request.user, access_field, True):
         messages.error(request, "You do not have access to this inventory module.")
@@ -37,6 +44,10 @@ def _inventory_permission_redirect(request, access_field=None, manage_field=None
 
 @method_decorator(admin_required, name="dispatch")
 class InventoryAdjustmentPageView(View):
+    """
+    View class displaying stock adjustment logs, applying branch isolates.
+    Enables creating manual adjustments with automatic logging hook triggers.
+    """
     def get(self, request):
         permission_redirect = _inventory_permission_redirect(
             request, "can_access_adjustments_page"
@@ -89,6 +100,7 @@ class InventoryAdjustmentPageView(View):
         else:
             quantity = abs(quantity)
 
+        # Global access checks to target different branches
         if has_global_inventory_access(request.user):
             branch_id = request.POST.get("branch")
             if not branch_id:
@@ -111,7 +123,7 @@ class InventoryAdjustmentPageView(View):
             created_by=request.user,
         )
         AuditLog.log(request.user, f"adjustment {adjustment_type}", adj)
-        if not request.user.is_admin:
+        if not getattr(request.user, "is_admin", False):
             notify_inventory_admins(
                 request.user,
                 "inventory_action",
@@ -123,6 +135,10 @@ class InventoryAdjustmentPageView(View):
 
 
 class InventoryAdjustmentAPI(ListCreateAPIView):
+    """
+    DRF API endpoint listing and recording inventory adjustments.
+    Requires authentication, applying branch parameters isolation.
+    """
     serializer_class = InventoryAdjustmentSerializer
     permission_classes = [IsAuthenticated]
 

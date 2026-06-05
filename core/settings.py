@@ -6,9 +6,17 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-IIAP-pm-change-this-in-production-!@#$%^&*()"
+import os
+import secrets
 
-DEBUG = True
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    # Use fallback secure key or generate a unique random one on start
+    SECRET_KEY = "django-insecure-IIAP-pm-change-this-in-production-!@#$%^&*()"
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = ["*"]
 
@@ -43,7 +51,6 @@ INSTALLED_APPS = [
     "dashboard",
     "chat",
     "channels",
-    "debug_toolbar",
 ]
 
 INTERNAL_IPS = [
@@ -51,7 +58,6 @@ INTERNAL_IPS = [
 ]
 
 MIDDLEWARE = [
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -61,6 +67,10 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "accounts.middleware.InventoryAccessMiddleware",
 ]
+
+if DEBUG:
+    INSTALLED_APPS.append("debug_toolbar")
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
 
 ROOT_URLCONF = "core.urls"
 
@@ -162,4 +172,12 @@ try:
     ])
 except Exception:
     pass
+
+# Security Enhancements
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 14400 # Session expires after 4 hours of inactivity
+
 

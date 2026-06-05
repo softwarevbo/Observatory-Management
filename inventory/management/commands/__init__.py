@@ -1,1 +1,3 @@
-# Commands package
+"""
+Inventory Management Commands Subpackage.
+"""

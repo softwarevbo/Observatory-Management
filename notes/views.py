@@ -10,8 +10,18 @@ from .models import KnowledgeBaseNote
 from .forms import KnowledgeBaseNoteForm
 from .services import KBService
 
+"""
+This module processes view controllers and workflows for the Notes / Knowledge Base.
+Supports role-based read/write access checks, page routing list controllers, and trash workflows.
+"""
+
 
 def check_kb_access(kb, user, access_type="view"):
+    """
+    Validates user credentials against specific Knowledge Base access constraints.
+    Grants access if the user is the author, an admin, a project manager,
+    has explicit DocumentAccessRight, or belongs to the note's project module.
+    """
     if kb.author == user:
         return True
     if not kb.project:
@@ -48,6 +58,10 @@ def check_kb_access(kb, user, access_type="view"):
 
 @login_required
 def kb_overview(request):
+    """
+    Renders the central index list of all visible Knowledge Base notes.
+    Supports search filtering by text queries, authors, and projects.
+    """
     notes = get_visible_notes_qs(request.user)
     q = request.GET.get("q", "")
     project_filter = request.GET.get("project", "")
@@ -88,6 +102,10 @@ def kb_overview(request):
 
 @login_required
 def kb_create_global(request):
+    """
+    Renders creation form for a new global note, allowing linking it to select projects.
+    Note synchronization to the Notes folder is handled inside note.save() model trigger.
+    """
     if request.user.is_admin:
         projects = Project.objects.all().order_by("name")
     else:
@@ -109,8 +127,7 @@ def kb_create_global(request):
             except Project.DoesNotExist:
                 note.project = None
         note.author = request.user
-        note.save()
-        KBService.save_note_as_file(note, request.user)
+        note.save()  # Auto-triggers Markdown file generation
         messages.success(request, f'Note "{note.title}" created successfully.')
         return redirect("tasks:kb_overview")
 
@@ -123,6 +140,9 @@ def kb_create_global(request):
 
 @login_required
 def kb_list(request, pk):
+    """
+    Displays the catalog list of notes for a specific project.
+    """
     project = get_object_or_404(Project, pk=pk)
     if not request.user.is_admin:
         if not (
@@ -143,6 +163,10 @@ def kb_list(request, pk):
 
 @login_required
 def kb_create(request, pk):
+    """
+    Renders creation form for a new note scoped within a specific project/module.
+    Note synchronization to the Notes folder is handled inside note.save() model trigger.
+    """
     project = get_object_or_404(Project, pk=pk)
     module = None
     module_id = request.GET.get("module")
@@ -159,8 +183,7 @@ def kb_create(request, pk):
         if module:
             note.module = module
         note.author = request.user
-        note.save()
-        KBService.save_note_as_file(note, request.user)
+        note.save()  # Auto-triggers Markdown file generation
         messages.success(
             request, f'Note "{note.title}" created in project "{project.name}".'
         )
@@ -181,6 +204,9 @@ def kb_create(request, pk):
 
 @login_required
 def kb_detail(request, pk):
+    """
+    Renders note metadata parameters and markdown content.
+    """
     note = get_object_or_404(KnowledgeBaseNote, pk=pk)
     project = note.project
     if not check_kb_access(note, request.user, "view"):
@@ -193,6 +219,9 @@ def kb_detail(request, pk):
 
 @login_required
 def kb_edit(request, pk):
+    """
+    Renders the update form for modifying notes.
+    """
     note = get_object_or_404(KnowledgeBaseNote, pk=pk)
     project = note.project
     if not check_kb_access(note, request.user, "edit"):
@@ -201,7 +230,7 @@ def kb_edit(request, pk):
 
     form = KnowledgeBaseNoteForm(request.POST or None, instance=note)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        form.save()  # Auto-triggers file update and renames if title changed
         messages.success(request, "Note updated.")
         return redirect("tasks:kb_detail", pk=pk)
 
@@ -220,6 +249,9 @@ def kb_edit(request, pk):
 
 @login_required
 def kb_access(request, pk):
+    """
+    Manages user-specific permissions (can_view, can_edit, can_delete) on a note.
+    """
     from accounts.models import User
     from files.models import DocumentAccessRight
 
@@ -272,6 +304,10 @@ def kb_access(request, pk):
 
 @login_required
 def kb_delete(request, pk):
+    """
+    Renders soft-deletion confirmation and handles moving notes to trash.
+    The soft-deletion state is synchronized to the corresponding file via note.save().
+    """
     note = get_object_or_404(KnowledgeBaseNote, pk=pk)
     project = note.project
     if not check_kb_access(note, request.user, "delete"):
@@ -283,7 +319,7 @@ def kb_delete(request, pk):
         note.is_in_trash = True
         note.deleted_at = timezone.now()
         note.deleted_by = request.user
-        note.save()
+        note.save()  # Auto-triggers file trashing
         messages.success(request, f'Note "{title}" has been moved to trash.')
         return (
             redirect("tasks:kb_list", pk=project.pk)
@@ -298,6 +334,10 @@ def kb_delete(request, pk):
 
 @login_required
 def note_restore(request, pk):
+    """
+    Restores soft-deleted notes from trash.
+    Synchronization is auto-triggered via note.save().
+    """
     note = get_object_or_404(KnowledgeBaseNote, pk=pk)
     is_authorized = (request.user.is_admin or 
                      (note.project and note.project.is_manager(request.user)) or 
@@ -311,18 +351,21 @@ def note_restore(request, pk):
     note.is_in_trash = False
     note.deleted_at = None
     note.deleted_by = None
-    note.save()
+    note.save()  # Auto-triggers file restoration from trash
     messages.success(request, f"Note '{note.title}' restored.")
     return redirect("tasks:trash")
 
 
 @login_required
 def note_permanent_delete(request, pk):
+    """
+    Permanently deletes notes and their synchronized files from both database and physical disk storage.
+    """
     note = get_object_or_404(KnowledgeBaseNote, pk=pk)
     if not (request.user.is_admin or request.user.is_project_manager or (note.project and note.project.is_manager(request.user))):
         messages.error(request, "Only managers can permanently delete notes.")
         return redirect("tasks:trash")
         
-    note.delete()
+    note.delete()  # Custom delete() cleans up database and physical file
     messages.success(request, "Note permanently deleted from database.")
     return redirect("tasks:trash")

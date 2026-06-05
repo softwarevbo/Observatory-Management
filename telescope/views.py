@@ -5,6 +5,10 @@ from django.utils.text import slugify
 from .models import Telescope
 
 def ensure_default_telescopes():
+    """
+    Checks if default telescope seed instances exist in the database;
+    if none are found, initializes the core Kavalur Observatory instrumentation records.
+    """
     if Telescope.objects.count() == 0:
         Telescope.objects.create(
             id_name="vbt_234",
@@ -97,10 +101,15 @@ def ensure_default_telescopes():
 
 @login_required
 def dashboard(request):
+    """
+    Renders the telescope monitoring dashboard displaying status trackers and weather logs.
+    """
+    # Enforce telescope access permissions
     if not request.user.is_superuser and not request.user.can_access_telescope:
         messages.error(request, "Access Denied: You do not have permission to access the Telescope Control System.")
         return redirect("accounts:login")
     
+    # Ensure seed instruments exist
     ensure_default_telescopes()
     telescopes = Telescope.objects.all()
     
@@ -126,6 +135,9 @@ def dashboard(request):
 
 @login_required
 def telescope_detail(request, pk):
+    """
+    Displays the technical specifications and real-time feed indicators for a single telescope.
+    """
     if not request.user.is_superuser and not request.user.can_access_telescope:
         messages.error(request, "Access Denied.")
         return redirect("accounts:login")
@@ -135,6 +147,10 @@ def telescope_detail(request, pk):
 
 @login_required
 def telescope_create(request):
+    """
+    Creates a new telescope record inside the control registry system.
+    """
+    # Enforce administrative access level check
     if not request.user.is_superuser and not request.user.is_telescope_admin:
         messages.error(request, "Access Denied: Only Telescope Control System Administrators can add new telescopes.")
         return redirect("telescope:dashboard")
@@ -156,6 +172,7 @@ def telescope_create(request):
         description = request.POST.get("description", "")
         history = request.POST.get("history", "")
         
+        # Generate slugified system identifier
         id_name = slugify(name).replace("-", "_")
         
         tele = Telescope.objects.create(
@@ -187,6 +204,10 @@ def telescope_create(request):
 
 @login_required
 def telescope_edit(request, pk):
+    """
+    Edits target targets, tracking controls, dome state and configurations of an existing telescope.
+    """
+    # Enforce telescope control system admin authorization checks
     if not request.user.is_superuser and not request.user.is_telescope_admin:
         messages.error(request, "Access Denied: Only Telescope Control System Administrators can edit telescopes.")
         return redirect("telescope:dashboard")
@@ -221,6 +242,9 @@ def telescope_edit(request, pk):
 
 @login_required
 def telescope_delete(request, pk):
+    """
+    Deletes a telescope registration record.
+    """
     if not request.user.is_superuser and not request.user.is_telescope_admin:
         messages.error(request, "Access Denied: Only Telescope Control System Administrators can delete telescopes.")
         return redirect("telescope:dashboard")

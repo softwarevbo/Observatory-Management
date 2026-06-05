@@ -7,8 +7,17 @@ from django.core.paginator import Paginator
 from tasks.models import Project, ModuleMember
 from ..models import ProjectFile, FileCategory, DocumentAccessRight
 
+"""
+This module processes primary files and folders listing, sorting, and authorization checks.
+"""
 
 def check_file_access(pf, user, access_type="view"):
+    """
+    Validates user credentials against file parameters:
+    - Admins/PMs have access to all items.
+    - Creators have full control over their uploaded files.
+    - Viewers must belong to linked projects/modules or have explicit overrides.
+    """
     if user.is_admin or getattr(user, 'is_project_manager', False):
         return True
     if pf.uploaded_by == user:
@@ -22,6 +31,7 @@ def check_file_access(pf, user, access_type="view"):
             return pf.uploaded_by == user
     if access_type != "view":
         return False
+        
     module = pf.module or (pf.task.module if pf.task else None)
     if module:
         return ModuleMember.objects.filter(module=module, user=user).exists()
@@ -32,9 +42,14 @@ def check_file_access(pf, user, access_type="view"):
 
 @login_required
 def file_list(request):
+    """
+    Main directory controller page supporting different layouts (tree, grid, repository views).
+    Calculates storage metrics in a single database lookup using conditional aggregation,
+    and sorts the folder structure to group categories and files recursively.
+    """
     user = request.user
     
-    # Get view preference from session, defaulting to 'tree'
+    # Load session preferences (default to tree)
     saved_view = request.session.get("file_view_preference", "tree")
     resource_view = request.GET.get("resource_view")
     if resource_view:
@@ -50,7 +65,7 @@ def file_list(request):
         request.GET.get("repo_cat_id"),
     )
 
-    # Sort support
+    # Sorting options mapping
     sort = request.GET.get("sort", "name_asc")
     SORT_MAP = {
         "name_asc":      "original_name",
@@ -73,6 +88,8 @@ def file_list(request):
         [],
         [],
     )
+    
+    # Base user visibility filter parameters
     q_filter = (
         Q(uploaded_by=user)
         | Q(project__managers=user)
@@ -82,6 +99,8 @@ def file_list(request):
         | Q(task__module__members__user=user)
         | Q(access_rights__user=user, access_rights__can_view=True)
     )
+    
+    # Filter out trash and version revisions (versions__isnull=True represents primary files)
     files = ProjectFile.objects.filter(q_filter, versions__isnull=True, is_in_trash=False).distinct().order_by(sort_field)
     if search:
         files = files.filter(
@@ -95,7 +114,8 @@ def file_list(request):
         files = files.filter(project_id=proj_filter)
     if module_filter:
         files = files.filter(module_id=module_filter)
-    # Compute all stats in a SINGLE query using conditional aggregation
+        
+    # Single-Query Conditional Aggregation computing global counts
     agg = files.aggregate(
         total=Count('pk'),
         total_size=Sum('file_size'),
@@ -129,20 +149,20 @@ def file_list(request):
     uncategorized_files_qs = ProjectFile.objects.none()
     latest_files_qs = ProjectFile.objects.none()
 
-    # ── Base trash-safe personal-files queryset (used by both tree & repo views) ──
+    # Personal untrashed files
     personal_files_base = ProjectFile.objects.filter(
         q_filter, project__isnull=True, versions__isnull=True, is_in_trash=False
     ).distinct().order_by(sort_field)
 
-    # Recent last-5 modified files — always sorted by modified date regardless of sort param
+    # Fetch 5 most recently updated records
     recent_files_qs = ProjectFile.objects.filter(q_filter, versions__isnull=True, is_in_trash=False)
     if proj_filter:
         recent_files_qs = recent_files_qs.filter(project_id=proj_filter)
     recent_files = recent_files_qs.select_related('project', 'uploaded_by', 'category').order_by('-updated_at')[:5]
 
+    # Paginate list objects based on view layout preferences
     if resource_view == "repository":
         if current_repo_cat:
-            # latest_files property already filters is_in_trash=False
             latest_files_qs = current_repo_cat.latest_files
             if sort_field != "original_name":
                 latest_files_qs = latest_files_qs.order_by(sort_field)
@@ -153,16 +173,14 @@ def file_list(request):
             ).order_by(sort_field)
             page_obj = Paginator(uncategorized_files_qs, 20).get_page(page_num)
         else:
-            # Root repo view: personal files only — must exclude trash
             files_no_project_qs = personal_files_base
             page_obj = Paginator(files_no_project_qs, 20).get_page(page_num)
     elif resource_view == "grid":
-        # Grid/flat view: paginate the main files list
         page_obj = Paginator(files, 20).get_page(page_num)
     else:
-        # Tree view: personal files section also needs trash filtering
         files_no_project_qs = personal_files_base
 
+    # Pre-fetch relations to avoid N+1 queries during rendering
     projects_qs = (
         Project.objects.filter(Q(managers=user) | Q(members=user))
         .distinct()
@@ -205,7 +223,7 @@ def file_list(request):
         is_in_trash=False
     ).distinct().order_by(cat_sort_field)
 
-    # Calculate category sizes recursively
+    # Calculate directory storage sizes recursively
     cat_parents = {cat.pk: cat.parent_id for cat in all_categories_for_tree}
     category_sizes = {cat.pk: 0 for cat in all_categories_for_tree}
     for f in all_files_for_tree:
@@ -215,7 +233,7 @@ def file_list(request):
                 category_sizes[curr] += f.file_size
                 curr = cat_parents.get(curr)
 
-    # Sort categories by size if requested
+    # Sort categories based on size properties if requested
     if sort in ["size_desc", "size_asc"]:
         sorted_cats = sorted(
             all_categories_for_tree,
@@ -225,7 +243,7 @@ def file_list(request):
     else:
         sorted_cats = list(all_categories_for_tree)
 
-    # Group categories and files by parent/project
+    # Group categories and files into directories
     project_root_cats = {pid: [] for pid in project_ids}
     project_root_files = {pid: [] for pid in project_ids}
     cat_children = {cat.pk: [] for cat in all_categories_for_tree}
@@ -255,7 +273,7 @@ def file_list(request):
             if f.project_id in project_root_files:
                 project_root_files[f.project_id].append(f)
 
-    # Assign dynamically sorted lists as attributes
+    # Bind lists to attributes for simple template iterations
     for cat in all_categories_for_tree:
         cat.temp_children = cat_children[cat.pk]
         cat.temp_files = cat_files[cat.pk]
@@ -264,12 +282,10 @@ def file_list(request):
         p.temp_categories = project_root_cats.get(p.pk, [])
         p.temp_files = project_root_files.get(p.pk, [])
 
-    # Populate current project repository lists
     if current_project and not current_repo_cat:
         root_categories = project_root_cats.get(current_project.pk, [])
         uncategorized_files = project_root_files.get(current_project.pk, [])
 
-    # Populate current subfolder repository lists
     if current_repo_cat:
         match = next((c for c in all_categories_for_tree if c.pk == current_repo_cat.pk), None)
         if match:
@@ -288,7 +304,6 @@ def file_list(request):
             "files": page_obj,
             "page_obj": page_obj,
             "projects": projects_qs,
-            # Repository root personal files come from paginator; tree view gets the base qs
             "files_no_project": (
                 page_obj.object_list
                 if (not current_project and not current_repo_cat and resource_view == "repository")
@@ -322,4 +337,5 @@ def file_list(request):
 
 @login_required
 def project_files(request, pk):
+    """Simple shortcut view redirecting queries to the filtered document list page."""
     return redirect(f"/files/?project={pk}")

@@ -6,8 +6,16 @@ from inventory.models import Alert, QuantityLimit, BranchStock, Branch
 from products.models import Product
 from stock.models import StockEntry
 
+"""
+This module contains the check_alerts Django custom administrative management command.
+Monitors product stock levels against quantity limits by branch and fires alerts.
+"""
+
 
 class Command(BaseCommand):
+    """
+    Check product quantities by branch and create alerts when limits are reached.
+    """
     help = (
         "Check product quantities by branch and create alerts when limits are reached"
     )

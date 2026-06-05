@@ -6,33 +6,51 @@ from django.db import models
 from accounts.models import User
 from django.utils import timezone
 from .models import ChatRoom, Message, UserPresence, ChatAttachment, ChatClear
+from .utils import get_avatar_svg
+
+"""
+This module contains HTTP view handlers for the chat application workspace.
+Most views are decorated with `@login_required` to protect against unauthorized queries.
+
+Many views act as JSON API endpoints consumed by frontend JavaScript code, 
+enabling dynamic message loading, file uploads, text searches, and history clears.
+"""
 
 def get_room_group_name(room):
+    """Utility helper to resolve standard group channel name string."""
     return f"chat_{room.room_id}"
+
 
 @login_required
 def chat_home(request):
-    # Fetch all rooms the user is part of, sorted by the latest message or update time
+    """
+    Renders the main chat console dashboard.
+    Annotates rooms with last message times, calculates unread counts,
+    and returns a filtered user list to initiate new direct conversations.
+    """
+    # Fetch all active rooms the user participates in.
+    # Annotate with the latest message time to sort rooms chronologically (newest updates first).
     rooms = ChatRoom.objects.filter(participants=request.user).annotate(
         last_msg_time=models.Max('messages__created_at'),
         msg_count=models.Count('messages')
     ).filter(
+        # Group chats show immediately; DMs only show if they contain at least one message.
         models.Q(room_type='group') | models.Q(msg_count__gt=0)
     ).order_by(models.F('last_msg_time').desc(nulls_last=True), '-updated_at').distinct()
     
-    # Pre-fetch last messages for snippets and calculate unread counts
+    # Pre-fetch snippets and calculate unread counts manually
     for room in rooms:
         room.last_msg = room.messages.order_by('-created_at').first()
         room.unread_count = room.messages.exclude(sender=request.user).exclude(read_receipts__user=request.user).count()
     
-    # Identify users with existing DM rooms to avoid duplicates in sidebar
+    # Identify user IDs who already have active DM rooms with this user to avoid duplicates in sidebar lists
     dm_rooms = ChatRoom.objects.filter(participants=request.user, room_type='direct').annotate(
         msg_count=models.Count('messages')
     ).filter(msg_count__gt=0)
     has_self_dm = ChatRoom.objects.filter(name=f"DM-{request.user.id}-{request.user.id}").exists()
     dm_user_ids = list(User.objects.filter(chat_rooms__in=dm_rooms).exclude(id=request.user.id).values_list('id', flat=True))
     
-    # Fetch users for starting NEW DMs (include self only if self-DM doesn't exist yet)
+    # Fetch users list for initiating new DM conversations (excluding current contacts)
     if has_self_dm:
         users = User.objects.exclude(id=request.user.id).exclude(id__in=dm_user_ids).select_related('presence')
     else:
@@ -43,8 +61,12 @@ def chat_home(request):
         'users': users
     })
 
+
 @login_required
 def create_group(request):
+    """
+    Handles group chat room creation.
+    """
     if request.method == 'POST':
         name = request.POST.get('name')
         participant_ids = request.POST.getlist('participants')
@@ -54,6 +76,7 @@ def create_group(request):
             room_type='group',
             created_by=request.user
         )
+        # Add creator and selected participants
         room.participants.add(request.user)
         if participant_ids:
             room.participants.add(*participant_ids)
@@ -65,14 +88,21 @@ def create_group(request):
         'users': users
     })
 
+
 @login_required
 def search_messages(request):
+    """
+    AJAX endpoint returning matching messages for a search query.
+    Performs case-insensitive checks on decrypted content values.
+    """
     query = request.GET.get('q', '')
     if not query:
         return JsonResponse({'results': []})
         
+    # Restrict search range to rooms the user participates in
     messages_qs = Message.objects.filter(room__participants=request.user)
     
+    # Filter search by a specific room context if specified
     room_id = request.GET.get('room_id', '')
     if room_id:
         if room_id.startswith('DM-'):
@@ -82,11 +112,13 @@ def search_messages(request):
         else:
             messages_qs = messages_qs.filter(room__room_id=room_id)
             
+    # Load relationships to optimize database lookup
     messages = messages_qs.select_related('room', 'sender').order_by('-created_at')[:1000]
     
     msgs_data = []
     query_lower = query.lower()
     for m in messages:
+        # Decrypt message content on the fly to check for string matching
         dec_content = m.decrypted_content
         if query_lower in dec_content.lower():
             room_name = m.room.name or "Group Chat"
@@ -105,34 +137,43 @@ def search_messages(request):
                 'room_id': str(m.room.room_id),
                 'room_type': room_type
             })
+            # Limit search results to 50 items for speed
             if len(msgs_data) >= 50:
                 break
     
     return JsonResponse({'results': msgs_data})
 
+
 @login_required
 def project_chat(request, project_id):
-    # Logic for project specific chat
+    """
+    Renders main chat dashboard focused on a specific project room.
+    """
     return render(request, 'chat/main_chat.html')
+
 
 @login_required
 def get_messages(request, room_id):
+    """
+    REST API returning message logs and participants list for a chat room.
+    Filters out messages sent before the user's history clear timestamp.
+    """
     import uuid
     room = None
     try:
-        # Try UUID first
+        # Resolve target room by UUID key first
         val = uuid.UUID(room_id)
         room = ChatRoom.objects.get(room_id=val)
     except (ValueError, ChatRoom.DoesNotExist):
-        # Fallback to name (simplified)
+        # Fallback lookups
         if room_id == 'general':
             room = ChatRoom.objects.filter(name='general').first()
         elif room_id.startswith('DM-'):
+            # Standard DM path (creates room on the fly if not existing yet)
             participant_id = room_id.split('-')[1]
             try:
                 other_user = User.objects.get(id=participant_id)
                 room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
-                # Use filter+first to survive duplicate rows in DB
                 room = ChatRoom.objects.filter(name=room_name).order_by('pk').first()
                 if not room:
                     room = ChatRoom.objects.create(name=room_name, room_type='direct')
@@ -143,6 +184,7 @@ def get_messages(request, room_id):
             except User.DoesNotExist:
                 pass
     
+    # If room is not persisted yet (e.g. initial DM click), return placeholders structure
     if not room:
         if room_id.startswith('DM-'):
             participant_id = room_id.split('-')[1]
@@ -157,14 +199,17 @@ def get_messages(request, room_id):
                 return JsonResponse({'messages': [], 'error': 'User not found'}, status=404)
         return JsonResponse({'messages': [], 'participants': [], 'room_type': 'group'})
         
-    # Check if user cleared this chat
+    # Check if the user has cleared logs history in this room
     clear_history = ChatClear.objects.filter(user=request.user, room=room).first()
     
     messages_query = Message.objects.filter(room=room)
+    # Hide messages created before user's clear timestamp
     if clear_history:
         messages_query = messages_query.filter(created_at__gt=clear_history.cleared_at)
         
+    # Prefetch relations to prevent database overheads
     messages = messages_query.prefetch_related('reactions', 'attachments', 'read_receipts').order_by('created_at')[:100]
+    
     msgs_data = [{
         'id': m.id,
         'sender': m.sender.username,
@@ -201,10 +246,17 @@ def get_messages(request, room_id):
         'created_by': room.created_by.username if room.created_by else None
     })
 
+
 @login_required
 @csrf_exempt
 def upload_chat_file(request):
+    """
+    REST API endpoint managing file attachment uploads in chat messages.
+    Saves file meta descriptors to DB, triggers file saving to media directories, 
+    and broadcasts details through Channel Group layer.
+    """
     if request.method == 'POST':
+        # Retrieve uploaded file list
         files = request.FILES.getlist('files') or request.FILES.getlist('file')
         if not files and request.FILES.get('file'):
             files = [request.FILES.get('file')]
@@ -214,10 +266,9 @@ def upload_chat_file(request):
             
         room_id = request.POST.get('room_id')
         try:
-            # Handle DM room_id format
             actual_room_id = room_id
+            # Resolve DM target room context if required
             if str(room_id).startswith('DM-'):
-                # For DMs, find or create the room using standardized name lookup
                 participant_id = room_id.split('-')[1]
                 other_user = User.objects.get(id=participant_id)
                 room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
@@ -232,14 +283,16 @@ def upload_chat_file(request):
             
             room = ChatRoom.objects.get(room_id=actual_room_id)
             
+            # Retrieve Channel Layer broadcast engine
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             channel_layer = get_channel_layer()
             
             group_name = get_room_group_name(room)
-            
             uploaded_results = []
+            
             for uploaded_file in files:
+                # 1. Create companion message record
                 message = Message.objects.create(
                     room=room,
                     sender=request.user,
@@ -247,6 +300,7 @@ def upload_chat_file(request):
                     message_type='file'
                 )
                 
+                # 2. Save file attachment details
                 attachment = ChatAttachment.objects.create(
                     message=message,
                     file=uploaded_file,
@@ -255,7 +309,7 @@ def upload_chat_file(request):
                     file_size=uploaded_file.size
                 )
                 
-                # Broadcast the message to all participants in the group
+                # 3. Broadcast update to room participants
                 if channel_layer:
                     async_to_sync(channel_layer.group_send)(
                         group_name,
@@ -291,15 +345,20 @@ def upload_chat_file(request):
             
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
+
 @login_required
 def clear_chat(request, room_id):
+    """
+    Clears message logs visibility. Registers a ChatClear record to set
+    a start boundary for user visibility queries.
+    """
     try:
         import uuid
         try:
             val = uuid.UUID(room_id)
             room = ChatRoom.objects.get(room_id=val)
         except (ValueError, ChatRoom.DoesNotExist):
-            # Try DM search
+            # Try DM search lookup
             if room_id.startswith('DM-'):
                 participant_id = room_id.split('-')[1]
                 room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
@@ -319,21 +378,27 @@ def clear_chat(request, room_id):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
+
 @login_required
 def api_quick_chat_list(request):
-    # Direct chat rooms map, unread counts, and last message time
+    """
+    REST API returning sorted groups, DM lists, online presence status indicators, 
+    unread notifications count summary, and shared attachments lists.
+    """
+    # 1. Fetch DM rooms with messages
     direct_rooms = ChatRoom.objects.filter(participants=request.user, room_type='direct').annotate(
         last_msg_time=models.Max('messages__created_at'),
         msg_count=models.Count('messages')
     ).filter(msg_count__gt=0).prefetch_related('participants')
+    
     dm_room_map = {}
     dm_unread_counts = {}
     dm_last_msg_time = {}
     
-    # Get user's clear history to hide cleared chats without new messages
+    # Retrieve clear timestamps to filter out cleared logs
     clear_history = dict(ChatClear.objects.filter(user=request.user).values_list('room_id', 'cleared_at'))
     
-    # Handle self-chat direct room map
+    # Resolve self-chat DM configurations
     self_room = ChatRoom.objects.filter(name=f"DM-{request.user.id}-{request.user.id}").annotate(
         last_msg_time=models.Max('messages__created_at')
     ).first()
@@ -343,6 +408,7 @@ def api_quick_chat_list(request):
         dm_unread_counts[str(self_room.room_id)] = unread
         dm_last_msg_time[str(self_room.room_id)] = self_room.last_msg_time
 
+    # Populate DM mappings and unread totals
     for room in direct_rooms:
         cleared_at = clear_history.get(room.room_id)
         if cleared_at and room.last_msg_time and room.last_msg_time <= cleared_at:
@@ -359,16 +425,18 @@ def api_quick_chat_list(request):
             
     all_users = User.objects.select_related('presence').order_by('username')
         
+    # Construct contact list elements
     peoples = []
     for u in all_users:
         room_id = dm_room_map.get(u.id)
         unread = dm_unread_counts.get(room_id, 0) if room_id else 0
         last_time = dm_last_msg_time.get(room_id) if room_id else None
         is_online = getattr(u, 'presence', None).is_online if getattr(u, 'presence', None) else False
-        avatar_url = u.profile_picture.url if u.profile_picture else f"https://ui-avatars.com/api/?name={u.username}&background=random&size=40&bold=true"
+        avatar_url = u.profile_picture.url if u.profile_picture else get_avatar_svg(u.username, u.avatar_color)
         display_name = u.display_name
         if u.id == request.user.id:
             display_name += " (You)"
+            
         peoples.append({
             'id': u.id,
             'username': u.username,
@@ -381,7 +449,7 @@ def api_quick_chat_list(request):
             '_last_msg_time_obj': last_time
         })
         
-    # Sort peoples: those with last_msg_time descending first, then online status, then username
+    # Sort contacts: contacts with active message exchanges display first (ordered by timestamp)
     def get_peoples_sort_key(x):
         dt = x.get('_last_msg_time_obj')
         if dt:
@@ -391,7 +459,7 @@ def api_quick_chat_list(request):
 
     peoples.sort(key=get_peoples_sort_key)
         
-    # Fetch groups / projects sorted by latest message
+    # 2. Fetch Group/Project rooms sorted by latest messages
     group_rooms = ChatRoom.objects.filter(participants=request.user).annotate(
         last_msg_time=models.Max('messages__created_at'),
         msg_count=models.Count('messages')
@@ -417,13 +485,13 @@ def api_quick_chat_list(request):
             name = other_user.display_name
             if other_user == request.user:
                 name += " (You)"
-            avatar_url = other_user.profile_picture.url if other_user.profile_picture else f"https://ui-avatars.com/api/?name={other_user.username}&background=random&size=40&bold=true"
+            avatar_url = other_user.profile_picture.url if other_user.profile_picture else get_avatar_svg(other_user.username, other_user.avatar_color)
             is_online = getattr(other_user, 'presence', None).is_online if getattr(other_user, 'presence', None) else False
             if other_user == request.user:
                 is_online = True
         else:
             name = room.name or f"Group {room.room_id}"
-            avatar_url = room.room_picture.url if room.room_picture else f"https://ui-avatars.com/api/?name={room.name or 'Group'}&background=random&size=40&bold=true"
+            avatar_url = room.room_picture.url if room.room_picture else get_avatar_svg(room.name or 'Group')
             is_online = False
             
         groups.append({
@@ -437,7 +505,7 @@ def api_quick_chat_list(request):
             'created_by': room.created_by.username if room.created_by else None
         })
         
-    # Fetch attachments in user's rooms
+    # 3. Fetch shared attachments listing (latest 50 files)
     attachments = ChatAttachment.objects.filter(
         message__room__participants=request.user
     ).select_related('message', 'message__sender', 'message__room').order_by('-message__created_at')[:50]
@@ -454,7 +522,7 @@ def api_quick_chat_list(request):
             'timestamp': att.message.created_at.strftime('%I:%M %p')
         })
 
-    # Total unread count
+    # Compute grand total of unread alerts
     total_unread = sum(dm_unread_counts.values()) + sum(g['unread_count'] for g in groups)
         
     return JsonResponse({
@@ -464,9 +532,14 @@ def api_quick_chat_list(request):
         'total_unread': total_unread
     })
 
+
 @login_required
 @csrf_exempt
 def forward_message(request):
+    """
+    Copies a message payload (including attachments if present) and posts it
+    into a target room, broadcasting it to group sockets.
+    """
     if request.method == 'POST':
         import json
         try:
@@ -476,12 +549,12 @@ def forward_message(request):
             
             msg = Message.objects.get(pk=message_id)
             
+            # Resolve target room
             import uuid
             room = None
             if target_room_id.startswith('DM-'):
                 participant_id = target_room_id.split('-')[1]
                 room_name = f"DM-{min(str(request.user.id), str(participant_id))}-{max(str(request.user.id), str(participant_id))}"
-                # Use filter+first to survive duplicate rows in DB
                 room = ChatRoom.objects.filter(name=room_name).order_by('pk').first()
                 if not room:
                     room = ChatRoom.objects.create(name=room_name, room_type='direct')
@@ -494,6 +567,7 @@ def forward_message(request):
             else:
                 room = ChatRoom.objects.get(room_id=uuid.UUID(target_room_id))
                 
+            # Create forwarded message record
             new_msg = Message.objects.create(
                 room=room,
                 sender=request.user,
@@ -502,6 +576,7 @@ def forward_message(request):
             )
             
             first_att = None
+            # Copy attachments if message represents a file
             if msg.message_type == 'file':
                 for att in msg.attachments.all():
                     first_att = ChatAttachment.objects.create(
@@ -512,7 +587,7 @@ def forward_message(request):
                         file_size=att.file_size
                     )
             
-            # Broadcast to target group
+            # Broadcast the forward message event to the target room
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             channel_layer = get_channel_layer()
@@ -536,7 +611,7 @@ def forward_message(request):
             
             async_to_sync(channel_layer.group_send)(room_group_name, broadcast_data)
             
-            # Send chat notification to other participants' personal groups
+            # Alert other participants of the forwarded message
             try:
                 participants = list(room.participants.all())
                 for p in participants:
@@ -554,7 +629,7 @@ def forward_message(request):
                         )
             except Exception as e:
                 print(f"Error sending forward chat notification: {e}")
-
+ 
             return JsonResponse({
                 'status': 'success',
                 'new_message_id': new_msg.id,
@@ -569,6 +644,10 @@ def forward_message(request):
 @login_required
 @csrf_exempt
 def bulk_delete_messages(request):
+    """
+    Deletes multiple messages simultaneously.
+    Restricts operations to sender-owned messages sent within a 10-minute window.
+    """
     if request.method == 'POST':
         import json
         try:
@@ -576,8 +655,8 @@ def bulk_delete_messages(request):
             message_ids = data.get('message_ids', [])
             if not message_ids:
                 return JsonResponse({'status': 'error', 'message': 'No message IDs provided'}, status=400)
-
-            # Only delete messages sent by the current user within 10 minutes
+ 
+            # Apply safety timing guard (10 minutes)
             from datetime import timedelta
             ten_minutes_ago = timezone.now() - timedelta(minutes=10)
             messages_qs = Message.objects.filter(
@@ -588,7 +667,7 @@ def bulk_delete_messages(request):
             )
             deleted_ids = list(messages_qs.values_list('pk', flat=True))
             
-            # Clean up and delete attachments
+            # Clean up and delete attached files from disk
             for msg in messages_qs:
                 for att in msg.attachments.all():
                     if att.file:
@@ -598,9 +677,10 @@ def bulk_delete_messages(request):
                             print(f"Error deleting file in bulk delete: {e}")
                     att.delete()
             
+            # Update message state (soft-deletion text)
             messages_qs.update(is_deleted=True, content='This message was deleted')
-
-            # Broadcast deletion to each affected room
+ 
+            # Broadcast deletion notifications to affected rooms
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             channel_layer = get_channel_layer()
@@ -614,15 +694,20 @@ def bulk_delete_messages(request):
                         'type': 'message_deleted',
                         'message_id': msg.pk
                     })
-
+ 
             return JsonResponse({'status': 'success', 'deleted_ids': deleted_ids})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
 
+
 @login_required
 @csrf_exempt
 def delete_group(request, room_id):
+    """
+    Clears all participants out of a group room, effectively destroying it.
+    Restricted to group creator only.
+    """
     import uuid
     try:
         room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
@@ -631,6 +716,7 @@ def delete_group(request, room_id):
                 return JsonResponse({'status': 'error', 'message': 'Only the group creator can delete this group'}, status=403)
             if not room.created_by and request.user not in room.participants.all():
                 return JsonResponse({'status': 'error', 'message': 'Not allowed'}, status=403)
+            # Remove all participants
             room.participants.clear()
             return JsonResponse({'status': 'success'})
         return JsonResponse({'status': 'error', 'message': 'Not allowed or not a group'}, status=403)

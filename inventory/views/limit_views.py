@@ -12,11 +12,18 @@ from ..serializers import QuantityLimitSerializer
 from ..notifications import notify_inventory_admins
 from ..utils import get_isolated_products, filter_by_branch, has_global_inventory_access
 
+"""
+This module processes threshold configurations, default global boundaries, and APIs.
+"""
 
 def _inventory_permission_redirect(request, access_field=None, manage_field=None):
+    """
+    Utility checking user credentials on specific sub-modules.
+    Super admin and branch admin bypass this validation.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
-    if request.user.is_super_admin or request.user.is_branch_admin:
+    if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
         return None
     if access_field and not getattr(request.user, access_field, True):
         messages.error(request, "You do not have access to this inventory module.")
@@ -34,6 +41,10 @@ def _inventory_permission_redirect(request, access_field=None, manage_field=None
 
 
 def set_standard_limit(request):
+    """
+    Sets a global default limit threshold.
+    Applies the set standard limit count to products that do not have custom quantity limits assigned.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
     if request.method == "POST":
@@ -64,6 +75,10 @@ def set_standard_limit(request):
 
 @method_decorator(admin_required, name="dispatch")
 class QuantityLimitsPageView(View):
+    """
+    View class displaying active low-stock triggers list by branch.
+    Allows creating or updating limit limits.
+    """
     def get(self, request):
         permission_redirect = _inventory_permission_redirect(
             request, "can_access_limits_page"
@@ -132,7 +147,7 @@ class QuantityLimitsPageView(View):
             request,
             f"Quantity limit {'set' if created else 'updated'} for {product.name}",
         )
-        if not request.user.is_admin:
+        if not getattr(request.user, "is_admin", False):
             notify_inventory_admins(
                 request.user,
                 "inventory_action",
@@ -144,6 +159,9 @@ class QuantityLimitsPageView(View):
 
 
 class QuantityLimitsAPI(ListCreateAPIView):
+    """
+    DRF API endpoint listing and recording product limits.
+    """
     serializer_class = QuantityLimitSerializer
     permission_classes = [IsAuthenticated]
 
@@ -158,6 +176,9 @@ class QuantityLimitsAPI(ListCreateAPIView):
 
 
 class QuantityLimitDetailAPI(RetrieveUpdateDestroyAPIView):
+    """
+    DRF API endpoint displaying, modifying or removing specific product limits.
+    """
     queryset = QuantityLimit.objects.all()
     serializer_class = QuantityLimitSerializer
     permission_classes = [IsAuthenticated]

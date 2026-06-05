@@ -1,0 +1,329 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | IIAP Observatory</title>
+    
+    <!-- Google Fonts (Loaded locally) -->
+    <link href="{% static 'vendor/google-fonts/css2.css' %}" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="{% static 'vendor/font-awesome/css/all.min.css' %}">
+    
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --text-primary: #ffffff;
+            --text-secondary: #8f9cae;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --neon-glow: 0 0 20px rgba(99, 102, 241, 0.4);
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Deep space background elements */
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(20, 30, 48, 0.6) 0%, rgba(11, 15, 25, 1) 100%);
+            z-index: 1;
+        }
+
+        .stars::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+                radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
+                radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
+            background-size: 550px 550px, 350px 350px, 250px 250px;
+            background-position: 0 0, 40px 60px, 130px 270px;
+            opacity: 0.4;
+            animation: stars-twinkle 8s infinite linear;
+        }
+
+        /* Glowing nebula effects */
+        .nebula {
+            position: absolute;
+            width: 40vw;
+            height: 40vw;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            filter: blur(80px);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .nebula-1 {
+            top: -10%;
+            right: -10%;
+            animation: float-nebula-1 20s infinite ease-in-out;
+        }
+
+        .nebula-2 {
+            bottom: -15%;
+            left: -10%;
+            animation: float-nebula-2 25s infinite ease-in-out;
+        }
+
+        /* 404 Glassmorphism Card Container */
+        .container {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 3rem 2rem;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            animation: card-appear 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Animated Telescope Orbit Graphic */
+        .telescope-graphic {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 2rem;
+        }
+
+        .orbit {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 140px;
+            height: 140px;
+            border: 2px dashed rgba(99, 102, 241, 0.3);
+            border-radius: 50%;
+            animation: rotate-orbit 30s infinite linear;
+        }
+
+        .orbit-dot {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background-color: var(--accent-secondary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-secondary);
+        }
+
+        .lens {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.2) 0%, rgba(99, 102, 241, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.2);
+            animation: pulse-lens 4s infinite ease-in-out;
+        }
+
+        .lens i {
+            font-size: 3rem;
+            color: var(--accent-primary);
+            text-shadow: var(--neon-glow);
+            animation: float-scope 3s infinite ease-in-out;
+        }
+
+        /* Typography */
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 6rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text-primary) 30%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -2px;
+        }
+
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        p {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        /* Premium Buttons */
+        .btn-container {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            color: var(--text-primary);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Keyframe Animations */
+        @keyframes stars-twinkle {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50px); }
+        }
+
+        @keyframes rotate-orbit {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-lens {
+            0%, 100% { box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.2); }
+            50% { box-shadow: inset 0 0 35px rgba(168, 85, 247, 0.4); }
+        }
+
+        @keyframes float-scope {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+
+        @keyframes float-nebula-1 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-20px, 30px); }
+        }
+
+        @keyframes float-nebula-2 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, -20px); }
+        }
+
+        @keyframes card-appear {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            h1 { font-size: 4.5rem; }
+            h2 { font-size: 1.25rem; }
+            p { font-size: 0.9rem; }
+            .container { padding: 2rem 1.5rem; }
+            .btn { width: 100%; }
+            .btn-container { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="stars"></div>
+    <div class="nebula nebula-1"></div>
+    <div class="nebula nebula-2"></div>
+
+    <div class="container">
+        <div class="telescope-graphic">
+            <div class="orbit">
+                <div class="orbit-dot"></div>
+            </div>
+            <div class="lens">
+                <i class="fas fa-satellite-dish"></i>
+            </div>
+        </div>
+        
+        <h1>404</h1>
+        <h2>Lost in Deep Space</h2>
+        <p>
+            The telescope coordinates you requested point to a black hole. <br>
+            The page has either migrated to a new galaxy or never existed.
+        </p>
+        
+        <div class="btn-container">
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Go Back
+            </a>
+            <a href="{% url 'home' %}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -14,12 +14,22 @@ from tasks.utils.query_utils import get_visible_tasks_qs
 from .models import CalendarEvent, UserCalendarSettings
 from .forms import CalendarEventForm
 
+"""
+This module contains views for managing calendar operations, CRUD event actions,
+and Radicale CalDAV synchronization adjustments.
+"""
 
 @login_required
 def calendar_view(request):
+    """
+    Renders the FullCalendar grid page.
+    Compiles calendar events and task deadlines/due dates to display on the calendar interface.
+    """
+    # Load calendar events where user is creator or listed as an attendee
     events = CalendarEvent.objects.filter(
         Q(created_by=request.user) | Q(attendees=request.user)
     ).distinct()
+    
     events_data = [
         {
             "id": e.pk,
@@ -34,6 +44,7 @@ def calendar_view(request):
         for e in events
     ]
 
+    # Pull user's visible tasks with defined due dates or deadlines
     my_tasks = get_visible_tasks_qs(
         request.user,
         Task.objects.filter(
@@ -42,6 +53,7 @@ def calendar_view(request):
         )
     ).distinct()
 
+    # Append tasks to calendar list
     for t in my_tasks:
         if t.due_date:
             events_data.append(
@@ -50,7 +62,7 @@ def calendar_view(request):
                     "title": f"Task Due: {t.title}",
                     "start": t.due_date.isoformat(),
                     "allDay": True,
-                    "color": "#ef4444" if t.is_overdue else "#3b82f6",
+                    "color": "#ef4444" if t.is_overdue else "#3b82f6", # Overdue tasks show as red
                     "url": f"/tasks/{t.pk}/",
                 }
             )
@@ -82,13 +94,18 @@ def calendar_view(request):
 
 @login_required
 def event_create(request):
+    """
+    Renders and processes calendar event creation forms.
+    Sends notifications to project members when a new event is scheduled.
+    """
     form = CalendarEventForm(request.POST or None, user=request.user)
     if request.method == "POST" and form.is_valid():
         event = form.save(commit=False)
         event.created_by = request.user
         event.save()
-        form.save_m2m()
+        form.save_m2m() # Saves attendees checkboxes list
 
+        # If event is linked to a project, notify project managers and members
         if event.project:
             members = set(event.project.members.all()) | set(
                 event.project.managers.all()
@@ -122,7 +139,13 @@ def event_create(request):
 
 @login_required
 def event_edit(request, pk):
+    """
+    Modifies calendar event details. Restricted to event owner, PMs, and Admins.
+    Sends update alerts to attendees.
+    """
     event = get_object_or_404(CalendarEvent, pk=pk)
+    
+    # Permission check: creator, PM, or Admin
     if event.created_by != request.user and not (request.user.is_admin or request.user.is_project_manager):
         messages.error(request, "You do not have permission to edit this event.")
         return redirect("tasks:calendar")
@@ -130,6 +153,8 @@ def event_edit(request, pk):
     form = CalendarEventForm(request.POST or None, instance=event, user=request.user)
     if request.method == "POST" and form.is_valid():
         event = form.save()
+        
+        # Notify event attendees
         for attendee in event.attendees.all():
             if attendee != request.user:
                 NotificationService.create_notification(
@@ -157,6 +182,9 @@ def event_edit(request, pk):
 
 @login_required
 def event_detail(request, pk):
+    """
+    Renders detailed information page of a single calendar event.
+    """
     event = get_object_or_404(CalendarEvent, pk=pk)
     can_edit = event.created_by == request.user or request.user.is_admin or request.user.is_project_manager
     return render(
@@ -168,6 +196,9 @@ def event_detail(request, pk):
 
 @login_required
 def event_delete(request, pk):
+    """
+    Deletes calendar events. Restricted to event owners, PMs, and Admins.
+    """
     event = get_object_or_404(CalendarEvent, pk=pk)
     if event.created_by != request.user and not (request.user.is_admin or request.user.is_project_manager):
         messages.error(request, "You do not have permission to delete this event.")
@@ -184,12 +215,12 @@ def event_delete(request, pk):
     )
 
 
-# ─── GOOGLE CALENDAR OAUTH (DISABLED) ────────────────────────────────────────
+# ─── GOOGLE CALENDAR SYNC (DISABLED) ───
 
 @login_required
 @admin_required
 def google_calendar_init(request):
-    """Google Calendar Sync is disabled."""
+    """Placeholder: Google Calendar Sync is currently deactivated."""
     messages.error(request, "Google Calendar integration is disabled.")
     return redirect("accounts:settings")
 
@@ -197,15 +228,19 @@ def google_calendar_init(request):
 @login_required
 @admin_required
 def google_calendar_callback(request):
-    """Google Calendar Sync is disabled."""
+    """Placeholder: Google Calendar Sync callback handler."""
     messages.error(request, "Google Calendar integration is disabled.")
     return redirect("accounts:settings")
 
 
+# ─── CALDAV SYNC (RADICALE) ───
+
 @login_required
 @admin_required
 def toggle_caldav_sync(request):
-    """Toggle Radicale sync."""
+    """
+    Toggles Radicale CalDAV calendar synchronization options and logs actions to system audit logs.
+    """
     user_settings, _ = UserCalendarSettings.objects.get_or_create(user=request.user)
     if request.method == "POST":
         old_synced = user_settings.is_caldav_synced
@@ -221,7 +256,7 @@ def toggle_caldav_sync(request):
         user_settings.is_caldav_synced = request.POST.get("is_caldav_synced") == "on"
         user_settings.save()
 
-        # Audit log
+        # Write audit log entry tracking connection changes
         AuditLog.objects.create(
             user=request.user,
             action_type="update",

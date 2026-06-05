@@ -1,6 +1,11 @@
 from django.urls import path
 from . import views
 
+"""
+This module registers URL routing configurations for the Notes application.
+Note: These views are integrated inside the tasks: namespace in tasks/urls.py.
+"""
+
 app_name = "notes"
 
 urlpatterns = [

@@ -4,10 +4,16 @@ from django.db.models import Sum
 from stock.models import StockEntry
 from .models import BranchStock, InventoryAdjustment
 
+"""
+This module contains signal receivers that trigger stock recalculations.
+Ensures that BranchStock levels are dynamically computed from StockEntry and InventoryAdjustment histories.
+"""
+
 
 def recalculate_branch_stock(product, branch):
     """
     Recalculates the current quantity for a specific product at a specific branch.
+    Aggregates all relevant StockEntry and InventoryAdjustment quantities.
     """
     if not product or not branch:
         return
@@ -16,11 +22,11 @@ def recalculate_branch_stock(product, branch):
 
     from django.apps import apps
 
-    StockEntry = apps.get_model("stock", "StockEntry")
+    StockEntryModel = apps.get_model("stock", "StockEntry")
 
     # Sum of all stock in entries
     stock_in = (
-        StockEntry.objects.filter(
+        StockEntryModel.objects.filter(
             product=product, branch=branch, entry_type="in"
         ).aggregate(total=Sum("quantity"))["total"]
         or 0
@@ -28,7 +34,7 @@ def recalculate_branch_stock(product, branch):
 
     # Sum of all stock out entries
     stock_out = (
-        StockEntry.objects.filter(
+        StockEntryModel.objects.filter(
             product=product, branch=branch, entry_type="out"
         ).aggregate(total=Sum("quantity"))["total"]
         or 0
@@ -52,7 +58,10 @@ def recalculate_branch_stock(product, branch):
 
 @receiver(pre_save, sender=StockEntry)
 def capture_old_stock_entry_state(sender, instance, **kwargs):
-    """Store old branch/product to recalculate after change."""
+    """
+    Stores the old branch and product reference before saving a StockEntry.
+    Enables recalculation for both old and new targets if they are updated.
+    """
     if instance.pk:
         try:
             old_instance = StockEntry.objects.get(pk=instance.pk)
@@ -69,7 +78,10 @@ def capture_old_stock_entry_state(sender, instance, **kwargs):
 @receiver(post_save, sender=StockEntry)
 @receiver(post_delete, sender=StockEntry)
 def update_stock_on_entry_change(sender, instance, **kwargs):
-    """Update branch stock whenever a StockEntry is created, updated, or deleted."""
+    """
+    Triggers stock level updates after a StockEntry is created, modified, or deleted.
+    Updates both current and legacy branch/product targets if changed.
+    """
     # Recalculate for current branch/product
     recalculate_branch_stock(instance.product, instance.branch)
 
@@ -87,7 +99,10 @@ def update_stock_on_entry_change(sender, instance, **kwargs):
 
 @receiver(pre_save, sender=InventoryAdjustment)
 def capture_old_adjustment_state(sender, instance, **kwargs):
-    """Store old branch/product to recalculate after change."""
+    """
+    Stores the old branch and product reference before saving an InventoryAdjustment.
+    Enables recalculation for both old and new targets if they are updated.
+    """
     if instance.pk:
         try:
             old_instance = InventoryAdjustment.objects.get(pk=instance.pk)
@@ -104,7 +119,10 @@ def capture_old_adjustment_state(sender, instance, **kwargs):
 @receiver(post_save, sender=InventoryAdjustment)
 @receiver(post_delete, sender=InventoryAdjustment)
 def update_stock_on_adjustment_change(sender, instance, **kwargs):
-    """Update branch stock whenever an InventoryAdjustment is created, updated, or deleted."""
+    """
+    Triggers stock level updates after an InventoryAdjustment is created, modified, or deleted.
+    Updates both current and legacy branch/product targets if changed.
+    """
     # Recalculate for current branch/product
     recalculate_branch_stock(instance.product, instance.branch)
 

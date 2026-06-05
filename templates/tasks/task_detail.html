@@ -533,7 +533,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% load static %}
+<script src="{% static 'vendor/marked/marked.min.js' %}"></script>
 <script>
     async function updateStatus(status) {
         const resp = await fetch('{% url "tasks:task_update_status" task.pk %}', {

@@ -1,19 +1,27 @@
 import json
 import openpyxl
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from openpyxl.styles import Alignment, Font, PatternFill
 
 from inventory.models import Alert
 from inventory.notifications import notify_inventory_admins
 from products.models import Product
 
+"""
+This module processes secondary actions, restock forms, alerts dispatching, and template downloads.
+"""
 
-class ProcurementRestockView(View):
+
+class ProcurementRestockView(LoginRequiredMixin, View):
+    """
+    View class handling restock submissions for individual items.
+    Dispatches notifications to active inventory administrators.
+    """
     def post(self, request):
         product_id, requested_qty = request.POST.get("product_id"), request.POST.get(
             "requested_qty"
@@ -24,15 +32,14 @@ class ProcurementRestockView(View):
         try:
             product, qty = Product.objects.get(id=product_id), int(requested_qty)
             messages.success(request, f"Restock request for {product.name} submitted!")
-            if request.user.is_authenticated:
-                notify_inventory_admins(
-                    request.user,
-                    "procurement_request",
-                    f"Restock action by {request.user.username}",
-                    f"{request.user.username} submitted restock action for {product.name} ({qty} units).",
-                    target_url="/inventory/procurement/upload/",
-                )
-        except:
+            notify_inventory_admins(
+                request.user,
+                "procurement_request",
+                f"Restock action by {request.user.username}",
+                f"{request.user.username} submitted restock action for {product.name} ({qty} units).",
+                target_url="/inventory/procurement/upload/",
+            )
+        except Exception:
             messages.error(request, "Error processing restock request.")
         return redirect("procurement-upload")
 
@@ -40,7 +47,17 @@ class ProcurementRestockView(View):
 @csrf_exempt
 @require_POST
 def send_all_alerts(request):
-    data = json.loads(request.body.decode("utf-8"))
+    """
+    API endpoint saving multiple low-stock / out-of-stock alerts in bulk from json payload.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"status": "error", "message": "Authentication required"}, status=401)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+
     product_alerts, alert_count = data.get("alerts", []), 0
     for item in product_alerts:
         product_id, requested_qty, current_stock = (
@@ -61,7 +78,7 @@ def send_all_alerts(request):
                 limit_quantity=requested_qty,
             )
             alert_count += 1
-            if request.user.is_authenticated and not request.user.is_admin:
+            if not request.user.is_admin:
                 notify_inventory_admins(
                     request.user,
                     "procurement_request",
@@ -74,10 +91,12 @@ def send_all_alerts(request):
     return JsonResponse({"status": "success", "alert_count": alert_count})
 
 
-class DownloadProcurementTemplateView(View):
+class DownloadProcurementTemplateView(LoginRequiredMixin, View):
+    """
+    View class generating and streaming a standard template spreadsheet (Excel XLSX format)
+    specifying expected columns for bulk imports.
+    """
     def get(self, request):
-        if not request.user.is_authenticated:
-            return redirect("accounts:login")
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Procurement Template"

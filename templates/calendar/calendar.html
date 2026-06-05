@@ -3,7 +3,6 @@
 {% block page_title %}Calendar{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.global.min.css">
 <style>
     .calendar-container {
         display: grid;
@@ -194,7 +193,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.9/index.global.min.js"></script>
+{% load static %}
+<script src="{% static 'vendor/fullcalendar/index.global.min.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');

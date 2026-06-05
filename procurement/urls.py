@@ -1,6 +1,10 @@
 from django.urls import path
 from . import views
 
+"""
+This module registers URL routing configurations for the Procurement application.
+"""
+
 urlpatterns = [
     path("upload/", views.ProcurementUploadView.as_view(), name="procurement-upload"),
     path(

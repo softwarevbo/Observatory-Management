@@ -6,13 +6,17 @@ from django.utils import timezone
 from ..models import ProjectFile, FileCategory
 from tasks.models import Project, AuditLog
 
+"""
+This module processes folder node deletions, bulk file operations, movements,
+and folder resource comments.
+"""
 
 def _collect_all_descendant_ids(root_category_id):
     """
-    Iteratively collect all FileCategory IDs that are descendants of
-    root_category_id (inclusive), without loading model instances.
-    Uses repeated DB queries over children instead of per-row saves.
-    Returns a list of integer PKs.
+    Iteratively collects all FileCategory IDs that are descendants of a folder.
+    Uses iterative database query lookups over parent IDs instead of loading large model instances,
+    optimizing performance for deep folder hierarchies.
+    Returns a list of category PKs (integers).
     """
     all_ids = [root_category_id]
     queue = [root_category_id]
@@ -28,21 +32,21 @@ def _collect_all_descendant_ids(root_category_id):
 
 def _bulk_trash_category_tree(category_id, user):
     """
-    Efficiently move an entire folder tree to trash using bulk_update
-    instead of individual per-row .save() calls.
-    Returns (file_count, folder_count) of items moved.
+    Trashes an entire folder tree (nested subfolders and files) using bulk database updates,
+    minimizing query count.
+    Returns a tuple: (file_count, folder_count).
     """
     now = timezone.now()
 
-    # 1. Collect every descendant category PK in O(depth) queries
+    # 1. Collect all descendant category PKs
     all_cat_ids = _collect_all_descendant_ids(category_id)
 
-    # 2. Bulk-update all files inside any of those categories in ONE query
+    # 2. Bulk update all files in any of these categories
     files_updated = ProjectFile.objects.filter(
         category_id__in=all_cat_ids, is_in_trash=False
     ).update(is_in_trash=True, deleted_at=now, deleted_by=user)
 
-    # 3. Bulk-update all child categories (exclude root — handled by caller)
+    # 3. Bulk update all subdirectories (excluding the root category itself)
     child_ids = [pk for pk in all_cat_ids if pk != category_id]
     if child_ids:
         FileCategory.objects.filter(pk__in=child_ids).update(
@@ -51,11 +55,17 @@ def _bulk_trash_category_tree(category_id, user):
 
     return files_updated, len(child_ids)
 
+
 @login_required
 def category_delete(request, pk):
+    """
+    Handles folder deletions. Bulk-trashes subdirectories and nested files,
+    soft-trashes the root folder itself, and writes action logs to system audit logs.
+    """
     cat = get_object_or_404(FileCategory, pk=pk)
     project = cat.project
-    # Check permissions
+    
+    # Permission verification
     if not (request.user.is_admin or 
             getattr(request.user, 'is_project_manager', False) or
             (project and (project.managers.filter(pk=request.user.pk).exists() or 
@@ -70,15 +80,16 @@ def category_delete(request, pk):
         name = cat.name
         now = timezone.now()
 
-        # Bulk-trash entire tree (files + sub-categories) in 2-3 queries
+        # Bulk-trash nested contents recursively
         _bulk_trash_category_tree(cat.pk, request.user)
 
-        # Trash the root category itself
+        # Soft-trash the root folder category itself
         cat.is_in_trash = True
         cat.deleted_at = now
         cat.deleted_by = request.user
         cat.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
 
+        # Write audit logs
         AuditLog.objects.create(
             user=request.user,
             action_type="delete",
@@ -96,12 +107,12 @@ def category_delete(request, pk):
 
     return render(request, "files/category_confirm_delete.html", {"category": cat})
 
+
 @login_required
 def move_item(request):
     """
-    Dedicated page to move a file or a folder to another folder (category).
-    Supports GET (show move page) and POST (perform move).
-    Query parameters for GET: type ('file' or 'folder'), id (item_id).
+    Handles moving a file or folder to another destination folder.
+    Prevents circular references (e.g. moving a folder inside itself or its own subdirectories).
     """
     item_type = request.POST.get("item_type") or request.GET.get("type")
     item_id = request.POST.get("item_id") or request.GET.get("id")
@@ -122,7 +133,7 @@ def move_item(request):
         messages.error(request, "Invalid item type.")
         return redirect("files:file_list")
 
-    # Permission check (can edit/move)
+    # Permission verification
     can_move = False
     if request.user.is_admin or getattr(request.user, 'is_project_manager', False):
         can_move = True
@@ -146,6 +157,8 @@ def move_item(request):
         if item_type == "file":
             item.category = target_cat
             item.save()
+            
+            # Log movement
             AuditLog.objects.create(
                 user=request.user,
                 action_type="move",
@@ -156,7 +169,7 @@ def move_item(request):
             )
             messages.success(request, f'File "{item.display_name}" moved successfully.')
         elif item_type == "folder":
-            # Prevent moving a folder into itself or its descendants
+            # Circular inheritance check: verify target folder is not a child of the folder being moved
             if target_cat:
                 temp = target_cat
                 while temp:
@@ -172,6 +185,8 @@ def move_item(request):
             
             item.parent = target_cat
             item.save()
+            
+            # Log movement
             AuditLog.objects.create(
                 user=request.user,
                 action_type="move",
@@ -186,7 +201,7 @@ def move_item(request):
             return redirect("files:project_files", pk=project.pk)
         return redirect("files:file_list")
 
-    # GET request - show move page
+    # Render move selection template
     categories = []
     if project:
         categories = FileCategory.objects.filter(project=project).order_by('name')
@@ -200,10 +215,12 @@ def move_item(request):
         "categories": categories,
     })
 
+
 @login_required
 def manage_resource(request):
     """
-    Portal page for a resource (file or folder) or an entire project to choose management actions.
+    Renders folder discussion portals or project file management views.
+    Includes comment form validation.
     """
     item_type = request.GET.get("type")
     item_id = request.GET.get("id")
@@ -228,7 +245,7 @@ def manage_resource(request):
         item = get_object_or_404(FileCategory, pk=item_id)
         project = item.project
     
-    # Permission check for individual item
+    # Permission verification
     can_manage = False
     if request.user.is_admin or request.user.is_project_manager:
         can_manage = True
@@ -266,10 +283,12 @@ def manage_resource(request):
         "comments": comments,
     })
 
+
 @login_required
 def file_audit_logs(request):
     """
-    Shows movement and deletion logs of files and folders for project managers.
+    Renders system Audit Logs specifically tracking file and folder updates, moves, and deletions.
+    Restricted to Admins and PMs.
     """
     if not (request.user.is_admin or request.user.is_project_manager):
         messages.error(request, "Access restricted to project managers.")
@@ -282,6 +301,11 @@ def file_audit_logs(request):
 
 @login_required
 def bulk_file_action(request):
+    """
+    Handles bulk updates (moves and soft-deletions) on selected files and folders.
+    Optimizes database performance by trashing files in a single UPDATE query,
+    and performing bulk_create for audits logs.
+    """
     if request.method == "POST":
         action = request.POST.get("action")
         file_ids = request.POST.getlist("selected_files")
@@ -330,12 +354,13 @@ def bulk_file_action(request):
         if action == "delete":
             now = timezone.now()
 
-            # ── Bulk-trash files (single UPDATE query) ──────────────────────
+            # Bulk trash selected files using a single UPDATE query
             if allowed_files:
                 file_ids = [pf.pk for pf in allowed_files]
                 ProjectFile.objects.filter(pk__in=file_ids).update(
                     is_in_trash=True, deleted_at=now, deleted_by=request.user
                 )
+                # Bulk create audit logs
                 AuditLog.objects.bulk_create([
                     AuditLog(
                         user=request.user,
@@ -348,13 +373,14 @@ def bulk_file_action(request):
                     for pf in allowed_files
                 ])
 
-            # ── Bulk-trash folder trees (O(depth) queries per folder) ───────
+            # Bulk trash selected folder subtrees (O(depth) queries per folder)
             if allowed_folders:
                 folder_audit_entries = []
                 for cat in allowed_folders:
-                    # Bulk-trash entire subtree first
+                    # Trashes subfolders and nested files recursively
                     _bulk_trash_category_tree(cat.pk, request.user)
-                    # Trash the root folder itself
+                    
+                    # Trash root category node itself
                     cat.is_in_trash = True
                     cat.deleted_at = now
                     cat.deleted_by = request.user
@@ -377,7 +403,7 @@ def bulk_file_action(request):
             if target_cat_id:
                 target_cat = get_object_or_404(FileCategory, pk=target_cat_id)
             
-            # Move Files
+            # Bulk move files
             if allowed_files:
                 for pf in allowed_files:
                     pf.category = target_cat
@@ -385,6 +411,7 @@ def bulk_file_action(request):
                         pf.project = target_cat.project
                     pf.save()
                     
+                    # Log movement
                     AuditLog.objects.create(
                         user=request.user,
                         action_type="move",
@@ -394,11 +421,11 @@ def bulk_file_action(request):
                         details=f"Project: {pf.project.name if pf.project else 'Personal'} | Moved to '{target_cat.name if target_cat else 'Root'}' via bulk action."
                     )
             
-            # Move Folders
+            # Bulk move folders
             if allowed_folders:
                 moved_count = 0
                 for cat in allowed_folders:
-                    # Prevent circular hierarchies
+                    # Circular hierarchy check: verify target folder is not a child of the folder being moved
                     if target_cat:
                         temp = target_cat
                         is_self_or_descendant = False
@@ -416,6 +443,7 @@ def bulk_file_action(request):
                     cat.save()
                     moved_count += 1
                     
+                    # Log movement
                     AuditLog.objects.create(
                         user=request.user,
                         action_type="move",

@@ -4,22 +4,26 @@ from django.forms.widgets import Input
 
 from .models import FileCategory, FileComment, ProjectFile
 
+"""
+This module contains forms for managing project directories, file uploads,
+and discussion comment logs.
+"""
+
 # ── Multi-file widget — bypasses Django's ClearableFileInput restriction ──────
 
 
 class MultipleFileInput(Input):
     """
     Raw <input type="file" multiple> widget.
-    Subclasses Input directly to avoid the ValueError in FileInput.__init__
-    that blocks the 'multiple' attribute.
+    Subclasses Django's generic Input widget directly to avoid validation blocks
+    which restrict multiple selection attributes on standard fields.
     """
-
     input_type = "file"
     needs_multipart_form = True
     allow_multiple_selected = True
 
     def format_value(self, value):
-        return None  # file inputs never have a pre-filled value
+        return None # File fields do not render pre-filled attributes
 
     def value_from_datadict(self, data, files, name):
         return files.getlist(name)
@@ -29,8 +33,9 @@ class MultipleFileInput(Input):
 
 
 class MultipleFileField(forms.FileField):
-    """FileField that accepts and validates a list of uploaded files."""
-
+    """
+    Form field wrapper validation designed to process a list of multiple files.
+    """
     def __init__(self, *args, **kwargs):
         kwargs.setdefault(
             "widget",
@@ -54,8 +59,10 @@ class MultipleFileField(forms.FileField):
 
 
 class FileUploadForm(forms.ModelForm):
-    """Single-file upload form attached to a project / task."""
-
+    """
+    ModelForm used for creating new single file attachments.
+    Filters project list based on user roles and updates cascading dropdown lists.
+    """
     class Meta:
         model = ProjectFile
         fields = [
@@ -95,6 +102,10 @@ class FileUploadForm(forms.ModelForm):
         }
 
     def __init__(self, *args, user=None, project=None, task=None, requirement=None, **kwargs):
+        """
+        Dynamically adjusts selection constraints.
+        Ensures users can only link files to authorized projects and nested components.
+        """
         super().__init__(*args, **kwargs)
         from tasks.models import Project, Task, Requirement
 
@@ -115,6 +126,7 @@ class FileUploadForm(forms.ModelForm):
         self.fields["project"].empty_label = "— No project —"
         self.fields["project"].required = False
 
+        # If a project scope context is given, filter dependants:
         if project:
             self.fields["task"].queryset = Task.objects.filter(project=project)
             self.fields["requirement"].queryset = Requirement.objects.filter(project=project)
@@ -136,9 +148,12 @@ class FileUploadForm(forms.ModelForm):
         self.fields["task"].required = False
         self.fields["requirement"].empty_label = "— No requirement —"
         self.fields["requirement"].required = False
+        
         self.fields["category"].empty_label = "— No category —"
         self.fields["category"].required = False
+        # Displays the full hierarchical directory folder path in category options
         self.fields["category"].label_from_instance = lambda obj: obj.full_path
+        
         self.fields["parent_file"].empty_label = "— New file (not a version) —"
         self.fields["parent_file"].required = False
 
@@ -151,8 +166,10 @@ class FileUploadForm(forms.ModelForm):
 
 
 class MultiFileUploadForm(forms.Form):
-    """Drag-and-drop multi-file upload form."""
-
+    """
+    Form representing multi-file drag-and-drop uploads.
+    Applies shared fields like Project, Task, and Descriptions across batch uploads.
+    """
     files = MultipleFileField(label="Files", required=False)
     project = forms.ModelChoiceField(
         queryset=None,
@@ -208,6 +225,9 @@ class MultiFileUploadForm(forms.Form):
 
 
 class FileCategoryForm(forms.ModelForm):
+    """
+    Form used to construct new folder nodes (directories) inside projects.
+    """
     class Meta:
         model = FileCategory
         fields = ["name", "project"]
@@ -223,6 +243,9 @@ class FileCategoryForm(forms.ModelForm):
 
 
 class FileEditForm(forms.ModelForm):
+    """
+    Form used to edit file metadata such as Title, Description, and parent Category.
+    """
     class Meta:
         model = ProjectFile
         fields = ["title", "description", "category", "is_public"]
@@ -247,6 +270,9 @@ class FileEditForm(forms.ModelForm):
 
 
 class FileCommentForm(forms.ModelForm):
+    """
+    Form used to submit new comments or annotations.
+    """
     class Meta:
         model = FileComment
         fields = ["content"]

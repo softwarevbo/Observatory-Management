@@ -2,6 +2,11 @@ from django.urls import path
 
 from . import views
 
+"""
+This module registers URL routing mappings for the Finance app.
+Matches project expense details, expense creation, and budget edit views.
+"""
+
 app_name = "finance"
 
 urlpatterns = [

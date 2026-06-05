@@ -2,14 +2,20 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import FileCategory, FileComment, ProjectFile, SystemSettings, DocumentAccessRight
 
+"""
+This module registers Files application models with the Django Admin panel.
+Provides visual widgets such as colored type badges and custom metadata listings.
+"""
 
 @admin.register(SystemSettings)
 class SystemSettingsAdmin(admin.ModelAdmin):
+    """Admin controls for system-wide upload constraints."""
     list_display = ["max_file_size_gb"]
 
 
 @admin.register(ProjectFile)
 class ProjectFileAdmin(admin.ModelAdmin):
+    """Admin controls for individual uploaded project files."""
     list_display = [
         "original_name",
         "type_badge",
@@ -36,6 +42,7 @@ class ProjectFileAdmin(admin.ModelAdmin):
 
     @admin.display(description="Type")
     def type_badge(self, obj):
+        """Renders colored background tags on file types for visual readability."""
         colors = {
             "image": "#06b6d4",
             "pdf": "#ef4444",
@@ -58,6 +65,7 @@ class ProjectFileAdmin(admin.ModelAdmin):
 
     @admin.display(description="Size")
     def file_size_display(self, obj):
+        """Displays readable file sizes."""
         try:
             return obj.file_size_display
         except Exception:
@@ -66,6 +74,7 @@ class ProjectFileAdmin(admin.ModelAdmin):
 
 @admin.register(FileCategory)
 class FileCategoryAdmin(admin.ModelAdmin):
+    """Admin controls for directory folder categories within projects."""
     list_display = ["name", "project", "parent", "created_by", "created_at"]
     list_filter = ["project", "created_by"]
     search_fields = ["name"]
@@ -73,6 +82,7 @@ class FileCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(FileComment)
 class FileCommentAdmin(admin.ModelAdmin):
+    """Admin controls for comment annotations left on project files."""
     list_display = ["file", "author", "content_preview", "created_at"]
     list_filter = ["created_at"]
     search_fields = ["content", "author__username", "file__original_name"]
@@ -80,11 +90,13 @@ class FileCommentAdmin(admin.ModelAdmin):
 
     @admin.display(description="Comment")
     def content_preview(self, obj):
+        """Trims comment text to fit layout cells."""
         return obj.content[:60] + "..." if len(obj.content) > 60 else obj.content
 
 
 @admin.register(DocumentAccessRight)
 class DocumentAccessRightAdmin(admin.ModelAdmin):
+    """Admin controls for explicit user permissions access rights configurations."""
     list_display = ["user", "file", "kb_note", "can_view", "can_edit", "can_delete"]
     list_filter = ["can_view", "can_edit", "can_delete"]
     search_fields = ["user__username", "file__original_name", "kb_note__title"]

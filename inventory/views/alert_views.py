@@ -14,11 +14,18 @@ from ..serializers import AlertSerializer
 from ..notifications import notify_inventory_admins
 from ..utils import filter_by_branch
 
+"""
+This module processes stock level alerts tracking, acknowledgement, resolution, and APIs.
+"""
 
 def _inventory_permission_redirect(request, access_field=None, manage_field=None):
+    """
+    Utility checking user credentials on specific sub-modules.
+    Super admin and branch admin bypass this validation.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
-    if request.user.is_super_admin or request.user.is_branch_admin:
+    if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
         return None
     if access_field and not getattr(request.user, access_field, True):
         messages.error(request, "You do not have access to this inventory module.")
@@ -36,6 +43,9 @@ def _inventory_permission_redirect(request, access_field=None, manage_field=None
 
 
 class AlertsPageView(View):
+    """
+    View class listing active alerts by branch and processing acknowledge/resolve requests.
+    """
     def get(self, request):
         permission_redirect = _inventory_permission_redirect(
             request, "can_access_alerts_page"
@@ -82,7 +92,7 @@ class AlertsPageView(View):
             alert.save()
             messages.success(request, "Alert resolved")
 
-        if not request.user.is_admin:
+        if not getattr(request.user, "is_admin", False):
             notify_inventory_admins(
                 request.user,
                 "inventory_action",
@@ -94,6 +104,9 @@ class AlertsPageView(View):
 
 
 class AlertsAPI(ListCreateAPIView):
+    """
+    DRF API endpoint listing stock levels alerts by branch constraints.
+    """
     serializer_class = AlertSerializer
     permission_classes = [IsAuthenticated]
 
@@ -104,12 +117,18 @@ class AlertsAPI(ListCreateAPIView):
 
 
 class AlertDetailAPI(RetrieveUpdateDestroyAPIView):
+    """
+    DRF API endpoint displaying, modifying or removing specific alerts.
+    """
     queryset = Alert.objects.all()
     serializer_class = AlertSerializer
     permission_classes = [IsAuthenticated]
 
 
 class AcknowledgeAlertAPI(APIView):
+    """
+    API controller marking specific alerts as acknowledged by current user.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, alert_id):
@@ -128,6 +147,9 @@ class AcknowledgeAlertAPI(APIView):
 
 
 class ResolveAlertAPI(APIView):
+    """
+    API controller marking specific alerts as resolved by current user.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, alert_id):

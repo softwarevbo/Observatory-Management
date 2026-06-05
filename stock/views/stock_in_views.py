@@ -19,14 +19,24 @@ from ..models import StockEntry
 
 
 class StockInPageView(View):
+    """
+    View to display and handle incoming stock entries (single entry or bulk Excel upload).
+    Ensures branch isolation and permission verification.
+    """
     def get(self, request):
+        # Authenticate user session
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
+        # Retrieve incoming stock entries filtered by user's branch permissions
         stock_in_entries = filter_by_branch(
             StockEntry.objects.filter(entry_type="in"), request.user
         ).order_by("-timestamp")
+        
+        # Paginate results
         paginator = Paginator(stock_in_entries, 50)
         page_obj = paginator.get_page(request.GET.get("page"))
+        
         return render(
             request,
             "stock/stock_in.html",
@@ -44,10 +54,15 @@ class StockInPageView(View):
         )
 
     def post(self, request):
+        # Enforce authentication gate
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
+        # Route processing based on upload type
         if request.POST.get("form_type") == "bulk":
             return self.handle_bulk_stock_in(request)
+            
+        # Extract manual stock entry details
         product_name, quantity = request.POST.get("product"), int(
             request.POST.get("quantity", 0)
         )
@@ -56,6 +71,8 @@ class StockInPageView(View):
             request.POST.get("location_to"),
             request.POST.get("description"),
         )
+        
+        # Enforce branch check based on user's authorization levels
         branch = (
             get_object_or_404(Branch, id=request.POST.get("branch"))
             if has_global_inventory_access(request.user)
@@ -64,10 +81,14 @@ class StockInPageView(View):
         if not branch:
             messages.error(request, "No branch assigned.")
             return redirect("stock-in-page")
+            
+        # Retrieve target product, matching case-insensitively
         product = Product.objects.filter(name__iexact=product_name).first()
         if not product:
             messages.error(request, f'Product "{product_name}" not found.')
             return redirect("stock-in-page")
+            
+        # Update physical shelf/rack location mapping inside BranchStock
         rack, shelf = request.POST.get("rack_number"), request.POST.get("shelf_number")
         if rack or shelf:
             bs, _ = BranchStock.objects.get_or_create(product=product, branch=branch)
@@ -76,6 +97,8 @@ class StockInPageView(View):
             if shelf:
                 bs.shelf_number = shelf
             bs.save()
+            
+        # Create persistent database record for the stock transaction
         entry = StockEntry.objects.create(
             product=product,
             branch=branch,
@@ -87,7 +110,11 @@ class StockInPageView(View):
             description=description,
             created_by=request.user,
         )
+        
+        # Create immutable security audit log entry
         AuditLog.log(request.user, "stock in", entry)
+        
+        # Dispatch system notification if triggered by non-admin staff
         if not request.user.is_admin:
             notify_inventory_admins(
                 request.user,
@@ -96,6 +123,7 @@ class StockInPageView(View):
                 f"{request.user.username} added {quantity} unit(s) of {product.name} to {branch.name}.",
                 target_url="/inventory/stock/in/",
             )
+            
         messages.success(
             request,
             f"Successfully added {quantity} units of {product.name} at {branch.name}.",
@@ -103,16 +131,26 @@ class StockInPageView(View):
         return redirect("stock-in-page")
 
     def handle_bulk_stock_in(self, request):
+        """
+        Parses bulk excel spreadsheet entries to automate multiple stock insertions.
+        """
         results, success_count, fail_count = [], 0, 0
         if "excel_file" in request.FILES:
+            # Load file object into memory using openpyxl
             wb = load_workbook(request.FILES["excel_file"])
             ws = wb.active
+            
+            # Map column indices based on header label strings
             header = [cell.value for cell in ws[1]]
             name_idx, qty_idx = header.index("Product Name"), header.index("Quantity")
             rack_idx, shelf_idx = header.index("Rack") if "Rack" in header else None, (
                 header.index("Shelf") if "Shelf" in header else None
             )
+            
+            # Cache products into a dictionary to optimize DB lookup query speeds
             products = {p.name.lower(): p for p in Product.objects.all()}
+            
+            # Iterate and parse row fields starting from row index 2
             for row in ws.iter_rows(min_row=2, values_only=True):
                 product_name, qty = str(row[name_idx]).strip(), row[qty_idx]
                 if not product_name or not qty:
@@ -129,6 +167,8 @@ class StockInPageView(View):
                         }
                     )
                     continue
+                    
+                # Determine organizational branch context
                 branch_id = request.GET.get("branch") or request.POST.get("branch")
                 branch = (
                     Branch.objects.filter(id=branch_id).first()
@@ -146,6 +186,7 @@ class StockInPageView(View):
                         }
                     )
                     continue
+                    
                 rack, shelf = (
                     str(row[rack_idx]).strip()
                     if rack_idx is not None and row[rack_idx]
@@ -155,6 +196,8 @@ class StockInPageView(View):
                     if shelf_idx is not None and row[shelf_idx]
                     else None
                 )
+                
+                # Update location fields
                 if rack or shelf:
                     bs, _ = BranchStock.objects.get_or_create(
                         product=product, branch=branch
@@ -164,6 +207,8 @@ class StockInPageView(View):
                     if shelf:
                         bs.shelf_number = shelf
                     bs.save()
+                    
+                # Record the validated stock transaction
                 StockEntry.objects.create(
                     product=product,
                     branch=branch,
@@ -185,6 +230,8 @@ class StockInPageView(View):
                     }
                 )
                 success_count += 1
+                
+            # Dispatch bulk task alerts to admins
             if success_count and not request.user.is_admin:
                 notify_inventory_admins(
                     request.user,
@@ -203,9 +250,14 @@ class StockInPageView(View):
 
 
 class DownloadBulkStockInTemplate(View):
+    """
+    Constructs and downloads an Excel template for bulk import procedures.
+    """
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
+        # Build empty workbook and set layout values
         wb = Workbook()
         ws = wb.active
         ws.title = "Stock In Template"
@@ -222,6 +274,8 @@ class DownloadBulkStockInTemplate(View):
         ws.cell(row=2, column=1, value="Sample Product")
         ws.cell(row=2, column=2, value=10)
         ws.column_dimensions["A"].width, ws.column_dimensions["B"].width = 30, 15
+        
+        # Stream workbook as response file
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )

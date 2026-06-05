@@ -8,12 +8,19 @@ from tasks.models import Project
 from .forms import BudgetForm, ExpenseForm
 from .models import Budget
 
+"""
+This module processes project budgets and expense-tracking controllers.
+"""
 
 @login_required
 def project_expenses(request, project_id):
+    """
+    Renders project expense summary dashboard and logs list.
+    Verifies that the user is an admin or belongs to the project (member or manager).
+    """
     project = get_object_or_404(Project, pk=project_id)
 
-    # Check access (similar to project_detail)
+    # Validate access rights
     if not request.user.is_admin:
         if not (
             project.members.filter(pk=request.user.pk).exists()
@@ -22,6 +29,7 @@ def project_expenses(request, project_id):
             messages.error(request, "You do not have access to this project.")
             return redirect("tasks:project_list")
 
+    # Fetch expenses and pre-select related logging authors and receipts to prevent N+1 queries
     expenses = project.expenses.all().select_related("logged_by", "receipt")
 
     try:
@@ -43,6 +51,10 @@ def project_expenses(request, project_id):
 @login_required
 @manager_or_admin_required
 def expense_create(request, project_id):
+    """
+    Renders expense submission forms and records new project costs.
+    Restricted to managers or administrators.
+    """
     project = get_object_or_404(Project, pk=project_id)
 
     if request.method == "POST":
@@ -67,6 +79,11 @@ def expense_create(request, project_id):
 @login_required
 @manager_or_admin_required
 def budget_edit(request, project_id):
+    """
+    Renders budget modification panels.
+    Creates or updates the OneToOne Budget link relative to the project.
+    Restricted to managers or administrators.
+    """
     project = get_object_or_404(Project, pk=project_id)
 
     try:

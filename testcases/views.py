@@ -15,6 +15,9 @@ from .forms import TestCaseForm, TestCaseCommentForm
 @login_required
 @manager_or_admin_required
 def test_case_bulk_create(request, project_id):
+    """
+    Formset grid view allowing managers/admins to dynamically mass-create test cases for a project.
+    """
     project = get_object_or_404(Project, pk=project_id)
     TestCaseFormSet = modelformset_factory(
         TestCase,
@@ -32,6 +35,7 @@ def test_case_bulk_create(request, project_id):
         if formset.is_valid():
             saved_count = 0
             for form in formset:
+                # Bypass empty rows or fields marked for deletion
                 if form.cleaned_data.get("title") and not form.cleaned_data.get("DELETE"):
                     instance = form.save(commit=False)
                     instance.project = project
@@ -43,6 +47,7 @@ def test_case_bulk_create(request, project_id):
             messages.success(request, f"{saved_count} test cases created successfully.")
             return redirect("tasks:project_detail", pk=project.pk)
         else:
+            # Aggregate validation error feedback
             error_msg = "Please correct the following errors: "
             for i, form in enumerate(formset):
                 if form.errors:
@@ -63,6 +68,9 @@ def test_case_bulk_create(request, project_id):
 
 @login_required
 def test_case_create(request, project_id):
+    """
+    Enforces authorization check and creates a single testcase with attachments and history logs.
+    """
     project = get_object_or_404(Project, pk=project_id)
     
     is_pm = project.managers.filter(pk=request.user.pk).exists()
@@ -71,6 +79,7 @@ def test_case_create(request, project_id):
     if not (request.user.is_admin or is_pm or is_incharge):
         messages.error(request, "Only project managers and in-charge can create test cases.")
         return redirect("tasks:project_detail", pk=project.pk)
+        
     if request.method == "POST":
         form = TestCaseForm(request.POST, project=project)
         if form.is_valid():
@@ -79,10 +88,12 @@ def test_case_create(request, project_id):
             test_case.save()
             form.save_m2m()
             
+            # Save associated file attachments
             files = request.FILES.getlist('attachments')
             for f in files:
                 TestCaseAttachment.objects.create(test_case=test_case, file=f)
             
+            # Log audit creation event
             TestCaseHistory.objects.create(
                 test_case=test_case,
                 user=request.user,
@@ -90,6 +101,7 @@ def test_case_create(request, project_id):
                 details="Initial test case creation"
             )
             
+            # Notify members assigned to this testcase run
             for member in test_case.assigned_members.all():
                 if member != request.user:
                     NotificationService.create_notification(
@@ -121,6 +133,9 @@ def test_case_create(request, project_id):
 
 @login_required
 def test_case_edit(request, pk):
+    """
+    Edits parameters of a test case. Prevents editing items currently moved to trash.
+    """
     test_case = get_object_or_404(TestCase, pk=pk)
     project = test_case.project
     
@@ -134,6 +149,7 @@ def test_case_edit(request, pk):
     if not (request.user.is_admin or is_pm or is_incharge or test_case.created_by == request.user):
         messages.error(request, "You do not have permission to edit this test case.")
         return redirect("tasks:project_detail", pk=project.pk)
+        
     if request.method == "POST":
         form = TestCaseForm(request.POST, instance=test_case, project=project)
         if form.is_valid():
@@ -162,6 +178,9 @@ def test_case_edit(request, pk):
 
 @login_required
 def test_case_delete(request, pk):
+    """
+    Soft-deletes a test case by flagging 'is_in_trash' as True.
+    """
     test_case = get_object_or_404(TestCase, pk=pk)
     project = test_case.project
     
@@ -175,6 +194,7 @@ def test_case_delete(request, pk):
     if not (request.user.is_admin or is_pm or is_incharge):
         messages.error(request, "Only project managers and in-charge can delete test cases.")
         return redirect("tasks:project_detail", pk=project.pk)
+        
     if request.method == "POST":
         test_case.is_in_trash = True
         test_case.deleted_at = timezone.now()
@@ -187,6 +207,9 @@ def test_case_delete(request, pk):
 
 @login_required
 def test_case_detail(request, pk):
+    """
+    Renders comments, history, parameters, and attachments of a single test case.
+    """
     test_case = get_object_or_404(TestCase, pk=pk)
     
     if test_case.is_in_trash and not (request.user.is_admin or request.user.is_project_manager):
@@ -205,6 +228,10 @@ def test_case_detail(request, pk):
 
 @login_required
 def test_case_verify(request, pk):
+    """
+    Updates testcase verification status (passed, failed, retest).
+    Triggers completion ready notifications to PMs if all test cases for the parent task are verified.
+    """
     test_case = get_object_or_404(TestCase, pk=pk)
     
     if test_case.is_in_trash:
@@ -230,11 +257,13 @@ def test_case_verify(request, pk):
         test_case.verified_by = request.user
         test_case.verified_date = timezone.now()
         
+        # Admins or PMs immediately mark as approved if verification is passed
         if is_admin or is_pm:
             test_case.approval_status = "approved" if status == "passed" else "pending"
         
         test_case.save()
         
+        # Save verification attachment files
         files = request.FILES.getlist('attachments')
         for f in files:
             TestCaseAttachment.objects.create(
@@ -250,6 +279,7 @@ def test_case_verify(request, pk):
             details=f"Status changed from {old_status} to {status}. Comment: {comment}"
         )
         
+        # Route notifications depending on status result
         if status == "passed":
             recipients = set(test_case.project.managers.all())
             if test_case.created_by:
@@ -296,10 +326,11 @@ def test_case_verify(request, pk):
                         test_case=test_case
                     )
         
+        # Trigger parent task completion readiness alerts
         task = test_case.task
         if task.can_complete:
              for pm in task.project.managers.all():
-                 NotificationService.create_notification(
+                  NotificationService.create_notification(
                         recipient=pm,
                         sender=request.user,
                         notification_type="task_ready_completion",
@@ -320,6 +351,9 @@ def test_case_verify(request, pk):
 
 @login_required
 def test_case_comment_add(request, pk):
+    """
+    Appends a new discussion comment to a test case. Handles threaded reply associations.
+    """
     test_case = get_object_or_404(TestCase, pk=pk)
     project = test_case.project
     
@@ -346,7 +380,7 @@ def test_case_comment_add(request, pk):
                     pass
             comment.save()
             
-            # Send Notification to all project members
+            # Send dynamic notifications to all project members
             recipients = set(project.members.all()) | set(project.managers.all())
             if project.project_incharge:
                 recipients.add(project.project_incharge)

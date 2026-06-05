@@ -395,7 +395,7 @@
                     
                     <div class="release-footer">
                         <div class="released-by">
-                            <img src="https://ui-avatars.com/api/?name={{ release.author.username }}&background=random&color=fff" alt="{{ release.author.display_name }}">
+                            {% include 'partials/user_avatar.html' with avatar_user=release.author size="24" radius="50%" font_size="10" %}
                             <span>Drafted by <strong>{{ release.author.display_name|default:release.author.username }}</strong></span>
                         </div>
                         <div style="font-size: 11px; color: var(--text-muted);">

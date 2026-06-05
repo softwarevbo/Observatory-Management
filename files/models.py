@@ -5,12 +5,19 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+"""
+This module contains the database models for the Files / Document Management system.
+It establishes schemas for directories, versions, file parameters, comments, annotations,
+custom users access overrides, and system upload constraints.
+"""
 
 def upload_to(instance, filename):
     """
-    Generate clean upload path: projects/<project_id>/<category_path>/<filename>
-    This allows a local mirror that matches the database structure.
+    Dynamically generates the physical file upload paths on disk.
+    Structured as: projects/<project_id>/<folder>/<subfolder>/v<version>/<filename>
+    This mimics the database category tree directly inside the server storage system.
     """
+    # Resource Notes are saved under a separate category structure
     if instance.category and instance.category.name == "Notes":
         return f"resources/notes/{filename}"
 
@@ -22,7 +29,7 @@ def upload_to(instance, filename):
             path_parts.append("Releases")
             path_parts.append(instance.release.name)
         else:
-            # Get category hierarchy
+            # Traverses folders parent tree recursively to build paths
             if instance.category:
                 cat = instance.category
                 cat_parts = []
@@ -31,21 +38,23 @@ def upload_to(instance, filename):
                     cat = cat.parent
                 path_parts.extend(reversed(cat_parts))
 
-            # Add versioning if needed
+            # Include version segment if this represents an edit revision update
             if getattr(instance, "version", 1) > 1:
                 path_parts.append(f"v{instance.version}")
 
         return os.path.join("projects", *path_parts, filename)
 
-    # Fallback for files without project
+    # Redirection path for global uploads lacking specific project links
     uid = uuid.uuid4().hex[:8]
     now = timezone.now()
     return f"uploads/{now.year}/{now.month:02d}/{uid}/{filename}"
 
 
 class FileCategory(models.Model):
-    """Optional grouping for files within a project."""
-
+    """
+    Model representing subdirectories within projects.
+    Allows infinite folder hierarchies by linking parent references to 'self'.
+    """
     name = models.CharField(max_length=100)
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
@@ -61,7 +70,7 @@ class FileCategory(models.Model):
         ordering = ["name"]
         unique_together = ("name", "parent", "project")
 
-    # Trash and Permanent Deletion fields
+    # Soft-deletion parameters
     is_in_trash = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(
@@ -72,7 +81,6 @@ class FileCategory(models.Model):
         related_name="deleted_categories",
     )
 
-
     def __str__(self):
         if self.parent:
             return f"{self.parent} / {self.name}"
@@ -80,7 +88,7 @@ class FileCategory(models.Model):
 
     @property
     def latest_files(self):
-        """Returns only the latest version of each file in this category."""
+        """Returns only the primary version of untrashed files inside this folder."""
         return self.files.filter(versions__isnull=True, is_in_trash=False).order_by("original_name")
 
     @property
@@ -89,7 +97,7 @@ class FileCategory(models.Model):
 
     @property
     def project_relative_path(self):
-        """Returns the logical path of the category relative to the project (e.g. folder/subfolder)."""
+        """Constructs folder relative path (e.g. 'Schematics/Chassis')."""
         path_parts = []
         cat = self
         while cat:
@@ -103,8 +111,11 @@ class FileCategory(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        # Skip rename-detection logic if caller specified update_fields
-        # (e.g., bulk-trash operations only touch is_in_trash/deleted_at/deleted_by)
+        """
+        Overrides save() to trigger file-path updates.
+        If a folder is renamed, all nested subfolders and files are moved on the filesystem.
+        """
+        # Skip rename logic on bulk-trash actions that specify update_fields
         update_fields = kwargs.get('update_fields')
         if update_fields is not None:
             super().save(*args, **kwargs)
@@ -117,78 +128,34 @@ class FileCategory(models.Model):
 
         super().save(*args, **kwargs)
 
-        # If renamed, update all child files and subcategories
+        # Propagate renaming path changes recursively
         if not is_new and old_name != self.name:
-            # Update files in this category
             for pf in self.files.all():
-                pf.save()  # This triggers the ProjectFile.save rename logic
-
-            # Update subcategories
+                pf.save() # Invokes physical move logic inside ProjectFile.save()
             for sub in self.children.all():
-                sub.save()  # Recursive call
+                sub.save() # Recursive call down subfolders tree
 
 
 class ProjectFile(models.Model):
-    """A file uploaded and attached to a project or task."""
-
-    # --- File type detection helpers ---
-    IMAGE_EXTS = {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".bmp",
-        ".webp",
-        ".svg",
-        ".ico",
-        ".tiff",
-    }
+    """
+    Model representing files attached to projects, requirements, or tasks.
+    Supports version chains, soft-deletion workflows, and security access controls.
+    """
+    # Extension classification sets
+    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tiff"}
     PDF_EXTS = {".pdf"}
     DOC_EXTS = {".doc", ".docx", ".odt", ".rtf", ".txt", ".md", ".rst"}
     SHEET_EXTS = {".xls", ".xlsx", ".csv", ".ods"}
     SLIDE_EXTS = {".ppt", ".pptx", ".odp"}
     CODE_EXTS = {
-        ".py",
-        ".js",
-        ".ts",
-        ".html",
-        ".css",
-        ".java",
-        ".cpp",
-        ".c",
-        ".h",
-        ".json",
-        ".xml",
-        ".yaml",
-        ".yml",
-        ".toml",
-        ".ini",
-        ".sh",
-        ".bat",
-        ".sql",
-        ".php",
-        ".rb",
-        ".go",
-        ".rs",
-        ".swift",
-        ".kt",
-        ".r",
-        ".m",
+        ".py", ".js", ".ts", ".html", ".css", ".java", ".cpp", ".c", ".h", ".json",
+        ".xml", ".yaml", ".yml", ".toml", ".ini", ".sh", ".bat", ".sql", ".php",
+        ".rb", ".go", ".rs", ".swift", ".kt", ".r", ".m"
     }
     ARCHIVE_EXTS = {".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar", ".tar.gz"}
     VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"}
     AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a"}
-    CAD_EXTS = {
-        ".dwg",
-        ".dxf",
-        ".step",
-        ".stp",
-        ".iges",
-        ".igs",
-        ".stl",
-        ".obj",
-        ".3ds",
-    }
+    CAD_EXTS = {".dwg", ".dxf", ".step", ".stp", ".iges", ".igs", ".stl", ".obj", ".3ds"}
 
     FILE_TYPE_CHOICES = [
         ("image", "Image"),
@@ -204,67 +171,24 @@ class ProjectFile(models.Model):
         ("other", "Other"),
     ]
 
-    # Core fields
+    # File attributes
     file = models.FileField(upload_to=upload_to, max_length=500)
-    original_name = models.CharField(max_length=300)  # original filename before upload
-    file_size = models.PositiveBigIntegerField(default=0)  # bytes
-    file_type = models.CharField(
-        max_length=20, choices=FILE_TYPE_CHOICES, default="other"
-    )
+    original_name = models.CharField(max_length=300)
+    file_size = models.PositiveBigIntegerField(default=0)
+    file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES, default="other")
     extension = models.CharField(max_length=20, blank=True)
     mime_type = models.CharField(max_length=100, blank=True)
 
-    # Relations
-    project = models.ForeignKey(
-        "tasks.Project",
-        on_delete=models.CASCADE,
-        related_name="files",
-        null=True,
-        blank=True,
-    )
-    module = models.ForeignKey(
-        "tasks.ProjectModule",
-        on_delete=models.SET_NULL,
-        related_name="files",
-        null=True,
-        blank=True,
-    )
-    release = models.ForeignKey(
-        "tasks.Release",
-        on_delete=models.SET_NULL,
-        related_name="direct_files",
-        null=True,
-        blank=True,
-    )
-    task = models.ForeignKey(
-        "tasks.Task",
-        on_delete=models.SET_NULL,
-        related_name="files",
-        null=True,
-        blank=True,
-    )
-    requirement = models.ForeignKey(
-        "tasks.Requirement",
-        on_delete=models.SET_NULL,
-        related_name="files",
-        null=True,
-        blank=True,
-    )
-    category = models.ForeignKey(
-        FileCategory,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="files",
-    )
-    uploaded_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="uploaded_files",
-    )
+    # Scopes
+    project = models.ForeignKey("tasks.Project", on_delete=models.CASCADE, related_name="files", null=True, blank=True)
+    module = models.ForeignKey("tasks.ProjectModule", on_delete=models.SET_NULL, related_name="files", null=True, blank=True)
+    release = models.ForeignKey("tasks.Release", on_delete=models.SET_NULL, related_name="direct_files", null=True, blank=True)
+    task = models.ForeignKey("tasks.Task", on_delete=models.SET_NULL, related_name="files", null=True, blank=True)
+    requirement = models.ForeignKey("tasks.Requirement", on_delete=models.SET_NULL, related_name="files", null=True, blank=True)
+    category = models.ForeignKey(FileCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="files")
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="uploaded_files")
 
-    # Metadata
+    # Metadata & Version control parameters
     title = models.CharField(max_length=300, blank=True)
     description = models.TextField(blank=True)
     is_public = models.BooleanField(
@@ -272,6 +196,7 @@ class ProjectFile(models.Model):
         help_text="If True, all project members can download; else only uploader and admin",
     )
     version = models.PositiveSmallIntegerField(default=1)
+    # Self-referencing link for version chains (points to primary/version-1 file)
     parent_file = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -284,7 +209,7 @@ class ProjectFile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Trash and Permanent Deletion fields
+    # Soft-deletion flags and double approval requirements (needs Admin + PM verification)
     is_in_trash = models.BooleanField(default=False)
     hidden_from_user_trash = models.BooleanField(default=False)
     admin_approved_deletion = models.BooleanField(default=False)
@@ -305,11 +230,9 @@ class ProjectFile(models.Model):
     def __str__(self):
         return self.display_name
 
-    # ── Properties ───────────────────────────────────────────────────────────
-
     @property
     def full_path(self):
-        """Returns the logical path of the file within the project folder structure."""
+        """Constructs logical hierarchy path (e.g. 'Project Alpha / Schematic / blueprint.pdf')."""
         path_parts = [self.project.name] if self.project else ["(No Project)"]
         cat = self.category
         cat_parts = []
@@ -321,7 +244,7 @@ class ProjectFile(models.Model):
         return " / ".join(path_parts)
 
     def get_project_relative_path(self):
-        """Returns the logical path relative to the project (e.g. folder/subfolder/file.ext)."""
+        """Constructs project relative path (e.g. 'Schematic/blueprint.pdf')."""
         path_parts = []
         cat = self.category
         while cat:
@@ -341,6 +264,7 @@ class ProjectFile(models.Model):
 
     @property
     def file_size_display(self):
+        """Converts raw byte sizes to readable string formats."""
         size = self.file_size
         if size < 1024:
             return f"{size} B"
@@ -352,6 +276,7 @@ class ProjectFile(models.Model):
 
     @property
     def icon_class(self):
+        """Returns matching FontAwesome class representation."""
         return {
             "image": "fa-file-image",
             "pdf": "fa-file-pdf",
@@ -367,6 +292,7 @@ class ProjectFile(models.Model):
 
     @property
     def icon_color(self):
+        """Returns matching hex color representation."""
         return {
             "image": "#06b6d4",
             "pdf": "#ef4444",
@@ -382,7 +308,7 @@ class ProjectFile(models.Model):
 
     @property
     def is_previewable(self):
-        """Can be shown inline in the browser."""
+        """Identifies files that can render inside browser layouts directly."""
         return (
             self.file_type in ("image", "pdf")
             or (self.file_type == "code" and self.file_size < 500_000)
@@ -395,19 +321,10 @@ class ProjectFile(models.Model):
 
     @property
     def is_text_viewable(self):
+        """Identifies files containing plaintext suitable for the online editor."""
         return self.file_type == "code" or self.extension in {
-            ".txt",
-            ".md",
-            ".rst",
-            ".log",
-            ".ini",
-            ".cfg",
-            ".toml",
-            ".yaml",
-            ".yml",
-            ".json",
-            ".xml",
-            ".csv",
+            ".txt", ".md", ".rst", ".log", ".ini", ".cfg", ".toml", ".yaml", ".yml",
+            ".json", ".xml", ".csv",
         }
 
     @property
@@ -418,10 +335,9 @@ class ProjectFile(models.Model):
     def is_pdf(self):
         return self.file_type == "pdf"
 
-    # ── Class methods ─────────────────────────────────────────────────────────
-
     @classmethod
     def detect_file_type(cls, extension):
+        """Resolves file extension string into category names."""
         ext = extension.lower()
         if ext in cls.IMAGE_EXTS:
             return "image"
@@ -446,6 +362,10 @@ class ProjectFile(models.Model):
         return "other"
 
     def save(self, *args, **kwargs):
+        """
+        Overrides save() to detect sizes and category parameters.
+        Tracks movement and renames on disk to match directory structures.
+        """
         if self.file and not self.pk:
             name = os.path.basename(self.file.name)
             if not self.original_name:
@@ -455,13 +375,12 @@ class ProjectFile(models.Model):
             self.file_type = self.detect_file_type(ext)
             self.file_size = self.file.size
 
-        # Handle renames if project or category changed
+        # Handles disk migrations when project or category attributes change
         if self.pk:
             old_instance = ProjectFile.objects.filter(pk=self.pk).first()
             if old_instance and old_instance.file and self.file:
                 new_path = self.upload_to_path(self.original_name)
                 if old_instance.file.name != new_path:
-                    # Move physical file
                     import shutil
                     from django.conf import settings
 
@@ -480,8 +399,10 @@ class ProjectFile(models.Model):
 
 
 class FileComment(models.Model):
-    """Comment thread on a file or folder category."""
-
+    """
+    Model representing discussion comments on files or folders.
+    Supports PDF page annotations (coords logs), color highlight tracking, and thread replies.
+    """
     file = models.ForeignKey(
         ProjectFile, on_delete=models.CASCADE, null=True, blank=True, related_name="comments"
     )
@@ -492,13 +413,18 @@ class FileComment(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     
+    # Self-referencing link for discussion replies tree structure
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies"
     )
+    
+    # PDF Annotation coordinates
     page_number = models.PositiveIntegerField(null=True, blank=True)
     section = models.CharField(max_length=255, blank=True, null=True)
     highlight_color = models.CharField(max_length=50, default="#ffeb3b")
-    annotation_coords = models.TextField(blank=True, null=True) # JSON string of coordinates list
+    annotation_coords = models.TextField(blank=True, null=True) # JSON coordinates array string
+    
+    # Optional assignee parameter to assign tasks within discussions
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -516,8 +442,10 @@ class FileComment(models.Model):
 
 
 class DocumentAccessRight(models.Model):
-    """Explicit access rights for a file or a knowledge base note."""
-
+    """
+    Model representing explicit access overrides for files or Knowledge Base notes.
+    Permits granular view/edit/delete adjustments outside project scope.
+    """
     file = models.ForeignKey(
         ProjectFile,
         on_delete=models.CASCADE,
@@ -545,9 +473,14 @@ class DocumentAccessRight(models.Model):
     def __str__(self):
         doc = self.file or self.kb_note
         return f"Access for {self.user} on {doc}"
+
+
 class SystemSettings(models.Model):
+    """
+    Model representing system-wide upload size limitations.
+    """
     max_file_size_gb = models.PositiveIntegerField(
-        default=10, help_text="Maximum file upload size in GB (Max 10GB)"
+        default=10, help_text="Maximum file upload size in GB (Max 50GB)"
     )
 
     class Meta:
@@ -559,10 +492,11 @@ class SystemSettings(models.Model):
 
     @classmethod
     def get_max_size_bytes(cls):
+        """Assembles maximum size threshold in bytes for validation checks."""
         try:
             config = cls.objects.first()
             if config:
                 return config.max_file_size_gb * 1024 * 1024 * 1024
         except:
             pass
-        return 10 * 1024 * 1024 * 1024  # Default 10GB
+        return 10 * 1024 * 1024 * 1024 # Default fallback to 10GB

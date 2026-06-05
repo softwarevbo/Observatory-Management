@@ -1,8 +1,18 @@
 from django.conf import settings
 from django.db import models
 
+"""
+This module defines the database models for the Notes / Knowledge Base application.
+It establishes schemas for notes, modules references, authors, soft deletion, and 
+triggers automatic Markdown document synchronization on save or deletion.
+"""
+
 
 class KnowledgeBaseNote(models.Model):
+    """
+    Model representing notes or knowledge base guides attached to projects and modules.
+    Tracks revision timestamps, author profiles, and soft deletion flags.
+    """
     project = models.ForeignKey(
         "tasks.Project",
         on_delete=models.CASCADE,
@@ -25,7 +35,7 @@ class KnowledgeBaseNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Trash fields
+    # Soft deletion properties
     is_in_trash = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(
@@ -44,40 +54,43 @@ class KnowledgeBaseNote(models.Model):
         return self.title
 
     def save(self, *args, **kwargs):
+        """
+        Overrides save() to trigger automatic Markdown document synchronization.
+        Checks if the note title was updated to rename the existing ProjectFile reference.
+        """
+        old_title = None
+        if self.pk:
+            try:
+                old_instance = KnowledgeBaseNote.objects.get(pk=self.pk)
+                old_title = old_instance.title
+            except KnowledgeBaseNote.DoesNotExist:
+                pass
+
         super().save(*args, **kwargs)
+
         if self.project:
-            from django.core.files.base import ContentFile
+            from .services import KBService
+            KBService.save_note_as_file(self, self.author, old_title=old_title)
+
+    def delete(self, *args, **kwargs):
+        """
+        Overrides delete() to ensure that the corresponding ProjectFile in the Notes folder,
+        including its physical file on disk, is permanently cleaned up.
+        """
+        if self.project:
             from files.models import FileCategory, ProjectFile
-
-            notes_cat, _ = FileCategory.objects.get_or_create(
-                name="Notes", project=self.project, defaults={"created_by": self.author}
-            )
-
-            file_name = f"{self.title}.md".replace("/", "-")
-            content_bytes = self.content.encode("utf-8")
-
-            existing_file = (
-                ProjectFile.objects.filter(
-                    original_name=file_name, project=self.project, category=notes_cat
-                )
-                .order_by("-version")
+            notes_cat = (
+                FileCategory.objects
+                .filter(name="Notes", project=self.project, parent__isnull=True)
                 .first()
             )
-
-            if existing_file:
-                if existing_file.file:
-                    existing_file.file.delete(save=False)
-                existing_file.file.save(
-                    file_name, ContentFile(content_bytes), save=False
+            if notes_cat:
+                file_name = f"{self.title}.md".replace("/", "-")
+                associated_files = ProjectFile.objects.filter(
+                    original_name=file_name, project=self.project, category=notes_cat
                 )
-                existing_file.save()
-            else:
-                pf = ProjectFile(
-                    original_name=file_name,
-                    project=self.project,
-                    category=notes_cat,
-                    uploaded_by=self.author,
-                    description=f"Auto-generated from KB Note: {self.title}",
-                )
-                pf.file.save(file_name, ContentFile(content_bytes), save=False)
-                pf.save()
+                for pf in associated_files:
+                    if pf.file:
+                        pf.file.delete(save=False)
+                    pf.delete()
+        super().delete(*args, **kwargs)

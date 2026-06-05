@@ -1,19 +1,35 @@
 import os
+import io
+import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import FileResponse
+from django.utils import timezone
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+
+# PDF manipulation dependencies
+from pypdf import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import HexColor
 
 from ..models import ProjectFile, FileCategory, FileComment
 from ..forms import FileCommentForm, FileEditForm
 from tasks.models import AuditLog, Project
 from .file_list_views import check_file_access
-from django.utils import timezone
-from django.urls import reverse
 
+"""
+This module processes file detail views, online text edits, PDF canvas drawings,
+folder discussions, and trash approvals operations.
+"""
 
 def _restore_category_ancestors(category):
+    """
+    Recursively restores parent folder nodes of a category from the trash.
+    Ensures that when a nested file is restored, its parent directories are restored too.
+    """
     parent = category
     while parent:
         if parent.is_in_trash:
@@ -26,10 +42,15 @@ def _restore_category_ancestors(category):
 
 @login_required
 def file_detail(request, pk):
+    """
+    Renders detailed information page for a file.
+    Shows comments, revision versions list, and embeds text preview widgets if file is plain text.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
     if not check_file_access(pf, request.user, "view"):
         messages.error(request, "No access to this file.")
         return redirect("files:file_list")
+        
     comment_form = FileCommentForm(request.POST or None)
     if request.method == "POST" and comment_form.is_valid():
         c = comment_form.save(commit=False)
@@ -37,6 +58,7 @@ def file_detail(request, pk):
         c.save()
         messages.success(request, "Comment added.")
         return redirect("files:file_detail", pk=pk)
+        
     text_content = None
     if pf.is_text_viewable and pf.file_size < 500_000:
         try:
@@ -44,6 +66,7 @@ def file_detail(request, pk):
                 text_content = f.read()
         except:
             pass
+            
     return render(
         request,
         "files/file_detail.html",
@@ -61,14 +84,19 @@ def file_detail(request, pk):
 
 @login_required
 def file_edit(request, pk):
+    """
+    Modifies file metadata fields. Logs changes to system Audit logs.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
     if not check_file_access(pf, request.user, "edit"):
         messages.error(request, "No permission to edit.")
         return redirect("files:file_detail", pk=pk)
+        
     form = FileEditForm(request.POST or None, instance=pf)
     if request.method == "POST" and form.is_valid():
         form.save()
         
+        # Log metadata modification
         AuditLog.objects.create(
             user=request.user,
             action_type="edit",
@@ -85,10 +113,15 @@ def file_edit(request, pk):
 
 @login_required
 def file_delete(request, pk):
+    """
+    Performs soft-deletion of files. Moves files to trash, records details,
+    and logs actions to system audits.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
     if not check_file_access(pf, request.user, "delete"):
         messages.error(request, "No permission to delete.")
         return redirect("files:file_detail", pk=pk)
+        
     project = pf.project
     if request.method == "POST":
         name = pf.display_name
@@ -96,6 +129,8 @@ def file_delete(request, pk):
         pf.deleted_at = timezone.now()
         pf.deleted_by = request.user
         pf.save()
+        
+        # Log deletion
         AuditLog.objects.create(
             user=request.user,
             action_type="delete",
@@ -118,6 +153,10 @@ def file_delete(request, pk):
 
 @login_required
 def file_content_edit(request, pk):
+    """
+    Online plain-text code/document editor.
+    Permits direct edits to plain text files, saving changes back to disk storage.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
     if not check_file_access(pf, request.user, "edit") or not pf.is_text_viewable:
         messages.error(request, "No permission or file not editable.")
@@ -126,18 +165,17 @@ def file_content_edit(request, pk):
     if request.method == "POST":
         content = request.POST.get("content")
         if content is not None:
-            import os
             from django.core.files.base import ContentFile
 
             try:
-                # Try direct filesystem overwrite to avoid standard Django suffixing
+                # Try direct local filesystem overwrite to prevent Django name suffixing
                 file_path = pf.file.path
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 pf.file_size = os.path.getsize(file_path)
                 pf.save(update_fields=["file_size", "updated_at"])
             except (AttributeError, NotImplementedError, IOError):
-                # Fallback for non-local storage or if path is unavailable
+                # Fallback for cloud/custom storage backends
                 filename = pf.original_name
                 pf.file.save(filename, ContentFile(content), save=True)
                 pf.file_size = pf.file.size
@@ -145,6 +183,7 @@ def file_content_edit(request, pk):
 
             messages.success(request, f'Content of "{pf.display_name}" updated.')
             
+            # Log edits
             AuditLog.objects.create(
                 user=request.user,
                 action_type="edit",
@@ -160,8 +199,13 @@ def file_content_edit(request, pk):
 
 @login_required
 def file_restore(request, pk):
+    """
+    Restores files from trash.
+    Utilizes transaction blocks to restore folder structures along with the file.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
-    # Check permissions (creator, manager, or member of project)
+    
+    # Check permissions
     is_authorized = (
         request.user.is_admin 
         or request.user.is_project_manager 
@@ -175,6 +219,7 @@ def file_restore(request, pk):
         messages.error(request, "No permission to restore.")
         return redirect("tasks:trash")
 
+    # Atomic restoration block
     with transaction.atomic():
         if pf.category:
             _restore_category_ancestors(pf.category)
@@ -194,6 +239,10 @@ def file_restore(request, pk):
 
 @login_required
 def file_permanent_delete(request, pk):
+    """
+    Deletes files permanently from disk.
+    Requires double approval: both Admin and PM must approve before files are removed.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
     if not (request.user.is_admin or request.user.is_project_manager):
         messages.error(request, "Only managers can approve permanent deletion.")
@@ -205,10 +254,11 @@ def file_permanent_delete(request, pk):
     if request.user.is_project_manager or (pf.project and pf.project.is_manager(request.user)):
         pf.pm_approved_deletion = True
         
+    # Check double approval status
     if pf.admin_approved_deletion and pf.pm_approved_deletion:
         name = pf.display_name
-        pf.file.delete(save=False)
-        pf.delete()
+        pf.file.delete(save=False) # Delete physical file from disk
+        pf.delete() # Remove database record
         messages.success(request, f'"{name}" permanently deleted from disk.')
     else:
         pf.save()
@@ -219,6 +269,9 @@ def file_permanent_delete(request, pk):
 
 @login_required
 def file_hide_from_trash(request, pk):
+    """
+    Hides soft-deleted files from a user's trash view.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
     if pf.deleted_by != request.user and not request.user.is_admin:
         messages.error(request, "No permission.")
@@ -230,16 +283,13 @@ def file_hide_from_trash(request, pk):
     return redirect("tasks:trash")
 
 
-import io
-import json
-from pypdf import PdfReader, PdfWriter
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-from ..models import FileComment
-
 def embed_pdf_annotations(pf, comments):
+    """
+    Draws highlights and comment numbers onto transparent PDF layers using ReportLab,
+    merges them into the PDF, and appends a comments summary to the bottom of the page.
+    """
     try:
-        # Read the original file safely
+        # Load binary file data safely
         try:
             with open(pf.file.path, 'rb') as f:
                 original_pdf_data = f.read()
@@ -251,11 +301,11 @@ def embed_pdf_annotations(pf, comments):
         reader = PdfReader(io.BytesIO(original_pdf_data))
         writer = PdfWriter()
         
-        # Loop through pages
+        # Loop through pages to apply comments and annotations
         for idx, page in enumerate(reader.pages):
             page_num = idx + 1
             
-            # Find comments for this page
+            # Filter comments left on this page
             if hasattr(comments, "filter"):
                 page_comments = comments.filter(page_number=page_num, parent__isnull=True)
             else:
@@ -272,7 +322,7 @@ def embed_pdf_annotations(pf, comments):
                 page_width = float(box.width)
                 page_height = float(box.height)
                 
-                # Create transparent PDF layer
+                # Create a transparent PDF layer to draw on
                 packet = io.BytesIO()
                 can = canvas.Canvas(packet, pagesize=(page_width, page_height))
                 
@@ -280,6 +330,7 @@ def embed_pdf_annotations(pf, comments):
                 for c in page_comments:
                     if c.annotation_coords:
                         try:
+                            # Load coordinates JSON string
                             coords_list = json.loads(c.annotation_coords)
                             if isinstance(coords_list, dict):
                                 coords_list = [coords_list]
@@ -290,6 +341,7 @@ def embed_pdf_annotations(pf, comments):
                             except:
                                 r_color = HexColor("#ffeb3b")
                                 
+                            # Configure highlight transparency
                             can.setFillColor(r_color)
                             can.setFillAlpha(0.35)
                             
@@ -302,6 +354,8 @@ def embed_pdf_annotations(pf, comments):
                                 rw = rect.get("w", 0) * page_width
                                 rh = rect.get("h", 0) * page_height
                                 can.rect(rx, ry, rw, rh, fill=True, stroke=False)
+                                
+                                # Add standard text annotation box
                                 try:
                                     can.textAnnotation(
                                         c.content,
@@ -312,6 +366,7 @@ def embed_pdf_annotations(pf, comments):
                                 if first_rect is None:
                                     first_rect = (rx, ry + rh)
                                     
+                            # Draw comment numbers on highlight start coordinates
                             if first_rect:
                                 can.setFillAlpha(1.0)
                                 can.setFillColor(HexColor("#333333"))
@@ -321,7 +376,7 @@ def embed_pdf_annotations(pf, comments):
                         except Exception as ce:
                             print("Error processing comment annotation:", ce)
                 
-                # If we drew any highlights, write notes at bottom of page
+                # Write a summary of page comments at the bottom of the page
                 if comment_index > 1:
                     y_pos = 20
                     can.setFillAlpha(1.0)
@@ -374,6 +429,10 @@ def embed_pdf_annotations(pf, comments):
 
 @login_required
 def document_discussion(request, project_id, doc_id):
+    """
+    Renders the discussion thread, annotations lists, and version history logs for a file.
+    Supports comments with page numbers and highlights on PDFs.
+    """
     pf = get_object_or_404(ProjectFile, pk=doc_id)
     if not check_file_access(pf, request.user, "view"):
         messages.error(request, "No access to this document.")
@@ -422,6 +481,7 @@ def document_discussion(request, project_id, doc_id):
                 assigned_to=assigned_to
             )
 
+            # Send notification to assigned user
             if assigned_to and assigned_to != request.user:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -431,6 +491,7 @@ def document_discussion(request, project_id, doc_id):
                     link=reverse("tasks:document_discussion", kwargs={"project_id": project_id, "doc_id": doc_id}) + f"?comment_id={c.pk}"
                 )
 
+            # Log comment creation
             AuditLog.objects.create(
                 user=request.user,
                 action_type="create",
@@ -440,6 +501,7 @@ def document_discussion(request, project_id, doc_id):
                 details=f"Added annotation comment on page {page_number or 'N/A'} of file '{pf.display_name}'."
             )
 
+            # AJAX response rendering
             if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
                 comments = pf.comments.filter(parent__isnull=True).select_related("author", "assigned_to").prefetch_related("replies__author")
                 all_comments = pf.comments.select_related("author").all()
@@ -483,6 +545,7 @@ def document_discussion(request, project_id, doc_id):
                 parent=parent_comment
             )
 
+            # Notify parent comment author
             if parent_comment.author != request.user:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -492,6 +555,7 @@ def document_discussion(request, project_id, doc_id):
                     link=reverse("tasks:document_discussion", kwargs={"project_id": project_id, "doc_id": doc_id}) + f"?comment_id={parent_comment.pk}"
                 )
 
+            # Notify comment assignee if set
             if parent_comment.assigned_to and parent_comment.assigned_to != request.user and parent_comment.assigned_to != parent_comment.author:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -501,6 +565,7 @@ def document_discussion(request, project_id, doc_id):
                     link=reverse("tasks:document_discussion", kwargs={"project_id": project_id, "doc_id": doc_id}) + f"?comment_id={parent_comment.pk}"
                 )
 
+            # AJAX response rendering
             if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
                 comments = pf.comments.filter(parent__isnull=True).select_related("author", "assigned_to").prefetch_related("replies__author")
                 all_comments = pf.comments.select_related("author").all()
@@ -547,6 +612,7 @@ def document_discussion(request, project_id, doc_id):
             comment.assigned_to = assigned_to
             comment.save()
 
+            # Notify new assignee
             if assigned_to and assigned_to != request.user and assigned_to != old_assignee:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -556,6 +622,7 @@ def document_discussion(request, project_id, doc_id):
                     link=reverse("tasks:document_discussion", kwargs={"project_id": project_id, "doc_id": doc_id}) + f"?comment_id={comment.pk}"
                 )
 
+            # AJAX response rendering
             if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
                 comments = pf.comments.filter(parent__isnull=True).select_related("author", "assigned_to").prefetch_related("replies__author")
                 all_comments = pf.comments.select_related("author").all()
@@ -626,10 +693,14 @@ def document_discussion(request, project_id, doc_id):
 
 @login_required
 def folder_discussion(request, project_id, folder_id):
+    """
+    Renders discussion threads inside folder modules.
+    Matches features from files discussions, including comments, assignees, and replies.
+    """
     project = get_object_or_404(Project, pk=project_id)
     folder = get_object_or_404(FileCategory, pk=folder_id, project=project)
     
-    # Check permissions
+    # Permission verification
     if not (request.user.is_admin or getattr(request.user, 'is_project_manager', False) or 
             project.managers.filter(pk=request.user.pk).exists() or 
             project.members.filter(pk=request.user.pk).exists() or 
@@ -658,6 +729,7 @@ def folder_discussion(request, project_id, folder_id):
                 assigned_to=assigned_to
             )
 
+            # Notify assignee
             if assigned_to and assigned_to != request.user:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -667,6 +739,7 @@ def folder_discussion(request, project_id, folder_id):
                     link=reverse("tasks:folder_discussion", kwargs={"project_id": project_id, "folder_id": folder_id}) + f"?comment_id={c.pk}"
                 )
 
+            # Log folder commentary creation
             AuditLog.objects.create(
                 user=request.user,
                 action_type="create",
@@ -676,6 +749,7 @@ def folder_discussion(request, project_id, folder_id):
                 details=f"Added comment on folder '{folder.name}'."
             )
 
+            # AJAX response rendering
             if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
                 comments = folder.comments.filter(parent__isnull=True).select_related("author", "assigned_to").prefetch_related("replies__author")
                 all_comments = folder.comments.select_related("author").all()
@@ -708,6 +782,7 @@ def folder_discussion(request, project_id, folder_id):
                 parent=parent_comment
             )
 
+            # Notify parent comment author
             if parent_comment.author != request.user:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -717,6 +792,7 @@ def folder_discussion(request, project_id, folder_id):
                     link=reverse("tasks:folder_discussion", kwargs={"project_id": project_id, "folder_id": folder_id}) + f"?comment_id={parent_comment.pk}"
                 )
 
+            # AJAX response rendering
             if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
                 comments = folder.comments.filter(parent__isnull=True).select_related("author", "assigned_to").prefetch_related("replies__author")
                 all_comments = folder.comments.select_related("author").all()
@@ -752,6 +828,7 @@ def folder_discussion(request, project_id, folder_id):
             comment.assigned_to = assigned_to
             comment.save()
 
+            # Notify new assignee
             if assigned_to and assigned_to != request.user and assigned_to != old_assignee:
                 from notifications.models import Notification
                 Notification.objects.create(
@@ -761,6 +838,7 @@ def folder_discussion(request, project_id, folder_id):
                     link=reverse("tasks:folder_discussion", kwargs={"project_id": project_id, "folder_id": folder_id}) + f"?comment_id={comment.pk}"
                 )
 
+            # AJAX response rendering
             if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
                 comments = folder.comments.filter(parent__isnull=True).select_related("author", "assigned_to").prefetch_related("replies__author")
                 all_comments = folder.comments.select_related("author").all()

@@ -5,7 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/chat.css' %}">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
 <style>
 /* Reset global overrides caused by Bootstrap on main layout */
 body, .sidebar, .sidebar *, .btn-logout {
@@ -124,29 +124,29 @@ body, .sidebar, .sidebar *, .btn-logout {
 /* Selection toolbar */
 #chtSelectToolbar {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: #1e1b4b;
-  border-top: 2px solid #6366f1;
+  background: var(--bg-card);
+  border-top: 2px solid var(--accent);
   padding: 10px 14px;
   display: none;
   align-items: center;
   gap: 8px;
   z-index: 50;
-  box-shadow: 0 -6px 24px rgba(99,102,241,.2);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
 }
 #chtSelectToolbar.active { display: flex; }
 #chtSelectCount {
   flex: 1;
   font-weight: 700;
   font-size: 13px;
-  color: #a5b4fc;        /* always visible on dark toolbar */
+  color: var(--text-primary);
 }
 .cht-sel-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 7px 13px;
-  border-radius: 10px;
-  border: none;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid transparent;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -157,13 +157,13 @@ body, .sidebar, .sidebar *, .btn-logout {
 .cht-sel-btn:hover  { opacity: .88; }
 .cht-sel-btn:active { transform: scale(.95); }
 /* Delete — red */
-.cht-sel-btn.del    { background: #ef4444; color: #ffffff; }
+.cht-sel-btn.del    { background: var(--red, #ef4444); color: #ffffff; }
 /* Forward — indigo */
-.cht-sel-btn.fwd    { background: #6366f1; color: #ffffff; }
+.cht-sel-btn.fwd    { background: var(--accent, #4f8ef7); color: #ffffff; }
 /* Select All — ghost indigo */
-.cht-sel-btn.all    { background: rgba(165,180,252,.15); color: #a5b4fc; border: 1px solid rgba(165,180,252,.35); }
+.cht-sel-btn.all    { background: rgba(79, 142, 247, 0.12); color: var(--accent, #4f8ef7); border: 1px solid rgba(79, 142, 247, 0.25); }
 /* Cancel — subtle */
-.cht-sel-btn.cancel { background: rgba(255,255,255,.08); color: #cbd5e1; border: 1px solid rgba(255,255,255,.15); }
+.cht-sel-btn.cancel { background: var(--bg-card-hover, rgba(0,0,0,.05)); color: var(--text-secondary); border: 1px solid var(--border); }
 
 @keyframes highlight-fade {
   0% { background-color: rgba(99, 102, 241, 0.25); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
@@ -477,12 +477,8 @@ body, .sidebar, .sidebar *, .btn-logout {
             <!-- Self-chat room -->
             {% with p=user %}
             <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ p.username }} (You)" data-type="direct" onclick="Chat.open('{{ room.room_id }}','{{ p.username }} (You)','direct')">
-              <div class="cht-room-av">
-                {% if p.profile_picture %}
-                  <img src="{{ p.profile_picture.url }}" alt="{{ p.username }}">
-                {% else %}
-                  <img src="https://ui-avatars.com/api/?name={{ p.username }}&background=random&size=40&bold=true" alt="{{ p.username }}">
-                {% endif %}
+              <div class="cht-room-av" style="background:none;">
+                {% include 'partials/user_avatar.html' with avatar_user=p size="40" radius="10px" font_size="14" %}
                 <div class="presence-dot online" data-user-id="{{ p.id }}"></div>
               </div>
               <div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">
@@ -498,12 +494,8 @@ body, .sidebar, .sidebar *, .btn-logout {
             {% for p in room.participants.all %}
               {% if p != user %}
                 <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ p.username }}" data-type="direct" onclick="Chat.open('{{ room.room_id }}','{{ p.username }}','direct')">
-                  <div class="cht-room-av">
-                    {% if p.profile_picture %}
-                      <img src="{{ p.profile_picture.url }}" alt="{{ p.username }}">
-                    {% else %}
-                      <img src="https://ui-avatars.com/api/?name={{ p.username }}&background=random&size=40&bold=true" alt="{{ p.username }}">
-                    {% endif %}
+                  <div class="cht-room-av" style="background:none;">
+                    {% include 'partials/user_avatar.html' with avatar_user=p size="40" radius="10px" font_size="14" %}
                     <div class="presence-dot {% if p.presence.is_online %}online{% endif %}" data-user-id="{{ p.id }}"></div>
                   </div>
                   <div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">
@@ -540,12 +532,8 @@ body, .sidebar, .sidebar *, .btn-logout {
       <div id="contactRooms">
       {% for u in users %}
         <div class="cht-room" data-id="DM-{{ u.id }}" data-name="{{ u.username }}{% if u == user %} (You){% endif %}" data-type="direct" onclick="Chat.open('DM-{{ u.id }}','{{ u.username }}{% if u == user %} (You){% endif %}','direct')">
-          <div class="cht-room-av">
-            {% if u.profile_picture %}
-              <img src="{{ u.profile_picture.url }}" alt="{{ u.username }}">
-            {% else %}
-              <img src="https://ui-avatars.com/api/?name={{ u.username }}&background=random&size=40&bold=true" alt="{{ u.username }}">
-            {% endif %}
+          <div class="cht-room-av" style="background:none;">
+            {% include 'partials/user_avatar.html' with avatar_user=u size="40" radius="10px" font_size="14" %}
             <div class="presence-dot {% if u.presence.is_online or u == user %}online{% endif %}" data-user-id="{{ u.id }}"></div>
           </div>
           <div class="cht-room-info">
@@ -703,7 +691,7 @@ body, .sidebar, .sidebar *, .btn-logout {
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js" type="module"></script>
+<script src="{% static 'vendor/emoji-picker-element/index.js' %}" type="module"></script>
 <script>
 const Chat = (() => {
   'use strict';
@@ -713,6 +701,28 @@ const Chat = (() => {
   let inSelectMode = false;
   let lastRenderedDate = null;
   const ME = '{{ user.username }}';
+  
+  function getAvatarSvg(name, bgColor) {
+    if (!bgColor) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const colors = [
+        '#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+        '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#f43f5e'
+      ];
+      bgColor = colors[Math.abs(hash) % colors.length];
+    }
+    const parts = name.trim().split(/\s+/);
+    const initials = parts.map(p => p[0]).slice(0, 2).join("").toUpperCase() || "U";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+      <rect width="100" height="100" fill="${bgColor}"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="40" font-family="sans-serif" font-weight="bold" fill="#ffffff">${initials}</text>
+    </svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+
   let elEmpty,elPanel,elMsgs,elInput,elSend,elSearch,elCtx,elCtxLabel,elCtxText,elPanelName,elPanelStatus,elPanelAv, elSearchWrap, elSearchInput, elSearchRes;
   
   // Pin states
@@ -775,6 +785,7 @@ const Chat = (() => {
     
     // Emoji setup
     const picker = document.createElement('emoji-picker');
+    picker.dataSource = "{% static 'vendor/emoji-picker-element/data.json' %}";
     picker.style.display = 'none';
     picker.style.position = 'absolute';
     picker.style.bottom = '80px';
@@ -1013,7 +1024,7 @@ const Chat = (() => {
             if (type === 'direct') {
               elPanelAv.style.borderRadius = '50%';
               elPanelAv.style.background = 'transparent';
-              elPanelAv.innerHTML = '<img src="https://ui-avatars.com/api/?name=' + encodeURIComponent(name || 'U') + '&background=random&size=48&bold=true" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+              elPanelAv.innerHTML = '<img src="' + getAvatarSvg(name || 'U') + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
             } else {
               elPanelAv.style.borderRadius = '10px';
               elPanelAv.style.background = 'rgba(99,102,241,.12)';
@@ -1240,7 +1251,7 @@ const Chat = (() => {
 
       const avatarHtml = isGroup 
         ? '<div class="cht-room-av" style="background:rgba(99,102,241,.12); color:var(--c-accent); border-radius:10px;"><i class="fas fa-users"></i></div>'
-        : '<div class="cht-room-av"><img src="' + (data.sender_avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=random&size=40&bold=true') + '" alt="' + h(displayName) + '"><div class="presence-dot online"></div></div>';
+        : '<div class="cht-room-av"><img src="' + (data.sender_avatar || getAvatarSvg(displayName)) + '" alt="' + h(displayName) + '"><div class="presence-dot online"></div></div>';
 
       roomEl.innerHTML = avatarHtml + 
         '<div class="cht-room-info flex-grow-1 min-w-0" style="display: flex; flex-direction: column;">' +
@@ -1341,7 +1352,7 @@ const Chat = (() => {
     html += '<div class="cht-select-chk" onclick="event.stopPropagation(); Chat.toggleMsgSelect(\'' + mid + '\')"></div>';
 
     if (!isMe && currentRoomType === 'group') {
-      var av = d.sender_avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(d.sender) + '&background=random&size=32&bold=true';
+      var av = d.sender_avatar || getAvatarSvg(d.sender);
       html += '<img src="' + av + '" class="cht-msg-av" title="' + h(d.sender) + '">';
     }
 
@@ -1869,7 +1880,7 @@ const Chat = (() => {
       const item = document.createElement('div');
       item.className = 'cht-modal-item';
       
-      const avatarUrl = p.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.username)}&background=random&size=100&bold=true`;
+      const avatarUrl = p.profile_picture || getAvatarSvg(p.username, p.avatar_color);
       
       item.innerHTML = `
         <div class="d-flex align-items-center gap-3 min-w-0">

@@ -10,9 +10,17 @@ from stock.models import StockEntry
 from ..decorators import super_admin_required
 from ..models import Branch, InventoryUser, InventoryAdjustment
 
+"""
+This module processes global multi-branch analytics dashboards and branch creation/deletions.
+"""
+
 
 @method_decorator(super_admin_required, name="dispatch")
 class SuperAdminDashboardView(View):
+    """
+    Dashboard view aggregating storage metrics across all branches.
+    Provides counts, total calculated stock, branch summaries, and recent activity logs.
+    """
     def get(self, request):
         total_branches = Branch.objects.count()
         total_users = InventoryUser.objects.count()
@@ -54,6 +62,9 @@ class SuperAdminDashboardView(View):
 
 @method_decorator(super_admin_required, name="dispatch")
 class BranchManagementView(View):
+    """
+    View class displaying branch listings and managing creating, updating, and deleting branch objects.
+    """
     def get(self, request):
         branches = Branch.objects.annotate(user_count=Count("users"))
         return render(

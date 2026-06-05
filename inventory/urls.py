@@ -2,8 +2,13 @@ from django.urls import path
 
 from . import views
 
+"""
+This module registers URL routing patterns for the Inventory application.
+Directs to HTML view controllers and REST API JSON serialization endpoints.
+"""
+
 urlpatterns = [
-    # HTML page routes
+    # ─── HTML Page Routes ──────────────────────────────────────────────────────
     path(
         "superadmin/dashboard/",
         views.SuperAdminDashboardView.as_view(),
@@ -50,7 +55,9 @@ urlpatterns = [
         views.InventoryNotificationsPageView.as_view(),
         name="inventory-notifications-page",
     ),
-    # API routes
+    path("rentals/", views.RentalManagementView.as_view(), name="rental-management"),
+    
+    # ─── API endpoints ─────────────────────────────────────────────────────────
     path(
         "api/adjustments/",
         views.InventoryAdjustmentAPI.as_view(),
@@ -81,9 +88,9 @@ urlpatterns = [
         views.ResolveAlertAPI.as_view(),
         name="resolve-alert-api",
     ),
-    path("rentals/", views.RentalManagementView.as_view(), name="rental-management"),
 ]
 
+# ─── Standard Limits & Shortage Export Actions ──────────────────────────────────
 urlpatterns += [
     path("limits/standard/", views.set_standard_limit, name="set-standard-limit"),
     path("shortage/", views.inventory_shortage_view, name="inventory-shortage-page"),

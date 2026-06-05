@@ -1,7 +1,16 @@
 from django.db import models
 
+"""
+This module defines the database models for the Procurement application.
+It establishes schemas for procurement requests, quantities required, and decision tracking.
+"""
+
 
 class ProcurementRequest(models.Model):
+    """
+    Model representing procurement requests submitted by branch users.
+    Tracks target product, requested and fulfilled quantities, branch scopes, and admin decision parameters.
+    """
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("approved", "Approved"),

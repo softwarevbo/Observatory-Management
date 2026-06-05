@@ -6,12 +6,21 @@ from inventory.models import InventoryAdjustment
 from products.models import Product
 from stock.models import StockEntry
 
+"""
+This module contains Class-Based Views (CBVs) for the Inventory Dashboard.
+It compiles operational statistics such as total stock, active alerts,
+inventory turnover metrics, and stock shrinkage ratios.
+"""
 
 class DashboardOverview(View):
+    """
+    Overview view returning mockup stats or placeholder indexes.
+    Used for general layout presentation or initial system prototyping.
+    """
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
-        # Placeholder data for dashboard KPIs and stock levels
+            
         data = {
             "total_products": 100,
             "total_stock": 5000,
@@ -25,10 +34,14 @@ class DashboardOverview(View):
 
 
 class DashboardPageView(View):
+    """
+    Primary view compiling live metrics isolated by the user's branch permissions.
+    """
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
 
+        # Redirect super admins or branch admins to their specific workspaces
         if request.user.is_super_admin:
             return redirect("superadmin-dashboard")
         if request.user.is_branch_admin:
@@ -40,10 +53,11 @@ class DashboardPageView(View):
         is_global = has_global_inventory_access(request.user)
         user_branch = getattr(request.user, "branch", None)
 
+        # Retrieve isolated products queryset based on branch access level
         products_qs = get_isolated_products(request.user)
         total_products = products_qs.count()
 
-        # 1. Total Current Stock (Branch Isolated)
+        # ─── 1. Total Current Stock (Branch Isolated) ───
         if is_global:
             current_total_stock = (
                 BranchStock.objects.aggregate(total=models.Sum("current_quantity"))[
@@ -61,10 +75,10 @@ class DashboardPageView(View):
         else:
             current_total_stock = 0
 
-        # 2. Turnover and Shrinkage (Branch Isolated)
+        # ─── 2. Turnover and Shrinkage (Branch Isolated) ───
         from inventory.utils import filter_by_branch
 
-        # Total Stock In/Out for the branch
+        # Filter stock transaction records by user's branch
         stock_entries = filter_by_branch(StockEntry.objects.all(), request.user)
         total_stock_in = (
             stock_entries.filter(entry_type="in").aggregate(
@@ -79,7 +93,7 @@ class DashboardPageView(View):
             or 0
         )
 
-        # Adjustments for the branch
+        # Filter manual adjustments by user's branch
         adjustments = filter_by_branch(InventoryAdjustment.objects.all(), request.user)
         positive_adj = (
             adjustments.filter(adjustment_type="increase").aggregate(
@@ -94,16 +108,19 @@ class DashboardPageView(View):
             or 0
         )
 
-        # Calculation Metrics
+        # Calculation Metrics:
+        # Average Inventory = (Opening Stock + Closing Stock) / 2
         average_inventory = (
             ((total_stock_in + current_total_stock) / 2)
             if (total_stock_in + current_total_stock) > 0
             else 1
         )
+        # Turnover Rate = Total Outflow / Average Inventory
         stock_turnover = (
             round(total_stock_out / average_inventory, 2) if average_inventory else 0
         )
 
+        # Shrinkage Rate = (Discrepancy quantity / Total base input) * 100
         shrinkage_base = total_stock_in + positive_adj
         shrinkage_rate = (
             round((abs(negative_adj) / shrinkage_base) * 100, 2)
@@ -111,7 +128,7 @@ class DashboardPageView(View):
             else 0
         )
 
-        # 3. Alerts (Branch Isolated)
+        # ─── 3. Low Stock / Location Alerts (Branch Isolated) ───
         alerts_qs = filter_by_branch(
             Alert.objects.all(), request.user, "product__branch"
         )

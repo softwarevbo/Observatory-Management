@@ -2,8 +2,15 @@ from django import forms
 
 from .models import Budget, Expense
 
+"""
+This module contains forms for managing project budgets and tracking expenses.
+"""
 
 class ExpenseForm(forms.ModelForm):
+    """
+    ModelForm used to track individual project expenses.
+    Limits receipt attachments strictly to files linked to the target project.
+    """
     class Meta:
         model = Expense
         fields = [
@@ -29,15 +36,22 @@ class ExpenseForm(forms.ModelForm):
             "receipt": forms.Select(attrs={"class": "form-control"}),
         }
 
-    def __init__(self, *args, **kwargs):
-        project = kwargs.pop("project", None)
+    def __init__(self, *args, project=None, **kwargs):
+        """
+        Overrides initialization to constrain receipt options.
+        Only shows files belonging to the current project context.
+        """
         super().__init__(*args, **kwargs)
         if project:
-            # Only allow selecting files uploaded to this project
             self.fields["receipt"].queryset = project.files.all()
+        else:
+            self.fields["receipt"].queryset = project.files.none() if project else self.fields["receipt"].queryset.none()
 
 
 class BudgetForm(forms.ModelForm):
+    """
+    ModelForm used to assign or update overall project budgets.
+    """
     class Meta:
         model = Budget
         fields = ["total_amount"]

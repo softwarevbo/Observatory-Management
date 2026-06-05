@@ -3,8 +3,16 @@ from functools import wraps
 from django.contrib import messages
 from django.shortcuts import redirect
 
+"""
+This module defines authorization decorators for Inventory Management view views.
+Restricts routes to super admins, branch admins, or users with specific permission flags.
+"""
 
 def super_admin_required(view_func):
+    """
+    Decorator requiring the user to have is_super_admin set to True.
+    Otherwise redirects to dashboard-page.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -20,6 +28,10 @@ def super_admin_required(view_func):
 
 
 def branch_admin_required(view_func):
+    """
+    Decorator requiring the user to have is_branch_admin set to True.
+    Otherwise redirects to dashboard-page.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -36,10 +48,9 @@ def branch_admin_required(view_func):
 
 def staff_permission_required(perm_name):
     """
-    Decorator for views that checks if the user has a specific permission.
-    Admins (Super and Branch) always pass.
+    Decorator for views that checks if the user has a specific permission attribute.
+    Super Admins and Branch Admins bypass this constraint entirely.
     """
-
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
@@ -47,10 +58,10 @@ def staff_permission_required(perm_name):
                 return redirect("accounts:login")
 
             # Admins always have access
-            if request.user.is_super_admin or request.user.is_branch_admin:
+            if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
                 return view_func(request, *args, **kwargs)
 
-            # Check specific permission
+            # Check specific permission flag
             if getattr(request.user, perm_name, False):
                 return view_func(request, *args, **kwargs)
 

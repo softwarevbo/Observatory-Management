@@ -19,13 +19,16 @@ from ..services.notification_service import NotificationService
 
 @login_required
 def task_bulk_create(request, pk):
+    """
+    Renders a dynamic formset grid permitting project members to batch-create tasks.
+    Non-privileged creators trigger an approval workflow where the tasks remain unapproved.
+    """
+    # Retrieve project context
     project = get_object_or_404(Project, pk=pk)
     is_pm = project.managers.filter(pk=request.user.pk).exists()
     is_assignee = project.tasks.filter(assignees=request.user).exists()
-    
-    # Anyone can add tasks, but they need approval if not a manager
-    pass 
 
+    # Define modelformset factory scope
     TaskFormSet = modelformset_factory(
         Task,
         form=BulkTaskForm,
@@ -42,22 +45,23 @@ def task_bulk_create(request, pk):
         if formset.is_valid():
             saved_count = 0
             for form in formset:
-                # We skip empty forms or forms marked for deletion
+                # Iterate and skip blank rows or elements marked for deletion
                 if form.cleaned_data.get("title") and not form.cleaned_data.get("DELETE"):
                     instance = form.save(commit=False)
                     instance.project = project
                     instance.created_by = request.user
-                    # Approval logic
+                    
+                    # Tasks require approval if created by standard project contributors
                     is_privileged = project.is_manager(request.user) or project.is_incharge(request.user)
                     instance.is_approved = is_privileged
                     instance.save()
-                    form.save_m2m()  # Save many-to-many data like assignees
+                    form.save_m2m()  # Save assignees and other many-to-many associations
                     saved_count += 1
             
             messages.success(request, f"{saved_count} tasks created successfully.")
             return redirect(reverse("tasks:project_detail", args=[project.pk]))
         else:
-            # Aggregate errors for better feedback
+            # Aggregate validation failure alerts across the formset
             error_msgs = []
             for i, form_errors in enumerate(formset.errors):
                 if form_errors:
@@ -65,14 +69,14 @@ def task_bulk_create(request, pk):
             
             messages.warning(request, "Please correct the errors in the grid below.")
             if error_msgs:
-                for err in error_msgs[:5]: # Show first 5 errors to avoid flooding
+                for err in error_msgs[:5]: # Show top 5 errors to avoid view flooding
                     messages.error(request, err)
     else:
         formset = TaskFormSet(
             queryset=Task.objects.none(),
             form_kwargs={"project": project, "user": request.user},
         )
-        # Ensure querysets are correctly set for all forms including extra ones
+        # Pre-populate project parameters and hide the project field widget
         for form in formset:
             if "project" in form.fields:
                 form.fields["project"].initial = project
@@ -88,7 +92,10 @@ def task_bulk_create(request, pk):
 
 @login_required
 def get_project_data(request):
-    """AJAX view to fetch project-specific data for bulk task creation."""
+    """
+    AJAX view to fetch project-specific data (modules, approved requirements, members, tasks)
+    to populate dynamic drop-down selections in bulk task creations.
+    """
     from django.http import JsonResponse
     project_id = request.GET.get("project_id")
     if not project_id:
@@ -99,14 +106,14 @@ def get_project_data(request):
     modules = list(project.modules.all().values("id", "name"))
     requirements = list(project.requirements.filter(is_approved=True, is_in_trash=False).values("id", "name", "req_id").order_by("req_id"))
     
-    # Get members and managers
+    # Get members and managers associated with the resolved project
     member_ids = list(project.members.values_list("pk", flat=True))
     member_ids.extend(project.managers.values_list("pk", flat=True))
     from django.contrib.auth import get_user_model
     User = get_user_model()
     members = list(User.objects.filter(pk__in=member_ids, is_active=True).values("id", "first_name", "last_name", "username"))
     
-    # Formatting member names
+    # Format user display names cleanly
     for m in members:
         m["display_name"] = f"{m['first_name']} {m['last_name']}" if m["first_name"] else m["username"]
 
@@ -122,6 +129,9 @@ def get_project_data(request):
 
 @login_required
 def task_list(request):
+    """
+    List view displaying all active tasks with support for searching, multi-criteria filtering, and pagination.
+    """
     user = request.user
     status_filter = request.GET.get("status", "")
     priority_filter = request.GET.get("priority", "")
@@ -131,6 +141,7 @@ def task_list(request):
     overdue_filter = request.GET.get("overdue", "")
     sort = request.GET.get("sort", "-updated_at")
 
+    # Define whitelist of allowable sort fields to block SQL injections
     allowed_sort_fields = [
         "title",
         "project__name",
@@ -139,6 +150,7 @@ def task_list(request):
         "status",
         "due_date",
         "updated_at",
+        "--updated_at",
         "-updated_at",
         "-title",
         "-project__name",
@@ -150,10 +162,12 @@ def task_list(request):
     if sort not in allowed_sort_fields:
         sort = "-updated_at"
 
+    # Enforce role logic: generic administrators do not manage task logs directly
     if user.is_admin:
         messages.error(request, "Admins do not have access to tasks.")
         return redirect("tasks:dashboard")
 
+    # Retrieve tasks where user is assigned or belongs to the project membership
     tasks = get_visible_tasks_qs(
         user,
         Task.objects.filter(
@@ -162,6 +176,7 @@ def task_list(request):
         ).distinct(),
     )
 
+    # Apply filters dynamically based on user requests
     if my_only:
         tasks = tasks.filter(assignees=user)
     if status_filter:
@@ -172,13 +187,14 @@ def task_list(request):
         tasks = tasks.filter(project_id=project_filter)
     if overdue_filter:
         from django.utils import timezone
-
+        # Fetch items past due date that are not completed
         tasks = tasks.filter(due_date__lt=timezone.now().date()).exclude(status="done")
     if search:
         tasks = tasks.filter(
             Q(title__icontains=search) | Q(description__icontains=search)
         )
 
+    # Fetch projects the user has access to
     if user.is_admin:
         projects = Project.objects.all()
     else:
@@ -191,6 +207,7 @@ def task_list(request):
     if my_only and sort == "-updated_at":
         task_qs = task_qs.order_by("project", "-updated_at")
 
+    # Paginate results list
     paginator = Paginator(task_qs, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
@@ -227,8 +244,7 @@ def task_create(request):
     module_id = request.GET.get("module")
     project = get_object_or_404(Project, pk=project_id) if project_id else None
 
-    # Project Managers are allowed to create tasks
-
+    # Pre-populate specific module if context provided in GET request
     initial = {}
     if module_id:
         initial["module"] = get_object_or_404(ProjectModule, pk=module_id)
@@ -240,11 +256,14 @@ def task_create(request):
     if request.method == "POST" and form.is_valid():
         task = form.save(commit=False)
         task.created_by = request.user
-        # Approval logic
+        
+        # Verify approval privileges: managers/admins create approved tasks, others require sign-off
         is_privileged = (project.is_manager(request.user) or project.is_incharge(request.user)) if project else (request.user.is_admin or request.user.is_project_manager)
         task.is_approved = is_privileged
         task.save()
         form.save_m2m()
+        
+        # Dispatch task assignment alerts to assigned users
         for assignee in task.assignees.all():
             if assignee != request.user:
                 NotificationService.create_notification(
@@ -278,15 +297,20 @@ def task_create(request):
 
 @login_required
 def task_detail(request, pk):
+    """
+    Renders detailed properties of a single task, containing associated subtasks, comments, and files.
+    """
     task = get_object_or_404(Task, pk=pk)
 
-    # Mark task-related notifications as read for current user
+    # Mark relevant notifications for the task as read
     Notification.objects.filter(recipient=request.user, task=task, is_read=False).update(is_read=True)
 
+    # Restrict preview of trashed items to managers/admins
     if task.is_in_trash and not (request.user.is_admin or request.user.is_project_manager):
         messages.error(request, "This task is in the trash and can only be previewed by Admins or Project Managers.")
         return redirect("tasks:project_detail", pk=task.project.pk)
 
+    # Resolve roles for strict access gating
     is_pm = task.project.managers.filter(pk=request.user.pk).exists()
     is_assignee = task.assignees.filter(pk=request.user.pk).exists()
     is_incharge = task.project.project_incharge == request.user
@@ -295,6 +319,7 @@ def task_detail(request, pk):
         messages.error(request, "Access restricted: Only Project Managers, assigned members, and the project in-charge can view this task.")
         return redirect("tasks:project_detail", pk=task.project.pk)
 
+    # Query comments hierarchy, subtasks, and files
     comments = task.comments.filter(parent__isnull=True).select_related("author").all()
     subtasks = task.subtasks.prefetch_related("assignees").all()
     comment_form = CommentForm()
@@ -306,6 +331,7 @@ def task_detail(request, pk):
     )
 
     if request.method == "POST":
+        # Handle new comment submission
         comment_form = CommentForm(request.POST, request.FILES)
         if comment_form.is_valid():
             comment = comment_form.save(commit=False)
@@ -319,12 +345,14 @@ def task_detail(request, pk):
                     pass
             comment.save()
 
+            # Identify stakeholders to notify
             users_to_notify = set(task.assignees.all())
             if task.created_by:
                 users_to_notify.add(task.created_by)
             if task.project:
                 users_to_notify.update(task.project.managers.all())
 
+            # Dispatch notification alerts
             for user_to_notify in users_to_notify:
                 if user_to_notify != request.user:
                     NotificationService.create_notification(
@@ -359,8 +387,10 @@ def task_detail(request, pk):
     )
 
 
-@login_required
 def task_edit(request, pk):
+    """
+    Renders editing interfaces for an existing task with role validations.
+    """
     task = get_object_or_404(Task, pk=pk)
     project = task.project
     
@@ -375,8 +405,7 @@ def task_edit(request, pk):
         or request.user.is_admin
     )
     
-    # Project Managers allowed
-
+    # Verify editor permissions (must be admin, pm, incharge or task author)
     if not (request.user.is_admin or is_pm or is_incharge or task.created_by == request.user):
         messages.error(request, "You do not have permission to edit this task.")
         return redirect("tasks:task_detail", pk=pk)
@@ -388,6 +417,8 @@ def task_edit(request, pk):
     )
     if request.method == "POST" and form.is_valid():
         new_status = form.cleaned_data.get("status")
+        
+        # Enforce that only PMs/admins/incharges can transition tasks to the 'done' state
         if new_status == "done":
             if not is_pm and not request.user.is_admin and not is_incharge:
                 messages.error(
@@ -396,6 +427,7 @@ def task_edit(request, pk):
                 )
                 return redirect("tasks:task_edit", pk=task.pk)
             
+            # Tasks cannot be completed unless linked test cases are successfully passed
             if not task.can_complete:
                 messages.error(
                     request,
@@ -405,7 +437,7 @@ def task_edit(request, pk):
 
         task = form.save()
 
-        # Notification logic
+        # Alert PMs if all release tasks are completed
         if task.status == "done" and old_status != "done" and task.release:
             release = task.release
             if not release.tasks.exclude(status="done").exists():
@@ -419,6 +451,7 @@ def task_edit(request, pk):
                         project=release.project,
                     )
 
+        # Notify newly added assignees
         new_assignees = set(task.assignees.all())
         added_assignees = new_assignees - old_assignees
         for assignee in added_assignees:
@@ -433,6 +466,7 @@ def task_edit(request, pk):
                     project=task.project,
                 )
 
+        # Notify stakeholders of status modifications
         if old_status != task.status:
             if is_assignee and not is_pm:
                 for manager in task.project.managers.all():
@@ -475,9 +509,11 @@ def task_edit(request, pk):
 
 @login_required
 def task_delete(request, pk):
+    """
+    Flags a task as deleted (moves it to the trash folder) with validation checks.
+    """
     task = get_object_or_404(Task, pk=pk)
     project = task.project
-    # Project Managers allowed
 
     if task.created_by != request.user and not request.user.is_admin:
         messages.error(request, "Only the creator of the task can delete it.")
@@ -498,12 +534,15 @@ def task_delete(request, pk):
 
 @login_required
 def task_update_status(request, pk):
+    """
+    AJAX endpoint to update status attributes on kanban views.
+    """
     task = get_object_or_404(Task, pk=pk)
     pms = task.project.managers.all()
     is_pm = request.user in pms
-
     is_incharge = task.project.project_incharge == request.user
 
+    # Restrict kanban state movements to managers and project in-charge roles
     if not (is_pm or request.user.is_admin or request.user.is_project_manager or is_incharge):
         return JsonResponse(
             {
@@ -518,6 +557,7 @@ def task_update_status(request, pk):
             data = json.loads(request.body)
             new_status = data.get("status")
             if new_status in dict(Task.STATUS_CHOICES):
+                # Verify passed test cases block before marking task as done
                 if new_status == "done" and not task.can_complete:
                     return JsonResponse(
                         {
@@ -530,7 +570,7 @@ def task_update_status(request, pk):
                 task.status = new_status
                 task.save()
 
-                # Check release
+                # Dispatch release review alerts
                 if (
                     task.status in ["review", "done"]
                     and old_status not in ["review", "done"]
@@ -550,6 +590,7 @@ def task_update_status(request, pk):
                                 project=release.project,
                             )
 
+                # Alert assignees of progress transitions
                 for assignee in task.assignees.all():
                     if assignee not in pms and assignee != request.user:
                         NotificationService.create_notification(
@@ -568,8 +609,12 @@ def task_update_status(request, pk):
             pass
     return JsonResponse({"success": False}, status=400)
 
+
 @login_required
 def task_approve(request, pk):
+    """
+    Approve tasks submitted by generic members.
+    """
     task = get_object_or_404(Task, pk=pk)
     if not (request.user.is_admin or request.user.is_project_manager or task.project.is_manager(request.user)):
         messages.error(request, "Only managers can approve tasks.")

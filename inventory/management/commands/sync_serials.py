@@ -3,8 +3,16 @@ from django.core.management.base import BaseCommand
 from inventory.models import SerialNumber
 from products.models import Product
 
+"""
+This module contains the sync_serials Django custom administrative management command.
+Syncs product serial fields directly to the granular SerialNumber model tracking inventory.
+"""
+
 
 class Command(BaseCommand):
+    """
+    Sync serial numbers from products to SerialNumber model.
+    """
     help = "Sync serial numbers from products to SerialNumber model"
 
     def handle(self, *args, **options):

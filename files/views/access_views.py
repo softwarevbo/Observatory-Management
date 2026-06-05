@@ -9,16 +9,27 @@ from tasks.models import Project, AuditLog
 from ..models import ProjectFile, FileCategory, DocumentAccessRight
 from ..forms import FileCategoryForm
 
+"""
+This module processes folder node configurations, project categories API requests,
+and custom file access overrides.
+"""
 
 @login_required
 def file_access(request, pk):
+    """
+    Renders the permissions management page for a file.
+    Permits managers and admins to assign or revoke explicit user access overrides.
+    """
     pf = get_object_or_404(ProjectFile, pk=pk)
+    
+    # Permission verification
     if not (
         request.user.is_admin
         or (pf.project and pf.project.managers.filter(pk=request.user.pk).exists())
     ):
         messages.error(request, "Only managers and admins can manage access rights.")
         return redirect("files:file_detail", pk=pk)
+        
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "add":
@@ -43,6 +54,7 @@ def file_access(request, pk):
             ).delete()
             messages.success(request, "Access right removed.")
         return redirect("files:file_access", pk=pk)
+        
     return render(
         request,
         "files/file_access.html",
@@ -56,6 +68,10 @@ def file_access(request, pk):
 
 @login_required
 def project_categories_api(request):
+    """
+    JSON API returning directory folders list belonging to a project.
+    Used for cascading parent folder selection options when creating folders/files.
+    """
     project_id = request.GET.get("project_id")
     q_filter = (
         Q(project__managers=request.user)
@@ -75,7 +91,7 @@ def project_categories_api(request):
             return JsonResponse([], safe=False)
         categories = FileCategory.objects.filter(project_id=project_id, is_in_trash=False)
     else:
-        # Get all categories from projects the user has access to
+        # Load directory list from authorized projects
         categories = FileCategory.objects.filter(is_in_trash=False)
         if not request.user.is_admin:
             categories = categories.filter(q_filter)
@@ -93,6 +109,10 @@ def project_categories_api(request):
 
 @login_required
 def category_create(request, pk):
+    """
+    Initializes new directory folder nodes under projects.
+    Enforces project-wide membership validation and logs actions to Audit logs.
+    """
     project = get_object_or_404(Project, pk=pk)
     parent_id = request.GET.get("parent_id")
     parent = get_object_or_404(FileCategory, pk=parent_id) if parent_id else None
@@ -113,6 +133,7 @@ def category_create(request, pk):
             cat.parent = parent
         cat.save()
         
+        # Log creation
         AuditLog.objects.create(
             user=request.user,
             action_type="create",
@@ -132,11 +153,18 @@ def category_create(request, pk):
             "parent": parent
         }
     )
+
+
 @login_required
 def category_edit(request, pk):
+    """
+    Edits folder details. Restricted to project members, PMs, and Admins.
+    Note: Renaming a folder triggers cascade changes in subdirectories and file paths.
+    """
     cat = get_object_or_404(FileCategory, pk=pk)
     project = cat.project
-    # Check permissions
+    
+    # Permission verification
     if not (request.user.is_admin or 
             getattr(request.user, 'is_project_manager', False) or
             (project and (project.managers.filter(pk=request.user.pk).exists() or 
@@ -149,6 +177,7 @@ def category_edit(request, pk):
     if request.method == "POST" and form.is_valid():
         form.save()
         
+        # Log edit
         AuditLog.objects.create(
             user=request.user,
             action_type="edit",

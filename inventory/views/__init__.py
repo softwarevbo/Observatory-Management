@@ -9,3 +9,8 @@ from .shortage_views import *
 from .superadmin_views import *
 from .settings_views import *
 from .user_management_views import *
+
+"""
+Package initializer for inventory view controllers.
+Imports all controllers from subfiles for routing mapping.
+"""

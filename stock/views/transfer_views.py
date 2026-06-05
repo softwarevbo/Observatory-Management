@@ -14,9 +14,14 @@ from ..models import StockEntry, StockTransfer
 
 
 class StockTransferPageView(View):
+    """
+    Handles stock transfer requests, including transfers in-transit.
+    """
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
+        # Determine visibility scope: super admins see all transfers, branch staff see branch-specific ones
         transfers = (
             StockTransfer.objects.all().select_related(
                 "product", "from_branch", "to_branch"
@@ -27,14 +32,19 @@ class StockTransferPageView(View):
             ).select_related("product", "from_branch", "to_branch")
         )
         transfers = transfers.order_by("-created_at")
+        
+        # Check permissions for inventory access
         is_global, user_branch = has_global_inventory_access(request.user), getattr(
             request.user, "branch", None
         )
+        
+        # Retrieve active stock levels
         bs_qs = BranchStock.objects.filter(current_quantity__gt=0).select_related(
             "product", "branch"
         )
         if not is_global and user_branch:
             bs_qs = bs_qs.filter(branch=user_branch)
+            
         transfer_products = [
             {
                 "id": bs.product.id,
@@ -46,6 +56,8 @@ class StockTransferPageView(View):
             }
             for bs in bs_qs
         ]
+        
+        # Paginate results
         paginator = Paginator(transfers, 50)
         page_obj = paginator.get_page(request.GET.get("page"))
         return render(
@@ -62,6 +74,8 @@ class StockTransferPageView(View):
     def post(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
+        # Extract form parameters
         product_id, from_branch_id, to_branch_id, quantity, description = (
             request.POST.get("product_id"),
             request.POST.get("from_branch"),
@@ -69,22 +83,30 @@ class StockTransferPageView(View):
             int(request.POST.get("quantity", 0)),
             request.POST.get("description", ""),
         )
+        
+        # Prevent self-transfers
         if from_branch_id == to_branch_id:
             messages.error(
                 request, "Source and destination branches cannot be the same."
             )
             return redirect("stock-transfer-page")
+            
+        # Verify inputs and objects
         product, from_branch, to_branch = (
             get_object_or_404(Product, id=product_id),
             get_object_or_404(Branch, id=from_branch_id),
             get_object_or_404(Branch, id=to_branch_id),
         )
+        
+        # Verify source branch stock levels
         source_stock = BranchStock.objects.filter(
             product=product, branch=from_branch
         ).first()
         if not source_stock or source_stock.current_quantity < quantity:
             messages.error(request, f"Insufficient stock at {from_branch.name}.")
             return redirect("stock-transfer-page")
+            
+        # Register a stock out entry representing transfer transit status
         StockEntry.objects.create(
             product=product,
             branch=from_branch,
@@ -93,6 +115,8 @@ class StockTransferPageView(View):
             description=f"Transfer to {to_branch.name} (Pending). {description}",
             created_by=request.user,
         )
+        
+        # Create persistent StockTransfer record
         transfer = StockTransfer.objects.create(
             product=product,
             from_branch=from_branch,
@@ -102,6 +126,8 @@ class StockTransferPageView(View):
             created_by=request.user,
             status="pending",
         )
+        
+        # Notify destination and inventory administrators
         notify_inventory_admins(
             request.user,
             "stock_transfer",
@@ -109,6 +135,8 @@ class StockTransferPageView(View):
             f"{quantity} units of {product.name} are in transit from {from_branch.name}.",
             target_url="/inventory/stock/transfer/",
         )
+        
+        # Record security audit log
         AuditLog.log(
             request.user,
             "transfer_initiated",
@@ -123,19 +151,28 @@ class StockTransferPageView(View):
 
 
 class StockTransferReceiveView(View):
+    """
+    View to process reception of pending inbound transfers at destination branch.
+    """
     def post(self, request, pk):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
         transfer = get_object_or_404(StockTransfer, pk=pk)
+        
+        # Prevent double-processing
         if transfer.status != "pending":
             messages.error(request, "This transfer has already been processed.")
             return redirect("stock-transfer-page")
+            
+        # Authorize: user branch must match target destination branch unless super admin
         if (
             not request.user.is_super_admin
             and request.user.branch != transfer.to_branch
         ):
             messages.error(request, "You are not authorized.")
             return redirect("stock-transfer-page")
+            
         rack, shelf, sku = (
             request.POST.get("rack_number"),
             request.POST.get("shelf_number"),
@@ -144,7 +181,10 @@ class StockTransferReceiveView(View):
         if not rack or not shelf:
             messages.error(request, "Please provide Rack and Shelf locations.")
             return redirect("stock-transfer-page")
+            
         product = transfer.product
+        
+        # Update transfer state
         (
             transfer.status,
             transfer.rack_number,
@@ -153,6 +193,8 @@ class StockTransferReceiveView(View):
             transfer.received_by,
         ) = ("received", rack, shelf, timezone.now(), request.user)
         transfer.save()
+        
+        # Update destination BranchStock levels and location details
         bs, _ = BranchStock.objects.get_or_create(
             product=product, branch=transfer.to_branch
         )
@@ -160,6 +202,8 @@ class StockTransferReceiveView(View):
         if sku:
             bs.local_sku = sku
         bs.save()
+        
+        # Create an incoming stock entry to finalize the transaction
         StockEntry.objects.create(
             product=product,
             branch=transfer.to_branch,
@@ -168,6 +212,8 @@ class StockTransferReceiveView(View):
             description=f"Received transfer from {transfer.from_branch.name}. Location: {rack}/{shelf}",
             created_by=request.user,
         )
+        
+        # Record security audit log entry
         AuditLog.log(
             request.user,
             "transfer_received",

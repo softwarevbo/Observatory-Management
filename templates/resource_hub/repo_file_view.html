@@ -1,8 +1,9 @@
 {% extends 'resource_hub/repo_detail_base.html' %}
 
 {% block repo_extra_css %}
+{% load static %}
 <!-- Include Highlight.js CSS for syntax highlighting -->
-<link rel="stylesheet" id="hljs-theme" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+<link rel="stylesheet" id="hljs-theme" href="{% static 'vendor/highlightjs/styles/github.min.css' %}">
 <style>
 :root {
     --code-bg: #f6f8fa;
@@ -152,8 +153,9 @@
 {% endblock %}
 
 {% block repo_extra_js %}
+{% load static %}
 <!-- Include Highlight.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<script src="{% static 'vendor/highlightjs/highlight.min.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     // Dynamically set syntax theme based on parent page theme
@@ -161,9 +163,9 @@ document.addEventListener("DOMContentLoaded", function() {
     const hljsTheme = document.getElementById('hljs-theme');
     if (hljsTheme) {
         if (theme === 'dark') {
-            hljsTheme.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css";
+            hljsTheme.href = "{% static 'vendor/highlightjs/styles/github-dark.min.css' %}";
         } else {
-            hljsTheme.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css";
+            hljsTheme.href = "{% static 'vendor/highlightjs/styles/github.min.css' %}";
         }
     }
 

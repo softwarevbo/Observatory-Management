@@ -4,8 +4,14 @@ from products.serializers import ProductSerializer
 
 from .models import Alert, InventoryAdjustment, QuantityLimit, SerialNumber
 
+"""
+This module registers DRF ModelSerializers for the Inventory API endpoints.
+Serializes database assets to JSON objects for adjustments, limits, and serial lists.
+"""
+
 
 class InventoryAdjustmentSerializer(serializers.ModelSerializer):
+    """Serializer class mapping InventoryAdjustment models."""
     product = ProductSerializer(read_only=True)
     product_id = serializers.IntegerField(write_only=True)
     created_by = serializers.ReadOnlyField(source="created_by.username")
@@ -25,6 +31,7 @@ class InventoryAdjustmentSerializer(serializers.ModelSerializer):
 
 
 class SerialNumberSerializer(serializers.ModelSerializer):
+    """Serializer class mapping SerialNumber models."""
     product = ProductSerializer(read_only=True)
     product_id = serializers.IntegerField(write_only=True)
 
@@ -41,6 +48,7 @@ class SerialNumberSerializer(serializers.ModelSerializer):
 
 
 class QuantityLimitSerializer(serializers.ModelSerializer):
+    """Serializer class mapping QuantityLimit models."""
     product = ProductSerializer(read_only=True)
     product_id = serializers.IntegerField(write_only=True)
     created_by = serializers.ReadOnlyField(source="created_by.username")
@@ -60,6 +68,7 @@ class QuantityLimitSerializer(serializers.ModelSerializer):
 
 
 class AlertSerializer(serializers.ModelSerializer):
+    """Serializer class mapping Alert models."""
     product = ProductSerializer(read_only=True)
     product_id = serializers.IntegerField(write_only=True)
     acknowledged_by = serializers.ReadOnlyField(source="acknowledged_by.username")

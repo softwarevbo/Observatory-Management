@@ -6,8 +6,15 @@ from django.views import View
 
 from ..models import InventoryNotification
 
+"""
+This module processes internal alerts/notifications lists and read status settings.
+"""
+
 
 class InventoryNotificationsPageView(View):
+    """
+    View class rendering historical log alerts targeted to the logged-in user.
+    """
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
@@ -18,6 +25,7 @@ class InventoryNotificationsPageView(View):
         date_filter = request.GET.get("date", "")
         search = request.GET.get("search", "")
 
+        # Apply filtering parameters
         if status_filter == "unread":
             notifications = notifications.filter(is_read=False)
         elif status_filter == "read":
@@ -53,6 +61,9 @@ class InventoryNotificationsPageView(View):
         )
 
     def post(self, request):
+        """
+        Marks single notifications as read or batch clears all active notices.
+        """
         if not request.user.is_authenticated:
             return redirect("accounts:login")
         notification_id = request.POST.get("notification_id")

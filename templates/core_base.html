@@ -7,17 +7,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Observatory Management System{% endblock %}</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
-    {% block extra_head %}{% endblock %}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     {% load static %}
+    <link href="{% static 'vendor/google-fonts/css2.css' %}" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'vendor/font-awesome/css/all.min.css' %}">
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     <link rel="stylesheet" href="{% static 'css/resource_management.css' %}">
     <link rel="stylesheet" href="{% static 'css/chat.css' %}">
     <!-- KaTeX for Formula Support -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'vendor/katex/katex.min.css' %}">
     <style>
         /* KaTeX CSS Fixes */
         .katex {
@@ -1211,10 +1209,11 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 28px;
-            width: 100%;
-            max-width: 520px;
+            width: 90%;
+            max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
+            margin: auto;
             animation: modalIn 0.2s ease;
         }
 
@@ -1577,9 +1576,9 @@
         });
     </script>
     <!-- KaTeX JS -->
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
-        crossorigin="anonymous" onload="
+    <script defer src="{% static 'vendor/katex/katex.min.js' %}"></script>
+    <script defer src="{% static 'vendor/katex/contrib/auto-render.min.js' %}"
+        onload="
         function initKaTeX() {
             renderMathInElement(document.body, {
                 delimiters: [
@@ -1603,7 +1602,7 @@
         }
     "></script>
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.5.3.3.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
     {% block core_extra_js %}{% endblock %}
     {% if user.is_authenticated %}

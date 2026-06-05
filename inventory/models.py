@@ -1,12 +1,23 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.contrib.auth.hashers import check_password, make_password
 
 from products.models import Product
+
+"""
+This module defines database models for the Inventory Management system.
+Supports multi-branch storage isolation, stock adjustments, serial numbers, alert configurations, 
+rentals tracking, and a separate user permissions schema.
+"""
 
 User = get_user_model()
 
 
 class Branch(models.Model):
+    """
+    Model representing a physical IIA branch office or repository.
+    Includes uniquely identifying codes (e.g. KOR, HOS).
+    """
     code = models.CharField(max_length=20, unique=True, help_text="e.g., KOR, HOS, HAN")
     name = models.CharField(max_length=200, help_text="e.g., IIA, Koramangala")
     address = models.TextField(blank=True, null=True)
@@ -24,6 +35,10 @@ class Branch(models.Model):
 
 
 class BranchStock(models.Model):
+    """
+    Model representing stock levels for a specific product at a specific branch.
+    Tracks location attributes (rack/shelf) and local SKU codes.
+    """
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name="stocks")
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="branch_stocks"
@@ -46,6 +61,10 @@ class BranchStock(models.Model):
 
 
 class InventoryAdjustment(models.Model):
+    """
+    Model tracking manual or automated stock level adjustments (increments/decrements).
+    Linked directly to the Branch Stock calculation pipeline.
+    """
     ADJUSTMENT_TYPE_CHOICES = [
         ("manual", "Manual"),
         ("automated", "Automated"),
@@ -74,6 +93,10 @@ class InventoryAdjustment(models.Model):
 
 
 class SerialNumber(models.Model):
+    """
+    Model tracking individual serial numbers for inventory items.
+    Allows auditing status transitions of highly sensitive equipment.
+    """
     STATUS_CHOICES = [
         ("available", "Available"),
         ("sold", "Sold"),
@@ -105,6 +128,9 @@ class SerialNumber(models.Model):
 
 
 class QuantityLimit(models.Model):
+    """
+    Model defining branch-specific threshold bounds for low stock alerts.
+    """
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="quantity_limits"
     )
@@ -134,6 +160,10 @@ class QuantityLimit(models.Model):
 
 
 class Alert(models.Model):
+    """
+    Model capturing low stock or boundary alerts generated in the system.
+    Audits active, acknowledged, or resolved states and handlers.
+    """
     ALERT_TYPE_CHOICES = [
         ("low_stock", "Low Stock"),
         ("out_of_stock", "Out of Stock"),
@@ -187,6 +217,9 @@ class Alert(models.Model):
 
 
 class Rental(models.Model):
+    """
+    Model logging equipment rentals or leases to external persons or institutions.
+    """
     STATUS_CHOICES = [
         ("active", "Active"),
         ("returned", "Returned"),
@@ -215,6 +248,9 @@ class Rental(models.Model):
 
 
 class StandardLimit(models.Model):
+    """
+    Model defining global low stock check quantity limits if no specific limits are set.
+    """
     value = models.PositiveIntegerField(default=1)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -222,14 +258,11 @@ class StandardLimit(models.Model):
         return f"Standard Limit: {self.value}"
 
 
-from django.contrib.auth.hashers import check_password, make_password
-
-
 class InventoryUser(models.Model):
     """
-    Standalone isolated table exclusively for Inventory Management Users.
+    Standalone isolated user catalog exclusively for Inventory Management pages.
+    Includes custom permission boolean attributes governing sub-page views access levels.
     """
-
     username = models.CharField(max_length=50, unique=True)
     password = models.CharField(max_length=128)
     role = models.CharField(
@@ -250,6 +283,8 @@ class InventoryUser(models.Model):
     )
     email = models.EmailField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    
+    # Granular permission flags
     can_access_adjustments_page = models.BooleanField(default=True)
     can_manage_adjustments = models.BooleanField(default=True)
     can_access_serials_page = models.BooleanField(default=True)
@@ -272,10 +307,12 @@ class InventoryUser(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def set_password(self, raw_password):
+        """Hashes and sets user password."""
         self.password = make_password(raw_password)
         self.save()
 
     def check_password(self, raw_password):
+        """Verifies if raw password matches the stored hash."""
         return check_password(raw_password, self.password)
 
     def __str__(self):
@@ -315,6 +352,9 @@ class InventoryUser(models.Model):
 
 
 class InventoryNotification(models.Model):
+    """
+    Model representing notifications directed to Inventory Users.
+    """
     NOTIFICATION_TYPE_CHOICES = [
         ("stock_in", "Stock In"),
         ("stock_out", "Stock Out"),
@@ -351,17 +391,17 @@ class InventoryNotification(models.Model):
 
 
 class SystemSettings(models.Model):
-    # Global Settings
+    """
+    Model representing system-wide settings or branch-specific feature configuration flags.
+    """
     site_name = models.CharField(max_length=100, default="IIA Inventory Management")
     site_logo = models.ImageField(upload_to="settings/logos/", null=True, blank=True)
     contact_email = models.EmailField(default="support@iiap.res.in")
 
-    # Branch isolation for local settings (if needed)
     branch = models.OneToOneField(
         Branch, on_delete=models.CASCADE, null=True, blank=True, related_name="settings"
     )
 
-    # Feature Toggles
     enable_notifications = models.BooleanField(default=True)
     enable_low_stock_alerts = models.BooleanField(default=True)
 
@@ -378,6 +418,9 @@ class SystemSettings(models.Model):
 
     @staticmethod
     def get_settings(branch=None):
+        """
+        Retrieves global settings or configures one if missing.
+        """
         if branch:
             settings, _ = SystemSettings.objects.get_or_create(branch=branch)
             return settings

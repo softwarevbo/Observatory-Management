@@ -8,9 +8,17 @@ from django.views import View
 from ..decorators import super_admin_required
 from ..models import Branch, InventoryUser
 
+"""
+This module processes Inventory User catalog list rendering and staff creations/updates.
+"""
+
 
 @method_decorator(super_admin_required, name="dispatch")
 class InventoryUserManagementView(View):
+    """
+    View class displaying, filtering and managing the isolated inventory staff list.
+    Handles assigning granular view-based permissions to users.
+    """
     PERMISSION_FIELDS = [
         "can_access_adjustments_page",
         "can_manage_adjustments",

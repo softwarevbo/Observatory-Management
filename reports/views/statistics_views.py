@@ -20,12 +20,20 @@ from inventory.utils import (
 
 
 class StatisticsReportView(View):
+    """
+    Renders the unified analytics dashboard with graphs, metrics, and transaction history.
+    """
     def get(self, request):
+        # Validate that the request session user is authenticated
         if not request.user.is_authenticated:
             return redirect("accounts:login")
+            
+        # Determine global access permission and fetch the user's home branch if any
         is_global, user_branch = has_global_inventory_access(request.user), getattr(
             request.user, "branch", None
         )
+        
+        # Scrutinize branch boundaries: filter all querysets based on branch privileges
         (
             products_qs,
             stock_entries_qs,
@@ -41,6 +49,8 @@ class StatisticsReportView(View):
             filter_by_branch(Alert.objects.all(), request.user),
             filter_by_branch(ProcurementRequest.objects.all(), request.user),
         )
+        
+        # Calculate overall stock quantities scoped by branch boundaries
         current_stock = (
             BranchStock.objects.aggregate(total=Sum("current_quantity"))["total"]
             if is_global
@@ -49,6 +59,7 @@ class StatisticsReportView(View):
             )["total"]
         ) or 0
 
+        # Query categories annotated with the number of associated products
         category_breakdown = list(
             Category.objects.annotate(product_count=Count("products"))
             .values("name", "product_count")
@@ -60,6 +71,7 @@ class StatisticsReportView(View):
             .order_by("-product_count")
         )
 
+        # Generate a chronological sequence of the past 12 months for timeseries reporting
         now = timezone.now()
         months = sorted(
             set(
@@ -71,7 +83,10 @@ class StatisticsReportView(View):
                 ]
             )
         )
+        # Format month names as e.g. "Jun 2026"
         month_labels = [m.strftime("%b %Y") for m in months]
+        
+        # Aggregate Stock-In volumes grouped by month
         stock_in_by_month = [
             stock_entries_qs.filter(
                 timestamp__year=m.year, timestamp__month=m.month
@@ -79,6 +94,7 @@ class StatisticsReportView(View):
             or 0
             for m in months
         ]
+        # Aggregate Stock-Out volumes grouped by month
         stock_out_by_month = [
             stock_entries_qs.filter(
                 timestamp__year=m.year, timestamp__month=m.month
@@ -87,23 +103,28 @@ class StatisticsReportView(View):
             for m in months
         ]
 
+        # Calculate rental status splits for donut charts
         rental_status_breakdown = list(
             rentals_qs.values("status").annotate(count=Count("id"))
         )
+        # Identify top 10 products by rental frequency
         rental_product_breakdown = list(
             rentals_qs.values("product__name")
             .annotate(count=Count("id"))
             .order_by("-count")[:10]
         )
+        # Calculate alert types count breakdown
         alert_type_breakdown = list(
             alerts_qs.values("alert_type").annotate(count=Count("id"))
         )
+        # Identify top 10 products triggering alerts
         alert_product_breakdown = list(
             alerts_qs.values("product__name")
             .annotate(count=Count("id"))
             .order_by("-count")[:10]
         )
 
+        # Compile a unified transaction history feed by merging stock logs, adjustments, and procurement requests
         recent_transactions = sorted(
             [
                 {
@@ -143,8 +164,9 @@ class StatisticsReportView(View):
             ],
             key=lambda x: x["timestamp"],
             reverse=True,
-        )[:50]
+        )[:50] # Limit merged array to latest 50 logs
 
+        # Render analytical context metrics onto HTML page
         return render(
             request,
             "reports/statistics.html",
@@ -202,11 +224,18 @@ class StatisticsReportView(View):
 
 
 def statistics_report_export(request, format):
+    """
+    Exports full analytical metrics database to Excel (multi-sheet), CSV, or PDF format.
+    """
+    # Validate that the request session user is authenticated
     if not request.user.is_authenticated:
         return redirect("accounts:login")
+        
+    # Query permissions and branch bounds
     is_global, user_branch = has_global_inventory_access(request.user), getattr(
         request.user, "branch", None
     )
+    # Scopes data sets inside user branch boundaries
     (
         products_qs,
         stock_entries_qs,
@@ -224,6 +253,7 @@ def statistics_report_export(request, format):
         filter_by_branch(ProcurementRequest.objects.all(), request.user),
         filter_by_branch(AuditLog.objects.all(), request.user),
     )
+    # Calculate months range for export
     now = timezone.now()
     months = sorted(
         set(
@@ -245,6 +275,7 @@ def statistics_report_export(request, format):
         .order_by("-product_count")
     )
 
+    # Compile timeseries stock-in quantities
     stock_in_by_month = [
         stock_entries_qs.filter(
             entry_type="in",
@@ -254,6 +285,7 @@ def statistics_report_export(request, format):
         or 0
         for m in months
     ]
+    # Compile timeseries stock-out quantities
     stock_out_by_month = [
         stock_entries_qs.filter(
             entry_type="out",
@@ -264,6 +296,7 @@ def statistics_report_export(request, format):
         for m in months
     ]
 
+    # Create distinct Pandas DataFrames to map onto separate Excel sheets
     dfs = {
         "Summary": pd.DataFrame(
             [
@@ -411,10 +444,13 @@ def statistics_report_export(request, format):
         ),
     }
 
+    # Format 1: Excel download (.xlsx)
     if format == "excel":
         output = BytesIO()
+        # Initialize Pandas ExcelWriter with xlsxwriter engine
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             for sheet, df in dfs.items():
+                # Sanitize sheet names to strip out invalid characters
                 safe_sheet = (
                     sheet.replace("/", "-")
                     .replace("\\", "-")
@@ -424,6 +460,8 @@ def statistics_report_export(request, format):
                     .replace("]", "")
                     .replace(":", "")
                 )
+                # Ensure timezone info is removed from all datetime columns
+                # as Excel formats cannot serialize timezone-aware datetime64 data
                 for col in df.columns:
                     if pd.api.types.is_datetime64_any_dtype(df[col]):
                         if hasattr(df[col].dt, "tz") and df[col].dt.tz is not None:
@@ -439,8 +477,10 @@ def statistics_report_export(request, format):
                                 ).dt.tz_localize(None)
                         except:
                             pass
+                # Save data frame to excel sheet, capping title to 31 chars
                 df.to_excel(writer, sheet_name=safe_sheet[:31], index=False)
         output.seek(0)
+        # Prepare streaming response download headers
         response = HttpResponse(
             output.read(),
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -449,8 +489,11 @@ def statistics_report_export(request, format):
             'attachment; filename="statistics_report.xlsx"'
         )
         return response
+        
+    # Format 2: CSV download (.csv)
     elif format == "csv":
         output = BytesIO()
+        # Write each DataFrame block sequentially separated by headers
         for sheet, df in dfs.items():
             output.write(f"\n--- {sheet} ---\n".encode())
             df.to_csv(output, index=False)
@@ -458,11 +501,14 @@ def statistics_report_export(request, format):
         response = HttpResponse(output.read(), content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="statistics_report.csv"'
         return response
+        
+    # Format 3: PDF download (.pdf)
     elif format == "pdf":
         try:
             from xhtml2pdf import pisa
         except ImportError:
             return HttpResponse("PDF export requires xhtml2pdf.", status=500)
+        # Render the PDF template file to standard HTML string markup
         html = render_to_string(
             "reports/statistics_export_pdf.html",
             {
@@ -489,8 +535,10 @@ def statistics_report_export(request, format):
             },
         )
         result = BytesIO()
+        # Run Pisa parser to generate PDF buffer
         pisa.CreatePDF(html, dest=result)
         response = HttpResponse(result.getvalue(), content_type="application/pdf")
         response["Content-Disposition"] = 'attachment; filename="statistics_report.pdf"'
         return response
+        
     return HttpResponse("Invalid export format.", status=400)

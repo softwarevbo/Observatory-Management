@@ -1,8 +1,18 @@
 from django.conf import settings
 from django.db import models
 
+"""
+This module defines the database models for the Notifications application.
+It establishes schemas for message records, links to tasks/projects, and read statuses.
+"""
+
 
 class Notification(models.Model):
+    """
+    Model representing system notifications delivered to individual users.
+    Categorized by notification types, tracks target models, sender/recipient relations,
+    and read status tracking.
+    """
     TYPE_CHOICES = [
         ("task_assigned", "Task Assigned"),
         ("task_updated", "Task Updated"),

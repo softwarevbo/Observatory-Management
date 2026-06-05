@@ -1,10 +1,16 @@
 from django.contrib import admin
-
 from .models import ProcurementRequest
 
+"""
+This module registers the Procurement application models in the Django Admin portal.
+"""
 
 @admin.register(ProcurementRequest)
 class ProcurementRequestAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for ProcurementRequest model.
+    Organizes search indices, list filters, and display fields.
+    """
     list_display = (
         "id",
         "product_name",

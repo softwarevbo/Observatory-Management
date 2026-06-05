@@ -8,9 +8,17 @@ from ..decorators import branch_admin_required
 from ..models import BranchStock, InventoryUser, InventoryAdjustment
 from stock.models import StockEntry
 
+"""
+This module processes branch administration dashboards and user permission views.
+"""
+
 
 @method_decorator(branch_admin_required, name="dispatch")
 class BranchAdminDashboardView(View):
+    """
+    View class rendering metrics, staff counts, recent adjustments, 
+    and entries specific to the currently logged-in Branch Admin's branch.
+    """
     def get(self, request):
         branch = request.user.branch
         if not branch:
@@ -43,6 +51,10 @@ class BranchAdminDashboardView(View):
 
 @method_decorator(branch_admin_required, name="dispatch")
 class BranchStaffManagementView(View):
+    """
+    View class displaying staff lists and processing updates to staff status
+    and permission attributes inside the branch scope.
+    """
     def get(self, request):
         branch = request.user.branch
         staff = InventoryUser.objects.filter(branch=branch, role="staff")

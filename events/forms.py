@@ -4,8 +4,15 @@ from accounts.models import User
 from tasks.models import Project, Task
 from .models import CalendarEvent
 
+"""
+This module defines the ModelForm for calendar events creation and editing.
+It incorporates dynamic project/task choice query parameters filtering and start/end time validations.
+"""
 
 class CalendarEventForm(forms.ModelForm):
+    """
+    Form used to schedule and modify calendar event entries.
+    """
     class Meta:
         model = CalendarEvent
         fields = [
@@ -22,6 +29,7 @@ class CalendarEventForm(forms.ModelForm):
             "meeting_password",
             "color",
         ]
+        # Custom HTML widget overrides for interactive styling
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
@@ -37,6 +45,7 @@ class CalendarEventForm(forms.ModelForm):
             "end_datetime": forms.DateTimeInput(
                 attrs={"class": "form-control", "type": "datetime-local"}
             ),
+            # Renders checklist options for selecting multiple attendee users
             "attendees": forms.CheckboxSelectMultiple(),
             "meeting_link": forms.URLInput(
                 attrs={"class": "form-control", "placeholder": "Meeting URL (optional)"}
@@ -51,6 +60,9 @@ class CalendarEventForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        """
+        Dynamically filters project and task dropdown choice lists based on user authorizations.
+        """
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["project"].empty_label = "— No project —"
@@ -61,6 +73,7 @@ class CalendarEventForm(forms.ModelForm):
         if user:
             from django.db.models import Q
             
+            # Admins can see all projects; PMs/Members can only link events to their visible projects
             if user.is_admin:
                 projects_qs = Project.objects.all()
             else:
@@ -70,6 +83,8 @@ class CalendarEventForm(forms.ModelForm):
             
             self.fields["project"].queryset = projects_qs
             
+            # Handle dependent cascading query filtering:
+            # Task queryset resolves to untrashed tasks belonging strictly to the selected project
             project_id = None
             if self.instance and self.instance.project_id:
                 project_id = self.instance.project_id
@@ -86,12 +101,18 @@ class CalendarEventForm(forms.ModelForm):
             else:
                 self.fields["task"].queryset = Task.objects.none()
 
+        # Restrict attendees selection to active system users only
         self.fields["attendees"].queryset = User.objects.filter(
             is_active=True
         ).order_by("first_name")
         self.fields["attendees"].required = False
 
     def clean(self):
+        """
+        Validates calendar date ranges:
+        - End time must occur after start time.
+        - Start time cannot be scheduled in the past on new events creation.
+        """
         cleaned_data = super().clean()
         start, end = cleaned_data.get("start_datetime"), cleaned_data.get(
             "end_datetime"
@@ -99,6 +120,7 @@ class CalendarEventForm(forms.ModelForm):
         if start and end:
             if start >= end:
                 raise forms.ValidationError("End time must be after start time.")
+            # Verify event start time isn't in the past on initial creation (with a 5 min tolerance)
             if not self.instance.pk and start < (
                 timezone.now() - timezone.timedelta(minutes=5)
             ):

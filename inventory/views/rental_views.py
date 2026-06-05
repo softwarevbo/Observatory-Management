@@ -9,11 +9,18 @@ from ..models import Rental, BranchStock, Branch
 from ..notifications import notify_inventory_admins
 from ..utils import get_isolated_products, has_global_inventory_access
 
+"""
+This module processes equipment rentals tracking, stock-out actions, and return registers.
+"""
 
 def _inventory_permission_redirect(request, access_field=None, manage_field=None):
+    """
+    Utility checking user credentials on specific sub-modules.
+    Super admin and branch admin bypass this validation.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
-    if request.user.is_super_admin or request.user.is_branch_admin:
+    if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
         return None
     if access_field and not getattr(request.user, access_field, True):
         messages.error(request, "You do not have access to this inventory module.")
@@ -31,6 +38,11 @@ def _inventory_permission_redirect(request, access_field=None, manage_field=None
 
 
 class RentalManagementView(View):
+    """
+    View class displaying active and overdue rentals, and capturing rental checkout / return.
+    Checks out quantity by generating a StockEntry (entry_type='out') and registers returns
+    with a corresponding StockEntry (entry_type='in').
+    """
     def get(self, request):
         permission_redirect = _inventory_permission_redirect(
             request, "can_access_rentals_page"
@@ -105,6 +117,7 @@ class RentalManagementView(View):
                     messages.error(request, "You are not assigned to any branch.")
                     return redirect("rental-management")
 
+            # Validate stock availability
             bs = BranchStock.objects.filter(product=product, branch=branch).first()
             available_quantity = bs.current_quantity if bs else 0
             if quantity > available_quantity:
@@ -114,6 +127,7 @@ class RentalManagementView(View):
                 )
                 return redirect("rental-management")
 
+            # Create Stock Entry out transaction
             StockEntry.objects.create(
                 product=product,
                 quantity=quantity,
@@ -137,7 +151,7 @@ class RentalManagementView(View):
             messages.success(
                 request, f"Rented {quantity} of {product.name} to {rented_to}."
             )
-            if not request.user.is_admin:
+            if not getattr(request.user, "is_admin", False):
                 notify_inventory_admins(
                     request.user,
                     "inventory_action",
@@ -149,6 +163,7 @@ class RentalManagementView(View):
             rental_id = request.POST.get("rental_id")
             rental = Rental.objects.get(id=rental_id)
             if rental.status == "active":
+                # Create Stock Entry in transaction (stock restored)
                 StockEntry.objects.create(
                     product=rental.product,
                     branch=rental.branch,
@@ -162,7 +177,7 @@ class RentalManagementView(View):
                 messages.success(
                     request, f"Rental for {rental.product.name} marked as returned."
                 )
-                if not request.user.is_admin:
+                if not getattr(request.user, "is_admin", False):
                     notify_inventory_admins(
                         request.user,
                         "inventory_action",

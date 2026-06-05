@@ -18,42 +18,56 @@ from .models import Repository, RepoActivityLog, RepoInvitation
 # --- Helper Functions ---
 
 def get_basic_auth_user(request):
-    """Authenticate user using HTTP Basic Auth."""
+    """
+    Authenticate user using HTTP Basic Auth (crucial for git CLI client interactions).
+    """
+    # Extract the Authorization header containing credentials
     auth_header = request.META.get('HTTP_AUTHORIZATION')
     if auth_header and auth_header.startswith('Basic '):
         try:
+            # Split off the 'Basic ' prefix and retrieve encoded base64 string
             encoded_credentials = auth_header.split(' ', 1)[1]
+            # Decode the base64 string to utf-8 format
             decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
+            # Split the credentials into username and password tokens
             username, password = decoded_credentials.split(':', 1)
+            # Authenticate user credentials against Django auth backends
             user = authenticate(username=username, password=password)
             if user is not None:
                 return user
         except Exception:
+            # Silently catch exceptions to fail auth safely
             pass
     return None
 
 def is_repo_empty(repo_dir):
-    """Check if repository has any commits at all in any branch."""
+    """
+    Check if a bare git repository has any commits in any branch.
+    """
     try:
+        # Run 'git show-ref' inside bare directory which lists all existing branch/tag refs
         proc = subprocess.run(['git', '-C', repo_dir, 'show-ref'], capture_output=True)
-        # If there are any refs (branches, tags, etc.), returncode will be 0, meaning not empty
+        # If exit status is non-zero, it means no refs exist, meaning the repository is empty
         return proc.returncode != 0
     except Exception:
         return True
 
 def get_default_branch(repo_dir):
-    """Find default branch (main/master) of a bare repo, fallback to any active branch."""
+    """
+    Find default branch (main/master) of a bare repo, fallback to any active branch.
+    """
     try:
+        # Query symbolic-ref HEAD to find the primary configured branch name
         proc = subprocess.run(['git', '-C', repo_dir, 'symbolic-ref', '--short', 'HEAD'], capture_output=True, text=True, check=True)
         branch = proc.stdout.strip()
-        # Verify if this branch actually has any commits
+        # Verify if this branch actually contains any commits in its revision log
         check = subprocess.run(['git', '-C', repo_dir, 'rev-parse', '--verify', branch], capture_output=True)
         if check.returncode == 0:
             return branch
     except Exception:
         pass
 
-    # Fallback to the first branch that actually has commits
+    # If HEAD symbolic-ref fails, fallback to the first branch that actually has commits
     try:
         proc = subprocess.run(['git', '-C', repo_dir, 'branch', '--format=%(refname:short)'], capture_output=True, text=True, check=True)
         branches = [b.strip() for b in proc.stdout.split('\n') if b.strip()]
@@ -62,11 +76,15 @@ def get_default_branch(repo_dir):
     except Exception:
         pass
 
+    # Default fallback string if no branches exist
     return 'main'
 
 def get_branches(repo_dir):
-    """List all branches in a repository."""
+    """
+    List all branches present in a repository.
+    """
     try:
+        # Query git branch formatting only the short name of refs
         proc = subprocess.run(['git', '-C', repo_dir, 'branch', '--format=%(refname:short)'], capture_output=True, text=True, check=True)
         branches = [b.strip() for b in proc.stdout.split('\n') if b.strip()]
         return branches if branches else ['main']
@@ -74,9 +92,13 @@ def get_branches(repo_dir):
         return ['main']
 
 def get_object_type(repo_dir, ref, path):
-    """Check if object is a tree (directory) or blob (file)."""
+    """
+    Check if a specific ref/path object is a tree (directory) or blob (file).
+    """
     try:
+        # Build reference format e.g. "main:src/utils.py"
         target = f"{ref}:{path}" if path else ref
+        # Run cat-file -t to query type information (tree, blob, commit)
         proc = subprocess.run(['git', '-C', repo_dir, 'cat-file', '-t', target], capture_output=True, text=True, check=True)
         return proc.stdout.strip()
     except Exception:
@@ -84,12 +106,12 @@ def get_object_type(repo_dir, ref, path):
 
 def check_repo_access(request, repo, require_write=False):
     """
-    Check if request user has read/write permission.
+    Check if the request user has read/write permissions for the target repository.
     Returns (has_access, is_owner_or_admin).
     """
     user = request.user
     
-    # Check if the user is authenticated (via session or basic auth)
+    # Assess role configuration flags
     is_authenticated = user.is_authenticated
     is_admin = is_authenticated and (getattr(user, 'is_admin', False) or user.is_superuser)
     is_owner = is_authenticated and (repo.owner == user)
@@ -100,19 +122,21 @@ def check_repo_access(request, repo, require_write=False):
         return True, True
 
     if require_write:
-        # Strict write permission: only owner, admin, or collaborator can write/push
+        # Strict write permissions: only owner, admin, or collaborator can write/push
         return is_collaborator, False
 
-    # Read operations (pull, browse Web UI)
+    # Read operations (pulling from CLI, browsing Web UI)
     if repo.is_private:
-        # Private repo: only owner, admin, or collaborator
+        # Private repo: only owner, admin, or collaborator has access
         return is_collaborator, False
     else:
-        # Public repo: any authenticated user
+        # Public repo: any logged-in user can access/read
         return is_authenticated, False
 
 def get_client_ip(request):
-    """Retrieve the original client IP address."""
+    """
+    Retrieve the client IP address from request headers.
+    """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
         ip = x_forwarded_for.split(',')[0].strip()
@@ -121,13 +145,18 @@ def get_client_ip(request):
     return ip
 
 def get_clone_url(request, repo):
-    """Generate the clone URL for the repository."""
+    """
+    Generate the HTTP clone URL for the repository.
+    """
+    # Build complete absolute URL path pointing to git smart HTTP CGI endpoint
     clone_url = request.build_absolute_uri(
         reverse('resource_hub:git_smart_http', kwargs={'slug': repo.slug, 'git_path': 'info/refs'})
     )
+    # Strip off trailing path if present
     if clone_url.endswith('/info/refs'):
         clone_url = clone_url[:-10]
     return clone_url
+
 
 # --- Git Smart HTTP Server Endpoint ---
 
@@ -135,28 +164,29 @@ def get_clone_url(request, repo):
 def git_smart_http_view(request, slug, git_path):
     """
     CGI wrapper around git-http-backend.
-    Supports push/pull operations with Django user authentication.
+    Supports clone/push/pull operations using Django user authentication.
     """
+    # Retrieve repository model
     repo = get_object_or_404(Repository, slug=slug)
 
-    # Identify if operation is a write (push) or read (pull)
+    # Detect if request is pushing changes (git-receive-pack service type)
     is_push = (git_path == 'git-receive-pack' or request.GET.get('service') == 'git-receive-pack')
 
-    # Authenticate Basic Auth user if present
+    # Authenticate Basic Auth user if git CLI client is sending authorization headers
     auth_user = get_basic_auth_user(request)
     if auth_user:
         request.user = auth_user
 
-    # Verify authorization
+    # Verify write (push) or read (pull/clone) permissions
     has_access, _ = check_repo_access(request, repo, require_write=is_push)
     
     if not has_access:
-        # Return HTTP 401 Unauthorized to trigger Git client Basic Auth prompt
+        # Return HTTP 401 Unauthorized to trigger Git client Basic Auth credentials popup
         response = HttpResponse("Unauthorized", status=401)
         response['WWW-Authenticate'] = 'Basic realm="Git Repository"'
         return response
 
-    # Log git client actions
+    # Log actions performed by git CLI clients
     if git_path in ['git-upload-pack', 'git-receive-pack']:
         action_name = 'push' if git_path == 'git-receive-pack' else 'clone/pull'
         username = request.user.username if request.user.is_authenticated else 'Anonymous'
@@ -173,7 +203,7 @@ def git_smart_http_view(request, slug, git_path):
         except Exception:
             pass
 
-    # Prepare environment for git-http-backend
+    # Map environment variables required by git-http-backend CGI script
     env = os.environ.copy()
     env['GIT_PROJECT_ROOT'] = os.path.dirname(repo.git_dir)
     env['GIT_HTTP_EXPORT_ALL'] = '1'
@@ -185,7 +215,7 @@ def git_smart_http_view(request, slug, git_path):
     if request.user.is_authenticated:
         env['REMOTE_USER'] = request.user.username
 
-    # Spawn git-http-backend
+    # Spawn git-http-backend process
     proc = subprocess.Popen(
         ['/usr/lib/git-core/git-http-backend'],
         env=env,
@@ -194,20 +224,22 @@ def git_smart_http_view(request, slug, git_path):
         stderr=subprocess.PIPE
     )
 
-    # Read payload and run process
+    # Pipe body payload from request into the subprocess stdin
     input_data = request.body
     stdout_data, stderr_data = proc.communicate(input=input_data)
 
+    # Check for process execution failures
     if proc.returncode != 0:
         return HttpResponse(stderr_data, status=500, content_type="text/plain")
 
-    # Parse CGI headers
+    # CGI outputs headers first followed by double newlines. Parse and separate them
     header_body_sep = b'\r\n\r\n'
     sep_idx = stdout_data.find(header_body_sep)
     if sep_idx == -1:
         header_body_sep = b'\n\n'
         sep_idx = stdout_data.find(header_body_sep)
 
+    # Slice header and body byte blocks
     if sep_idx != -1:
         header_bytes = stdout_data[:sep_idx]
         body_bytes = stdout_data[sep_idx + len(header_body_sep):]
@@ -215,15 +247,16 @@ def git_smart_http_view(request, slug, git_path):
         header_bytes = b''
         body_bytes = stdout_data
 
+    # Return body bytes as Django HTTP Response
     response = HttpResponse(body_bytes)
     
-    # Propagate backend headers
+    # Propagate backend CGI headers back to client response
     for line in header_bytes.splitlines():
         if b':' in line:
             k, v = line.split(b':', 1)
             header_name = k.decode('utf-8').strip()
             header_value = v.decode('utf-8').strip()
-            # Avoid duplicate django/server headers
+            # Prevent duplicate response headers from being set
             if header_name.lower() not in ['content-length', 'server', 'date']:
                 response[header_name] = header_value
 
@@ -233,7 +266,10 @@ def git_smart_http_view(request, slug, git_path):
 
 @login_required
 def repo_list(request):
-    """Display all repositories matching user access."""
+    """
+    Display all repositories matching user access permissions with filters and searches.
+    """
+    # Extract query filter values from request GET variables
     query = request.GET.get('q', '')
     visibility = request.GET.get('visibility', '')   # 'public' | 'private' | ''
     sort = request.GET.get('sort', 'updated')        # 'updated' | 'name' | 'created'
@@ -241,30 +277,33 @@ def repo_list(request):
 
     repos = Repository.objects.all()
 
+    # Apply search query against name and description fields
     if query:
         repos = repos.filter(models.Q(name__icontains=query) | models.Q(description__icontains=query))
 
+    # Restrict visible repositories for non-admin/non-superuser users
     is_admin = getattr(request.user, 'is_admin', False) or request.user.is_superuser
     if not is_admin:
+        # Non-admins can only see public repositories, repositories they own, or where they are added as collaborator
         repos = repos.filter(
             models.Q(is_private=False) |
             models.Q(owner=request.user) |
             models.Q(collaborators=request.user)
         ).distinct()
 
-    # Visibility filter
+    # Filter by visibility choice
     if visibility == 'public':
         repos = repos.filter(is_private=False)
     elif visibility == 'private':
         repos = repos.filter(is_private=True)
 
-    # Role filter
+    # Filter by user role relation
     if role == 'owner':
         repos = repos.filter(owner=request.user)
     elif role == 'collaborator':
         repos = repos.filter(collaborators=request.user).distinct()
 
-    # Sort
+    # Apply ordering sort rules
     if sort == 'name':
         repos = repos.order_by('name')
     elif sort == 'created':
@@ -272,7 +311,7 @@ def repo_list(request):
     else:
         repos = repos.order_by('-updated_at')
 
-    # Pending invitations for current user
+    # Query pending collaboration invitations for the current logged-in user
     pending_invitations = request.user.repo_invitations.filter(is_accepted=False)
 
     return render(request, 'resource_hub/repo_list.html', {
@@ -287,10 +326,14 @@ def repo_list(request):
 
 @login_required
 def repo_create(request):
-    """Form and view to create a repository."""
+    """
+    Form view to create a repository and initialize a bare git backend on disk.
+    """
+    # Verify that the git command line client is installed on the host OS
     git_available = shutil.which('git') is not None
     
     if request.method == 'POST':
+        # Guard clause: stop if Git client executable is missing on host system
         if not git_available:
             messages.error(
                 request, 
@@ -298,6 +341,7 @@ def repo_create(request):
             )
             return render(request, 'resource_hub/repo_create.html')
 
+        # Extract name, description and privacy choice
         name = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
         is_private = request.POST.get('is_private') == 'on'
@@ -306,11 +350,13 @@ def repo_create(request):
             messages.error(request, "Repository name is required.")
             return render(request, 'resource_hub/repo_create.html')
 
+        # Generate slugified name to map directory and URL routes
         slug = slugify(name)
         if Repository.objects.filter(slug=slug).exists():
             messages.error(request, f"A repository with name '{name}' already exists.")
             return render(request, 'resource_hub/repo_create.html')
 
+        # Instantiate repository record
         repo = Repository(
             name=name,
             slug=slug,
@@ -320,19 +366,22 @@ def repo_create(request):
         )
 
         try:
-            # Initialize the Git directory
+            # Create the git directory on disk (ensuring parent directories exist)
             os.makedirs(os.path.dirname(repo.git_dir), exist_ok=True)
+            # Initialize bare repository using subprocess command
             subprocess.run(['git', 'init', '--bare', repo.git_dir], check=True)
             
-            # Configure http.receivepack to allow git push over HTTP
+            # Configure http.receivepack config to allow remote git push commands over HTTP protocol
             subprocess.run([
                 'git', 'config', '-f', os.path.join(repo.git_dir, 'config'), 'http.receivepack', 'true'
             ], check=True)
 
+            # Save model record to database only after successful filesystem init
             repo.save()
             messages.success(request, f"Repository '{name}' created successfully.")
             return redirect('resource_hub:repo_code', slug=repo.slug)
         except Exception as e:
+            # Rollback: Clean up disk files on initialization failures
             if os.path.exists(repo.git_dir):
                 shutil.rmtree(repo.git_dir)
             messages.error(request, f"Error initializing git repository: {e}")
@@ -341,25 +390,30 @@ def repo_create(request):
 
 @login_required
 def repo_code(request, slug, path=''):
-    """Explore repository code and folders."""
+    """
+    Explore repository source code files and directory folders recursively.
+    """
+    # Retrieve repository and check user access privileges
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo)
     if not has_access:
         return HttpResponseForbidden("You do not have access to this repository.")
 
+    # Determine if git logs contain any commit history
     empty = is_repo_empty(repo.git_dir)
     branches = get_branches(repo.git_dir)
     default_branch = get_default_branch(repo.git_dir)
     
-    # Determine the ref (branch or commit hash)
+    # Extract reference branch/commit query param, fallback to default branch
     ref = request.GET.get('ref', default_branch)
     if not ref:
         ref = default_branch
 
-    # Construct clean clone URL based on request scheme and host
+    # Construct the HTTP clone URL configuration for UI display
     clone_url = get_clone_url(request, repo)
 
     if empty:
+        # Render empty helper onboarding template instructions if no commits exist yet
         return render(request, 'resource_hub/repo_code.html', {
             'repo': repo,
             'is_owner_or_admin': is_owner_or_admin,
@@ -368,13 +422,13 @@ def repo_code(request, slug, path=''):
             'default_branch': default_branch
         })
 
-    # Verify if path is directory or file
+    # Verify if target path resolves to a file or directory
     obj_type = get_object_type(repo.git_dir, ref, path)
     if obj_type == 'blob':
-        # Redirect to the blob viewer view
+        # Redirect file paths to dedicated file viewer view
         return redirect(reverse('resource_hub:repo_file_view', kwargs={'slug': slug, 'ref': ref, 'path': path}))
 
-    # Fetch latest commit details for the current ref (branch/commit)
+    # Retrieve latest commit details for the selected reference branch/commit
     latest_commit = None
     try:
         proc = subprocess.run([
@@ -397,7 +451,7 @@ def repo_code(request, slug, path=''):
     except Exception:
         pass
 
-    # Get items in the directory using git ls-tree
+    # Fetch items inside target directory using git ls-tree command
     items = []
     readme_content = None
     target_dir = f"{ref}:{path}" if path else ref
@@ -412,7 +466,7 @@ def repo_code(request, slug, path=''):
                 mode, item_type, sha, size, name = parts
                 item_path = os.path.join(path, name) if path else name
                 
-                # Check for README
+                # Check for README.md document to display below folder view
                 if name.lower() == 'readme.md' and item_type == 'blob':
                     try:
                         readme_proc = subprocess.run(['git', '-C', repo.git_dir, 'show', f"{ref}:{item_path}"], capture_output=True, text=True)
@@ -421,7 +475,7 @@ def repo_code(request, slug, path=''):
                     except Exception:
                         pass
 
-                # Query last commit for this specific file/folder
+                # Query the latest commit log that modified this specific file or directory
                 commit_message = ""
                 commit_time = ""
                 try:
@@ -438,6 +492,7 @@ def repo_code(request, slug, path=''):
                 except Exception:
                     pass
 
+                # Append item mapping details
                 items.append({
                     'mode': mode,
                     'type': item_type,
@@ -449,13 +504,13 @@ def repo_code(request, slug, path=''):
                     'commit_time': commit_time,
                 })
     except Exception:
-        # Path might not exist in this ref
+        # Silently skip if path doesn't exist on this reference branch
         pass
 
-    # Sort folders first, then files
+    # Sort items putting directory folders first, followed by files alphabetically
     items.sort(key=lambda x: (x['type'] != 'tree', x['name'].lower()))
 
-    # Build breadcrumbs
+    # Compile breadcrumb structure for navigation headers
     breadcrumbs = []
     if path:
         parts = path.split('/')
@@ -464,7 +519,7 @@ def repo_code(request, slug, path=''):
             current_path = os.path.join(current_path, p) if current_path else p
             breadcrumbs.append({'name': p, 'path': current_path})
 
-    # Fetch all files recursively for the fuzzy finder (Go to file)
+    # Fetch recursive files list to power fuzzy finder search tool ("Go to file")
     all_files = []
     try:
         find_proc = subprocess.run([
@@ -493,31 +548,35 @@ def repo_code(request, slug, path=''):
 
 @login_required
 def repo_file_view(request, slug, ref, path):
-    """View file content with revision selector."""
+    """
+    View file content with revision selector and syntax highlighting.
+    """
+    # Retrieve repository and check permissions
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo)
     if not has_access:
         return HttpResponseForbidden("You do not have access to this repository.")
 
-    # Verify it is a blob
+    # Guard clause: verify that the target object is indeed a blob (file)
     obj_type = get_object_type(repo.git_dir, ref, path)
     if obj_type != 'blob':
         raise Http404("File not found")
 
-    # Fetch file content
+    # Fetch raw file content bytes from git repository database
     proc = subprocess.run(['git', '-C', repo.git_dir, 'show', f"{ref}:{path}"], capture_output=True)
     content_bytes = proc.stdout
 
-    # Check for binary file
+    # Detect binary files (containing null bytes in initial chunk)
     is_binary = b'\x00' in content_bytes[:4096]
     content = None
     if not is_binary:
         try:
             content = content_bytes.decode('utf-8')
         except UnicodeDecodeError:
+            # Fallback to Latin-1 encoding if UTF-8 fails
             content = content_bytes.decode('latin-1', errors='ignore')
 
-    # Detect programming language by extension for code highlighting
+    # Detect programming language by extension to apply syntax styling rules
     _, ext = os.path.splitext(path)
     ext = ext.lower().lstrip('.')
     lang_mapping = {
@@ -527,10 +586,10 @@ def repo_file_view(request, slug, ref, path):
     }
     lang = lang_mapping.get(ext, ext or 'plaintext')
 
-    # Check if the file is an image
+    # Assess if file is an image format
     is_image = ext in ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
 
-    # Breadcrumbs
+    # Compile navigation breadcrumbs
     breadcrumbs = []
     parts = path.split('/')
     current_path = ""
@@ -558,13 +617,16 @@ def repo_file_view(request, slug, ref, path):
 
 @login_required
 def repo_raw_view(request, slug, ref, path):
-    """Directly serve raw file bytes (great for images, downloads)."""
+    """
+    Directly serve raw file bytes (supporting direct images, pdfs, and download assets).
+    """
+    # Retrieve repository and verify user access
     repo = get_object_or_404(Repository, slug=slug)
     has_access, _ = check_repo_access(request, repo)
     if not has_access:
         return HttpResponseForbidden("You do not have access to this repository.")
 
-    # Get file content
+    # Retrieve raw file content
     proc = subprocess.run(['git', '-C', repo.git_dir, 'show', f"{ref}:{path}"], capture_output=True)
     if proc.returncode != 0:
         raise Http404("File not found")
@@ -573,7 +635,7 @@ def repo_raw_view(request, slug, ref, path):
     _, ext = os.path.splitext(path)
     ext = ext.lower().lstrip('.')
     
-    # Guess basic content types
+    # Map basic MIME content types based on file extension
     ct_mapping = {
         'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
         'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
@@ -582,32 +644,41 @@ def repo_raw_view(request, slug, ref, path):
     }
     content_type = ct_mapping.get(ext, 'application/octet-stream')
 
+    # Return response payload
     response = HttpResponse(content_bytes, content_type=content_type)
+    # Add attachment headers for unrecognized binary files to force downloads
     if content_type == 'application/octet-stream':
         response['Content-Disposition'] = f'attachment; filename="{os.path.basename(path)}"'
     return response
 
 @login_required
 def repo_commits(request, slug):
-    """View chronological commit log."""
+    """
+    View chronological git commit log for the selected branch/reference.
+    """
+    # Retrieve repository and check permissions
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo)
     if not has_access:
         return HttpResponseForbidden("You do not have access to this repository.")
 
+    # Redirect to files view if no commits exist
     empty = is_repo_empty(repo.git_dir)
     if empty:
         return redirect('resource_hub:repo_code', slug=repo.slug)
 
+    # Get active reference and branch list
     ref = request.GET.get('ref', get_default_branch(repo.git_dir))
     branches = get_branches(repo.git_dir)
 
     commits = []
     try:
+        # Run git log with a piped format string parsing: Hash|Author|Email|Date|Message
         proc = subprocess.run([
             'git', '-C', repo.git_dir, 'log', ref, '--pretty=format:%H|%an|%ae|%ad|%s', '--date=format:%Y-%m-%d %H:%M:%S'
         ], capture_output=True, text=True, check=True)
         
+        # Parse stdout log lines
         for line in proc.stdout.strip().split('\n'):
             if not line:
                 continue
@@ -636,14 +707,17 @@ def repo_commits(request, slug):
 
 @login_required
 def repo_commit_detail(request, slug, commit_hash):
-    """Parse and view code diff of a single commit."""
+    """
+    Parse and view patch code diff of a single git commit.
+    """
+    # Retrieve repository and check permissions
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo)
     if not has_access:
         return HttpResponseForbidden("You do not have access to this repository.")
 
     try:
-        # Get commit metadata
+        # Fetch metadata details for this single commit hash
         proc_meta = subprocess.run([
             'git', '-C', repo.git_dir, 'show', '--pretty=format:%H|%an|%ae|%ad|%s', '--date=format:%Y-%m-%d %H:%M:%S', '-s', commit_hash
         ], capture_output=True, text=True, check=True)
@@ -661,26 +735,28 @@ def repo_commit_detail(request, slug, commit_hash):
             'message': message
         }
 
-        # Get diff details
+        # Fetch full diff code patch details
         proc_diff = subprocess.run([
             'git', '-C', repo.git_dir, 'show', '--patch', commit_hash
         ], capture_output=True, text=True, check=True)
         
-        # Parse diff text
+        # Initialize parser variables to separate modified files
         diff_files = []
         current_file = None
         
         lines = proc_diff.stdout.split('\n')
-        # Skip the commit header block until we reach diff section
+        # Git show includes a commit header block before the first file diff
         in_diff_sec = False
         
         for line in lines:
+            # Detect starting point of a new file diff
             if line.startswith('diff --git '):
                 in_diff_sec = True
                 parts_line = line.split(' ')
                 file_a = parts_line[2][2:] if len(parts_line) > 2 else ""
                 file_b = parts_line[3][2:] if len(parts_line) > 3 else ""
                 
+                # Setup structured dictionary representing file changes
                 current_file = {
                     'old_path': file_a,
                     'new_path': file_b,
@@ -692,9 +768,11 @@ def repo_commit_detail(request, slug, commit_hash):
                 diff_files.append(current_file)
                 continue
 
+            # Skip parsing until we reach files section
             if not in_diff_sec or current_file is None:
                 continue
 
+            # Detect modifications status (creation, deletion, renamed)
             if line.startswith('new file mode '):
                 current_file['status'] = 'created'
                 continue
@@ -710,6 +788,7 @@ def repo_commit_detail(request, slug, commit_hash):
             elif line.startswith('+++ '):
                 continue
             
+            # Map lines into added, deleted or normal blocks
             if line.startswith('@@ '):
                 current_file['lines'].append({'type': 'info', 'text': line})
             elif line.startswith('+'):
@@ -721,13 +800,14 @@ def repo_commit_detail(request, slug, commit_hash):
             else:
                 current_file['lines'].append({'type': 'normal', 'text': line})
 
-        # Enrich diff files with metadata for binary/image rendering
+        # Enrich diff files with metadata for binary/image rendering in templates
         for f_data in diff_files:
             target_path = f_data['new_path'] or f_data['old_path']
             _, ext = os.path.splitext(target_path)
             ext = ext.lower().lstrip('.')
             f_data['is_image'] = ext in ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
             
+            # Identify binary modifications
             is_binary = False
             for line_item in f_data['lines']:
                 if 'Binary files' in line_item['text'] and 'differ' in line_item['text']:
@@ -749,7 +829,11 @@ def repo_commit_detail(request, slug, commit_hash):
 
 @login_required
 def repo_upload(request, slug):
-    """Form to upload multiple files directly and push commit to bare repo."""
+    """
+    Form view supporting multi-file direct uploads to the bare git repository.
+    Handles temporary directory clones and automated pushes.
+    """
+    # Retrieve repository and enforce strict write (require_write=True) access check
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo, require_write=True)
     if not has_access:
@@ -762,11 +846,13 @@ def repo_upload(request, slug):
     branches = get_branches(repo.git_dir)
 
     if request.method == 'POST':
+        # Retrieve form parameters
         commit_message = request.POST.get('commit_message', '').strip()
         branch = request.POST.get('branch', default_branch).strip()
         files = request.FILES.getlist('files')
         paths = request.POST.getlist('paths')
 
+        # Detect AJAX uploads
         is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
         clone_url = get_clone_url(request, repo)
@@ -784,31 +870,31 @@ def repo_upload(request, slug):
             messages.error(request, "At least one file must be selected.")
             return render(request, 'resource_hub/repo_upload.html', {'repo': repo, 'branches': branches, 'default_branch': default_branch, 'is_owner_or_admin': is_owner_or_admin, 'clone_url': clone_url})
 
-        # Process upload via temporary working directory clone
+        # Process upload via temporary working directory clone of the bare git repository
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 is_empty = is_repo_empty(repo.git_dir)
                 
                 if is_empty:
-                    # Initialize empty git repo in temp dir and link origin
+                    # Initialize fresh empty git repository inside the temp folder and add bare repo as origin
                     subprocess.run(['git', 'init', temp_dir], check=True)
                     subprocess.run(['git', '-C', temp_dir, 'remote', 'add', 'origin', repo.git_dir], check=True)
                     subprocess.run(['git', '-C', temp_dir, 'checkout', '-b', branch], check=True)
                 else:
-                    # Clone bare repo
+                    # Clone bare repo to temp directory
                     subprocess.run(['git', 'clone', repo.git_dir, temp_dir], check=True)
                     
-                    # Checkout or create branch
+                    # Verify if target branch already exists, checkout or create it
                     proc_check = subprocess.run(['git', '-C', temp_dir, 'show-ref', '--verify', f"refs/heads/{branch}"], capture_output=True)
                     if proc_check.returncode == 0:
                         subprocess.run(['git', '-C', temp_dir, 'checkout', branch], check=True)
                     else:
                         subprocess.run(['git', '-C', temp_dir, 'checkout', '-b', branch], check=True)
 
-                # Write files
+                # Write files into temporary clone directory structure
                 for idx, f in enumerate(files):
                     rel_path = paths[idx] if idx < len(paths) else f.name
-                    # Sanitize path to prevent path traversal
+                    # Sanitize destination path to prevent path traversal vulnerabilities
                     rel_path = os.path.normpath(rel_path).lstrip('/')
                     if rel_path.startswith('..') or os.path.isabs(rel_path):
                         continue
@@ -819,7 +905,7 @@ def repo_upload(request, slug):
                         for chunk in f.chunks():
                             dest.write(chunk)
 
-                # Commit and Push
+                # Configure local author identity details for the git commit
                 author_name = request.user.display_name or request.user.username
                 author_email = request.user.email or f"{request.user.username}@local.com"
 
@@ -827,18 +913,18 @@ def repo_upload(request, slug):
                 subprocess.run(['git', '-C', temp_dir, 'config', 'user.email', author_email], check=True)
                 subprocess.run(['git', '-C', temp_dir, 'add', '.'], check=True)
                 
-                # Commit
+                # Commit modifications
                 commit_proc = subprocess.run(['git', '-C', temp_dir, 'commit', '-m', commit_message], capture_output=True, text=True)
                 if commit_proc.returncode == 0:
-                    # Push back to bare repo
+                    # Push back to bare repository origin
                     if is_empty:
                         subprocess.run(['git', '-C', temp_dir, 'push', '-u', 'origin', branch], check=True)
-                        # Set default branch HEAD on bare repo
+                        # Set default branch HEAD configuration on bare repository
                         subprocess.run(['git', '-C', repo.git_dir, 'symbolic-ref', 'HEAD', f"refs/heads/{branch}"], check=True)
                     else:
                         subprocess.run(['git', '-C', temp_dir, 'push', 'origin', branch], check=True)
                     
-                    # Log web upload action
+                    # Log web upload action in audit logs
                     desc = f"Web upload of {len(files)} files/folders to branch '{branch}'"
                     try:
                         ip = get_client_ip(request)
@@ -882,7 +968,10 @@ def repo_upload(request, slug):
 
 @login_required
 def repo_settings(request, slug):
-    """View/edit repository settings (rename, toggle visibility, delete, collaborators)."""
+    """
+    View/edit repository settings (rename, toggle visibility, delete, collaborators).
+    """
+    # Retrieve repository and enforce write checks
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo, require_write=True)
     if not has_access:
@@ -893,11 +982,13 @@ def repo_settings(request, slug):
     clone_url = get_clone_url(request, repo)
 
     if request.method == 'POST':
+        # Guard clause: restrict write settings to owner or admin
         if not is_owner_or_admin:
             return HttpResponseForbidden("Only the repository owner or administrator can modify these settings.")
 
         action = request.POST.get('action')
 
+        # Action: Update name, description, privacy settings
         if action == 'update':
             name = request.POST.get('name', '').strip()
             description = request.POST.get('description', '').strip()
@@ -912,7 +1003,7 @@ def repo_settings(request, slug):
                 messages.error(request, f"A repository with name '{name}' already exists.")
                 return redirect('resource_hub:repo_settings', slug=repo.slug)
 
-            # Rename directory if name changed
+            # Rename physical git bare repository directory if the slug has changed
             if new_slug != repo.slug:
                 old_dir = repo.git_dir
                 repo.slug = new_slug
@@ -925,6 +1016,7 @@ def repo_settings(request, slug):
                     messages.error(request, f"Failed to rename git directory: {e}")
                     return redirect('resource_hub:repo_settings', slug=repo.slug)
 
+            # Persist model modifications
             repo.name = name
             repo.description = description
             repo.is_private = is_private
@@ -933,6 +1025,7 @@ def repo_settings(request, slug):
             messages.success(request, "Repository configuration updated successfully.")
             return redirect('resource_hub:repo_code', slug=repo.slug)
 
+        # Action: Invite new user as a collaborator
         elif action == 'add_collaborator':
             user_id = request.POST.get('user_id')
             if user_id:
@@ -945,13 +1038,13 @@ def repo_settings(request, slug):
                     elif RepoInvitation.objects.filter(repository=repo, invitee=user_to_add, is_accepted=False).exists():
                         messages.error(request, f"An invitation has already been sent to {user_to_add.username}.")
                     else:
-                        # Create invitation
+                        # Instantiate pending RepoInvitation record
                         RepoInvitation.objects.create(
                             repository=repo,
                             invitee=user_to_add,
                             invited_by=request.user
                         )
-                        # Create notification
+                        # Dispatch real-time user notification
                         from notifications.models import Notification
                         Notification.objects.create(
                             recipient=user_to_add,
@@ -965,6 +1058,7 @@ def repo_settings(request, slug):
                     messages.error(request, "Selected user does not exist.")
             return redirect('resource_hub:repo_settings', slug=repo.slug)
 
+        # Action: Cancel a pending collaborator invitation
         elif action == 'cancel_invitation':
             invite_id = request.POST.get('invite_id')
             if invite_id:
@@ -972,7 +1066,7 @@ def repo_settings(request, slug):
                     invite = RepoInvitation.objects.get(pk=invite_id, repository=repo, is_accepted=False)
                     invitee_username = invite.invitee.username
                     
-                    # Delete notification
+                    # Delete the dispatched invite notification
                     from notifications.models import Notification
                     Notification.objects.filter(
                         recipient=invite.invitee,
@@ -986,13 +1080,14 @@ def repo_settings(request, slug):
                     messages.error(request, "Invitation does not exist.")
             return redirect('resource_hub:repo_settings', slug=repo.slug)
 
+        # Action: Remove an active collaborator from access list
         elif action == 'remove_collaborator':
             user_id = request.POST.get('user_id')
             if user_id:
                 try:
                     user_to_remove = User.objects.get(pk=user_id)
                     repo.collaborators.remove(user_to_remove)
-                    # Log it
+                    # Audit-log collaborator removal action
                     ip = get_client_ip(request)
                     RepoActivityLog.objects.create(
                         repository=repo,
@@ -1006,6 +1101,7 @@ def repo_settings(request, slug):
                     messages.error(request, "Selected user does not exist.")
             return redirect('resource_hub:repo_settings', slug=repo.slug)
 
+        # Action: Confirm and delete repository completely
         elif action == 'delete':
             confirm_name = request.POST.get('confirm_name', '').strip()
             if confirm_name != repo.name:
@@ -1013,15 +1109,15 @@ def repo_settings(request, slug):
                 return redirect('resource_hub:repo_settings', slug=repo.slug)
 
             repo_name = repo.name
-            repo.delete() # Cleans up disk folder in overridden delete()
+            repo.delete() # Cleans up disk folder via custom overridden delete() method in models.py
             messages.success(request, f"Repository '{repo_name}' deleted successfully.")
             return redirect('resource_hub:repo_list')
 
-    # Fetch collaborators, pending invites and potential collaborators
+    # Query active collaborators and pending invites
     collaborators = repo.collaborators.all()
     pending_invites = repo.invitations.filter(is_accepted=False)
     
-    # Exclude owner, current collaborators, and pending invitees
+    # Calculate set of available active users who can be invited (excluding owner, existing collaborators, and pending invitees)
     exclude_pks = [repo.owner.pk]
     exclude_pks.extend(collaborators.values_list('pk', flat=True))
     exclude_pks.extend(pending_invites.values_list('invitee__pk', flat=True))
@@ -1040,12 +1136,16 @@ def repo_settings(request, slug):
 
 @login_required
 def repo_user_guide(request, slug):
-    """Serve a complete repository user guide."""
+    """
+    Serve a complete repository user guide with setup instructions.
+    """
+    # Retrieve repository and check permissions
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo)
     if not has_access:
         return HttpResponseForbidden("You do not have access to this repository.")
 
+    # Build the full absolute HTTP clone URL for command-line instructions
     clone_url = request.build_absolute_uri(
         reverse('resource_hub:git_smart_http', kwargs={'slug': repo.slug, 'git_path': 'info/refs'})
     )
@@ -1061,14 +1161,19 @@ def repo_user_guide(request, slug):
 
 @login_required
 def repo_logs(request, slug):
-    """View repository activity logs, visible only to the repository creator."""
+    """
+    View repository activity logs, visible only to the repository creator.
+    """
+    # Retrieve repository and check permissions
     repo = get_object_or_404(Repository, slug=slug)
     
-    # Restrict to repository owner (creator)
+    # Restrict to repository owner (creator) as a security gate
     if request.user != repo.owner:
         return HttpResponseForbidden("Only the repository creator can view repository access and activity logs.")
 
     _, is_owner_or_admin = check_repo_access(request, repo)
+    
+    # Fetch chronological activity log entries
     logs = RepoActivityLog.objects.filter(repository=repo)
 
     return render(request, 'resource_hub/repo_logs.html', {
@@ -1081,7 +1186,11 @@ def repo_logs(request, slug):
 
 @login_required
 def repo_download_zip(request, slug, ref):
-    """Generate and return a ZIP archive of the repository at the specified reference."""
+    """
+    Generate and return a ZIP archive of the repository at the specified reference.
+    Uses Git's native archive subsystem to construct zip streams efficiently.
+    """
+    # Retrieve repository and check permissions
     repo = get_object_or_404(Repository, slug=slug)
     has_access, _ = check_repo_access(request, repo)
     if not has_access:
@@ -1091,13 +1200,13 @@ def repo_download_zip(request, slug, ref):
         return HttpResponse("Repository is empty.", status=400)
 
     try:
-        # Generate archive using git archive
+        # Generate archive using git archive subprocess command
         proc = subprocess.run([
             'git', '-C', repo.git_dir, 'archive', '--format=zip',
             f'--prefix={repo.slug}-{ref}/', ref
         ], capture_output=True, check=True)
         
-        # Log download action
+        # Log download action in audit logs
         try:
             ip = get_client_ip(request)
             RepoActivityLog.objects.create(
@@ -1110,7 +1219,10 @@ def repo_download_zip(request, slug, ref):
         except Exception:
             pass
 
+        # Sanitize reference branch name to safe characters for filenames
         safe_ref = ref.replace('/', '-')
+        
+        # Construct and return zip stream response object
         response = HttpResponse(proc.stdout, content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{repo.slug}-{safe_ref}.zip"'
         response['Content-Length'] = len(proc.stdout)
@@ -1120,7 +1232,10 @@ def repo_download_zip(request, slug, ref):
 
 @login_required
 def repo_create_file(request, slug):
-    """Provide a web interface to create and commit a new file to the repository."""
+    """
+    Provide a web interface to create and commit a new file directly to the git repository.
+    """
+    # Retrieve repository and check write access permission
     repo = get_object_or_404(Repository, slug=slug)
     has_access, is_owner_or_admin = check_repo_access(request, repo, require_write=True)
     if not has_access:
@@ -1131,6 +1246,7 @@ def repo_create_file(request, slug):
     clone_url = get_clone_url(request, repo)
 
     if request.method == 'POST':
+        # Retrieve form parameters
         file_path = request.POST.get('file_path', '').strip().lstrip('/')
         file_content = request.POST.get('file_content', '')
         commit_message = request.POST.get('commit_message', '').strip()
@@ -1143,7 +1259,7 @@ def repo_create_file(request, slug):
                 'is_owner_or_admin': is_owner_or_admin, 'clone_url': clone_url
             })
 
-        # Sanitize path to prevent path traversal
+        # Sanitize destination path to prevent path traversal vulnerability
         file_path = os.path.normpath(file_path).lstrip('/')
         if file_path.startswith('..') or os.path.isabs(file_path):
             messages.error(request, "Invalid file path.")
@@ -1155,16 +1271,18 @@ def repo_create_file(request, slug):
         if not commit_message:
             commit_message = f"Create {file_path}"
 
-        # Write file in a temporary repository clone and push it
+        # Write the file inside a temporary repository clone and push it back to the bare repository
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 is_empty = is_repo_empty(repo.git_dir)
                 
                 if is_empty:
+                    # Initialize a fresh git repository inside the temp directory
                     subprocess.run(['git', 'init', temp_dir], check=True)
                     subprocess.run(['git', '-C', temp_dir, 'remote', 'add', 'origin', repo.git_dir], check=True)
                     subprocess.run(['git', '-C', temp_dir, 'checkout', '-b', branch], check=True)
                 else:
+                    # Clone the bare repository into temp folder
                     subprocess.run(['git', 'clone', repo.git_dir, temp_dir], check=True)
                     proc_check = subprocess.run(['git', '-C', temp_dir, 'show-ref', '--verify', f"refs/heads/{branch}"], capture_output=True)
                     if proc_check.returncode == 0:
@@ -1172,13 +1290,13 @@ def repo_create_file(request, slug):
                     else:
                         subprocess.run(['git', '-C', temp_dir, 'checkout', '-b', branch], check=True)
 
-                # Write content to the file
+                # Write content to the targeted file
                 full_dest_path = os.path.join(temp_dir, file_path)
                 os.makedirs(os.path.dirname(full_dest_path), exist_ok=True)
                 with open(full_dest_path, 'w', encoding='utf-8') as f:
                     f.write(file_content)
 
-                # Commit & Push
+                # Configure local author details for git commit
                 author_name = request.user.display_name or request.user.username
                 author_email = request.user.email or f"{request.user.username}@local.com"
 
@@ -1186,15 +1304,17 @@ def repo_create_file(request, slug):
                 subprocess.run(['git', '-C', temp_dir, 'config', 'user.email', author_email], check=True)
                 subprocess.run(['git', '-C', temp_dir, 'add', '.'], check=True)
 
+                # Commit changes
                 commit_proc = subprocess.run(['git', '-C', temp_dir, 'commit', '-m', commit_message], capture_output=True, text=True)
                 if commit_proc.returncode == 0:
+                    # Push back to bare repository origin
                     if is_empty:
                         subprocess.run(['git', '-C', temp_dir, 'push', '-u', 'origin', branch], check=True)
                         subprocess.run(['git', '-C', repo.git_dir, 'symbolic-ref', 'HEAD', f"refs/heads/{branch}"], check=True)
                     else:
                         subprocess.run(['git', '-C', temp_dir, 'push', 'origin', branch], check=True)
 
-                    # Log activity
+                    # Log file creation action in audit logs
                     try:
                         ip = get_client_ip(request)
                         RepoActivityLog.objects.create(
@@ -1208,7 +1328,8 @@ def repo_create_file(request, slug):
                         pass
 
                     messages.success(request, f"Successfully created and committed '{file_path}' to branch '{branch}'.")
-                    # Redirect to directory page
+                    
+                    # Redirect back to folder directory page view
                     dir_path = os.path.dirname(file_path)
                     if dir_path:
                         return redirect(reverse('resource_hub:repo_code_dir', kwargs={'slug': repo.slug, 'path': dir_path}) + f"?ref={branch}")
@@ -1232,15 +1353,18 @@ def repo_create_file(request, slug):
 
 @login_required
 def repo_accept_invite(request, invite_id):
+    """
+    Accept collaborator invitation, grant access to repository, and log activity.
+    """
     invite = get_object_or_404(RepoInvitation, pk=invite_id, invitee=request.user, is_accepted=False)
     repo = invite.repository
     
-    # Add to collaborators
+    # Associate user into repository collaborators list
     repo.collaborators.add(request.user)
     invite.is_accepted = True
     invite.save()
     
-    # Mark notification as read
+    # Mark invitation-related notifications as read automatically
     from notifications.models import Notification
     Notification.objects.filter(
         recipient=request.user, 
@@ -1248,7 +1372,7 @@ def repo_accept_invite(request, invite_id):
         message__icontains=repo.name
     ).update(is_read=True)
     
-    # Log activity
+    # Log acceptance activity log
     ip = get_client_ip(request)
     RepoActivityLog.objects.create(
         repository=repo,
@@ -1263,11 +1387,14 @@ def repo_accept_invite(request, invite_id):
 
 @login_required
 def repo_decline_invite(request, invite_id):
+    """
+    Decline collaborator invitation and clean up notification entries.
+    """
     invite = get_object_or_404(RepoInvitation, pk=invite_id, invitee=request.user, is_accepted=False)
     repo = invite.repository
     invite.delete()
     
-    # Mark notification as read
+    # Mark invitation-related notifications as read automatically
     from notifications.models import Notification
     Notification.objects.filter(
         recipient=request.user, 

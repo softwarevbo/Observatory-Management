@@ -9,11 +9,18 @@ from xhtml2pdf import pisa
 from ..models import QuantityLimit, StandardLimit, BranchStock
 from ..utils import get_isolated_products
 
+"""
+This module processes shortage analysis reports and export workflows.
+"""
 
 def _inventory_permission_redirect(request, access_field=None, manage_field=None):
+    """
+    Utility checking user credentials on specific sub-modules.
+    Super admin and branch admin bypass this validation.
+    """
     if not request.user.is_authenticated:
         return redirect("accounts:login")
-    if request.user.is_super_admin or request.user.is_branch_admin:
+    if getattr(request.user, "is_super_admin", False) or getattr(request.user, "is_branch_admin", False):
         return None
     if access_field and not getattr(request.user, access_field, True):
         messages.error(request, "You do not have access to this inventory module.")
@@ -31,6 +38,11 @@ def _inventory_permission_redirect(request, access_field=None, manage_field=None
 
 
 def inventory_shortage_view(request):
+    """
+    Renders the inventory shortages panel.
+    Calculates shortages per product comparing current BranchStock levels against 
+    custom QuantityLimit thresholds or StandardLimit fallbacks.
+    """
     permission_redirect = _inventory_permission_redirect(
         request, "can_access_shortage_page"
     )
@@ -74,6 +86,9 @@ def inventory_shortage_view(request):
 
 
 def inventory_shortage_export_csv(request):
+    """
+    Exports a spreadsheet CSV representation of the active shortages.
+    """
     permission_redirect = _inventory_permission_redirect(
         request, "can_access_shortage_page"
     )
@@ -108,6 +123,9 @@ def inventory_shortage_export_csv(request):
 
 
 def inventory_shortage_export_pdf(request):
+    """
+    Exports a PDF document using xhtml2pdf containing the active shortages list.
+    """
     permission_redirect = _inventory_permission_redirect(
         request, "can_access_shortage_page"
     )

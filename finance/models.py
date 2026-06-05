@@ -1,8 +1,16 @@
 from django.conf import settings
 from django.db import models
 
+"""
+This module contains the database models for the Finance system.
+It establishes schemas for project budgets and individual expenses.
+"""
 
 class Budget(models.Model):
+    """
+    Model representing total financial bounds allocated to a project.
+    Uses a OneToOneField linking to the Project model, restricting each project to a single budget.
+    """
     project = models.OneToOneField(
         "tasks.Project", on_delete=models.CASCADE, related_name="budget"
     )
@@ -15,14 +23,23 @@ class Budget(models.Model):
 
     @property
     def total_expenses(self):
+        """
+        Dynamically aggregates the sum of all expenses logged against the project.
+        Uses Python's sum generator; for large datasets, a DB aggregation (Sum) is recommended.
+        """
         return sum(expense.amount for expense in self.project.expenses.all())
 
     @property
     def remaining_budget(self):
+        """Calculates the remaining balance in real time."""
         return self.total_amount - self.total_expenses
 
 
 class Expense(models.Model):
+    """
+    Model representing individual expenses logged against projects.
+    Supports categorizations, logging authors, and links to Project Files for receipt storage.
+    """
     CATEGORY_CHOICES = [
         ("hardware", "Hardware / Equipment"),
         ("software", "Software / Licenses"),
