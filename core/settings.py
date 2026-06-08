@@ -16,7 +16,7 @@ if not SECRET_KEY:
     SECRET_KEY = "django-insecure-IIAP-pm-change-this-in-production-!@#$%^&*()"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
+DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = ["*"]
 

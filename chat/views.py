@@ -28,20 +28,46 @@ def chat_home(request):
     Annotates rooms with last message times, calculates unread counts,
     and returns a filtered user list to initiate new direct conversations.
     """
+    from django.db.models.functions import Coalesce
+    
+    # 1. Define subquery for unread counts (messages where sender is not request.user and request.user hasn't read it)
+    unread_subquery = Message.objects.filter(
+        room=models.OuterRef('pk')
+    ).exclude(
+        sender=request.user
+    ).exclude(
+        read_receipts__user=request.user
+    ).values('room').annotate(c=models.Count('id')).values('c')
+
+    # 2. Define subquery for message counts to filter out empty DMs without duplicate join multiplication
+    msg_count_subquery = Message.objects.filter(
+        room=models.OuterRef('pk')
+    ).values('room').annotate(c=models.Count('id')).values('c')
+
     # Fetch all active rooms the user participates in.
-    # Annotate with the latest message time to sort rooms chronologically (newest updates first).
+    # Annotate with the latest message time and subqueries to sort rooms chronologically.
     rooms = ChatRoom.objects.filter(participants=request.user).annotate(
         last_msg_time=models.Max('messages__created_at'),
-        msg_count=models.Count('messages')
+        msg_count=Coalesce(models.Subquery(msg_count_subquery, output_field=models.IntegerField()), 0),
+        unread_count=Coalesce(models.Subquery(unread_subquery, output_field=models.IntegerField()), 0)
     ).filter(
         # Group chats show immediately; DMs only show if they contain at least one message.
         models.Q(room_type='group') | models.Q(msg_count__gt=0)
     ).order_by(models.F('last_msg_time').desc(nulls_last=True), '-updated_at').distinct()
     
-    # Pre-fetch snippets and calculate unread counts manually
+    # Fetch latest messages in bulk to prevent N+1 queries
+    last_msg_ids = Message.objects.filter(
+        room__participants=request.user
+    ).values('room').annotate(
+        last_id=models.Max('id')
+    ).values_list('last_id', flat=True)
+    
+    last_msgs = {m.room_id: m for m in Message.objects.filter(id__in=last_msg_ids).select_related('sender')}
+    
+    # Pre-fetch snippets and map unread counts
     for room in rooms:
-        room.last_msg = room.messages.order_by('-created_at').first()
-        room.unread_count = room.messages.exclude(sender=request.user).exclude(read_receipts__user=request.user).count()
+        room.last_msg = last_msgs.get(room.room_id)
+
     
     # Identify user IDs who already have active DM rooms with this user to avoid duplicates in sidebar lists
     dm_rooms = ChatRoom.objects.filter(participants=request.user, room_type='direct').annotate(
@@ -385,10 +411,17 @@ def api_quick_chat_list(request):
     REST API returning sorted groups, DM lists, online presence status indicators, 
     unread notifications count summary, and shared attachments lists.
     """
+    from django.db.models.functions import Coalesce
+    
+    # Define subquery to calculate message counts safely without Cartesian products
+    msg_count_subquery = Message.objects.filter(
+        room=models.OuterRef('pk')
+    ).values('room').annotate(c=models.Count('id')).values('c')
+
     # 1. Fetch DM rooms with messages
     direct_rooms = ChatRoom.objects.filter(participants=request.user, room_type='direct').annotate(
         last_msg_time=models.Max('messages__created_at'),
-        msg_count=models.Count('messages')
+        msg_count=Coalesce(models.Subquery(msg_count_subquery, output_field=models.IntegerField()), 0)
     ).filter(msg_count__gt=0).prefetch_related('participants')
     
     dm_room_map = {}
@@ -398,14 +431,31 @@ def api_quick_chat_list(request):
     # Retrieve clear timestamps to filter out cleared logs
     clear_history = dict(ChatClear.objects.filter(user=request.user).values_list('room_id', 'cleared_at'))
     
+    # Fetch all unread messages for the user across all rooms in a single bulk query
+    unread_messages = Message.objects.filter(
+        room__participants=request.user
+    ).exclude(
+        sender=request.user
+    ).exclude(
+        read_receipts__user=request.user
+    ).values('room_id', 'created_at')
+    
+    # Group unread counts in Python to avoid N+1 queries
+    unread_counts_map = {}
+    for msg in unread_messages:
+        room_uuid = str(msg['room_id'])
+        cleared_at = clear_history.get(msg['room_id'])
+        if cleared_at and msg['created_at'] <= cleared_at:
+            continue
+        unread_counts_map[room_uuid] = unread_counts_map.get(room_uuid, 0) + 1
+
     # Resolve self-chat DM configurations
     self_room = ChatRoom.objects.filter(name=f"DM-{request.user.id}-{request.user.id}").annotate(
         last_msg_time=models.Max('messages__created_at')
     ).first()
     if self_room:
         dm_room_map[request.user.id] = str(self_room.room_id)
-        unread = self_room.messages.exclude(sender=request.user).exclude(read_receipts__user=request.user).count()
-        dm_unread_counts[str(self_room.room_id)] = unread
+        dm_unread_counts[str(self_room.room_id)] = unread_counts_map.get(str(self_room.room_id), 0)
         dm_last_msg_time[str(self_room.room_id)] = self_room.last_msg_time
 
     # Populate DM mappings and unread totals
@@ -417,10 +467,7 @@ def api_quick_chat_list(request):
         other_user = room.participants.exclude(id=request.user.id).first()
         if other_user:
             dm_room_map[other_user.id] = str(room.room_id)
-            unread = room.messages.exclude(sender=request.user).exclude(read_receipts__user=request.user)
-            if cleared_at:
-                unread = unread.filter(created_at__gt=cleared_at)
-            dm_unread_counts[str(room.room_id)] = unread.count()
+            dm_unread_counts[str(room.room_id)] = unread_counts_map.get(str(room.room_id), 0)
             dm_last_msg_time[str(room.room_id)] = room.last_msg_time
             
     all_users = User.objects.select_related('presence').order_by('username')
@@ -462,7 +509,7 @@ def api_quick_chat_list(request):
     # 2. Fetch Group/Project rooms sorted by latest messages
     group_rooms = ChatRoom.objects.filter(participants=request.user).annotate(
         last_msg_time=models.Max('messages__created_at'),
-        msg_count=models.Count('messages')
+        msg_count=Coalesce(models.Subquery(msg_count_subquery, output_field=models.IntegerField()), 0)
     ).filter(
         models.Q(room_type='group') | models.Q(room_type='project')
     ).order_by(models.F('last_msg_time').desc(nulls_last=True), '-updated_at').distinct()
@@ -473,10 +520,7 @@ def api_quick_chat_list(request):
         if cleared_at and room.last_msg_time and room.last_msg_time <= cleared_at:
             continue
             
-        unread = room.messages.exclude(sender=request.user).exclude(read_receipts__user=request.user)
-        if cleared_at:
-            unread = unread.filter(created_at__gt=cleared_at)
-        unread = unread.count()
+        unread = unread_counts_map.get(str(room.room_id), 0)
         
         if room.room_type == 'direct':
             other_user = room.participants.exclude(id=request.user.id).first()
@@ -504,6 +548,7 @@ def api_quick_chat_list(request):
             'last_msg_time': room.last_msg_time.isoformat() if room.last_msg_time else None,
             'created_by': room.created_by.username if room.created_by else None
         })
+
         
     # 3. Fetch shared attachments listing (latest 50 files)
     attachments = ChatAttachment.objects.filter(
@@ -720,5 +765,198 @@ def delete_group(request, room_id):
             room.participants.clear()
             return JsonResponse({'status': 'success'})
         return JsonResponse({'status': 'error', 'message': 'Not allowed or not a group'}, status=403)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required
+@csrf_exempt
+def leave_group(request, room_id):
+    """
+    Remove the current user from the group room's participants list.
+    Also creates a system message and broadcasts the update.
+    """
+    import uuid
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    try:
+        room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
+        if room.room_type in ['group', 'project']:
+            if request.user in room.participants.all():
+                # Remove user
+                room.participants.remove(request.user)
+                
+                # Create a system message
+                msg = Message.objects.create(
+                    room=room,
+                    sender=request.user,
+                    content=f"System: {request.user.username} has left the group.",
+                    message_type='system'
+                )
+                
+                # Broadcast the leave event & message
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    group_name = f"chat_{room.room_id}"
+                    async_to_sync(channel_layer.group_send)(
+                        group_name,
+                        {
+                            'type': 'chat_message',
+                            'id': msg.id,
+                            'message': msg.decrypted_content,
+                            'sender': 'System',
+                            'sender_avatar': None,
+                            'timestamp': msg.created_at.strftime('%H:%M'),
+                            'raw_timestamp': msg.created_at.isoformat(),
+                            'message_type': 'system',
+                            'room_id': str(room.room_id)
+                        }
+                    )
+                return JsonResponse({'status': 'success'})
+            return JsonResponse({'status': 'error', 'message': 'You are not a member of this group'}, status=400)
+        return JsonResponse({'status': 'error', 'message': 'Not a group chat'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required
+@csrf_exempt
+def remove_member(request, room_id, user_id):
+    """
+    Remove a specific user from the group room's participants list.
+    Restricted to group creator/admin only.
+    Also creates a system message and broadcasts the update.
+    """
+    import uuid
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    try:
+        room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
+        if room.room_type in ['group', 'project']:
+            # Authorization check: only group creator can remove members
+            if room.created_by and request.user != room.created_by:
+                return JsonResponse({'status': 'error', 'message': 'Only the group creator/admin can remove members'}, status=403)
+            
+            target_user = User.objects.get(id=user_id)
+            if target_user in room.participants.all():
+                room.participants.remove(target_user)
+                
+                # Create a system message
+                msg = Message.objects.create(
+                    room=room,
+                    sender=request.user,
+                    content=f"System: {target_user.username} was removed from the group by {request.user.username}.",
+                    message_type='system'
+                )
+                
+                # Broadcast the removal & message
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    group_name = f"chat_{room.room_id}"
+                    async_to_sync(channel_layer.group_send)(
+                        group_name,
+                        {
+                            'type': 'chat_message',
+                            'id': msg.id,
+                            'message': msg.decrypted_content,
+                            'sender': 'System',
+                            'sender_avatar': None,
+                            'timestamp': msg.created_at.strftime('%H:%M'),
+                            'raw_timestamp': msg.created_at.isoformat(),
+                            'message_type': 'system',
+                            'room_id': str(room.room_id)
+                        }
+                    )
+                return JsonResponse({'status': 'success'})
+            return JsonResponse({'status': 'error', 'message': 'User is not a member of this group'}, status=400)
+        return JsonResponse({'status': 'error', 'message': 'Not a group chat'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required
+def get_non_members(request, room_id):
+    """
+    Returns all users NOT currently in the group, so the admin can pick who to add.
+    Restricted to group creator/admin only.
+    """
+    import uuid
+    try:
+        room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
+        if room.room_type not in ['group', 'project']:
+            return JsonResponse({'status': 'error', 'message': 'Not a group chat'}, status=400)
+        if room.created_by and request.user != room.created_by:
+            return JsonResponse({'status': 'error', 'message': 'Only the group admin can view non-members'}, status=403)
+
+        non_members = User.objects.exclude(
+            id__in=room.participants.values_list('id', flat=True)
+        ).select_related('presence')
+
+        data = []
+        for u in non_members:
+            data.append({
+                'id': u.id,
+                'username': u.username,
+                'display_name': u.display_name,
+                'avatar_url': u.profile_picture.url if u.profile_picture else get_avatar_svg(u.username, u.avatar_color),
+                'is_online': getattr(u, 'presence', None).is_online if getattr(u, 'presence', None) else False,
+            })
+        return JsonResponse({'status': 'success', 'users': data})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required
+@csrf_exempt
+def add_member(request, room_id, user_id):
+    """
+    Add a specific user to the group room's participants list.
+    Restricted to group creator/admin only.
+    Creates a system message and broadcasts the update via WebSocket.
+    """
+    import uuid
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    try:
+        room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
+        if room.room_type in ['group', 'project']:
+            # Authorization: only group creator/admin can add members
+            if room.created_by and request.user != room.created_by:
+                return JsonResponse({'status': 'error', 'message': 'Only the group creator/admin can add members'}, status=403)
+
+            target_user = User.objects.get(id=user_id)
+            if target_user in room.participants.all():
+                return JsonResponse({'status': 'error', 'message': 'User is already a member of this group'}, status=400)
+
+            room.participants.add(target_user)
+
+            # Create a system message
+            msg = Message.objects.create(
+                room=room,
+                sender=request.user,
+                content=f"System: {target_user.username} was added to the group by {request.user.username}.",
+                message_type='system'
+            )
+
+            # Broadcast the addition & system message to all room participants
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                group_name = f"chat_{room.room_id}"
+                async_to_sync(channel_layer.group_send)(
+                    group_name,
+                    {
+                        'type': 'chat_message',
+                        'id': msg.id,
+                        'message': msg.decrypted_content,
+                        'sender': 'System',
+                        'sender_avatar': None,
+                        'timestamp': msg.created_at.strftime('%H:%M'),
+                        'raw_timestamp': msg.created_at.isoformat(),
+                        'message_type': 'system',
+                        'room_id': str(room.room_id)
+                    }
+                )
+            return JsonResponse({'status': 'success'})
+        return JsonResponse({'status': 'error', 'message': 'Not a group chat'}, status=400)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)

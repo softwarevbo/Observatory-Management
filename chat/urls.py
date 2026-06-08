@@ -42,4 +42,16 @@ urlpatterns = [
     
     # Deletes a group chat room (owner only)
     path('api/delete-group/<str:room_id>/', views.delete_group, name='delete_group'),
+    
+    # Leaves a group chat room
+    path('api/leave-group/<str:room_id>/', views.leave_group, name='leave_group'),
+    
+    # Removes a member from group chat room (owner only)
+    path('api/remove-member/<str:room_id>/<int:user_id>/', views.remove_member, name='remove_member'),
+
+    # Returns users not yet in a group (for admin Add Member picker)
+    path('api/non-members/<str:room_id>/', views.get_non_members, name='non_members'),
+
+    # Adds a user to a group chat room (admin only)
+    path('api/add-member/<str:room_id>/<int:user_id>/', views.add_member, name='add_member'),
 ]

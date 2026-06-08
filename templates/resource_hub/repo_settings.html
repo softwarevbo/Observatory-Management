@@ -213,6 +213,12 @@
                     <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">This also changes the repository slug and the bare git directory name.</span>
                 </div>
 
+                <!-- Creator / Owner -->
+                <div style="margin-bottom: 18px;">
+                    <label class="field-label">Creator / Owner</label>
+                    <input type="text" readonly class="field-input" value="{{ repo.owner.display_name }} (@{{ repo.owner.username }})" style="opacity: 0.8; background: var(--bg-primary);">
+                </div>
+
                 <!-- Description -->
                 <div style="margin-bottom: 18px;">
                     <label for="description" class="field-label">Description</label>

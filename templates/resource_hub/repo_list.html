@@ -4,6 +4,9 @@
 {% block page_title %}Resource Hub{% endblock %}
 
 {% block topbar_actions %}
+<button onclick="showGuideModal()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+    <i class="fas fa-book-reader" style="color: var(--accent);"></i> Easy Git Guide
+</button>
 <a href="{% url 'resource_hub:repo_create' %}" class="btn btn-primary btn-sm">
     <i class="fas fa-plus"></i> New Repository
 </a>
@@ -362,4 +365,173 @@
     {% endif %}
 </div>
 {% endif %}
+
+<!-- ── Interactive Easy Git Guide Modal ── -->
+<div id="easyGitGuideModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; max-width: 750px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow); position: relative; display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- Header -->
+        <div>
+            <span onclick="hideGuideModal()" style="position: absolute; top: 20px; right: 20px; font-size: 20px; cursor: pointer; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-times"></i>
+            </span>
+            <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-book-reader"></i> Easy-Peasy Git Guide
+            </h3>
+            <p style="color: var(--text-muted); font-size: 13px; margin: 0;">
+                Learn how to connect your computer, configure Git, and upload your files step-by-step!
+            </p>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); margin: 2px 0;"></div>
+
+        <!-- Guide Body (Simple English) -->
+        <div style="display: flex; flex-direction: column; gap: 20px; font-size: 13.5px; line-height: 1.6; color: var(--text-secondary);">
+            
+            <!-- Intro Card -->
+            <div style="background: rgba(79, 142, 247, 0.05); border-left: 4px solid var(--accent); padding: 14px 16px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+                <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;"><i class="fas fa-magic"></i> What is Git?</strong>
+                Git is like a magical time-machine folder on your computer. It keeps track of every single change you make to your files, so you can never lose your work!
+            </div>
+
+            <!-- Credentials Section -->
+            <div>
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-key" style="color: #f59e0b;"></i> 1. Username & Password (Authentication)
+                </h4>
+                <p style="margin-bottom: 8px;">
+                    When your computer communicates with this server (to upload or download files), it will pop up a window asking for your credentials:
+                </p>
+                <ul style="margin-left: 20px; display: flex; flex-direction: column; gap: 6px;">
+                    <li><strong>Username:</strong> Use the exact username you use to log in to this website (e.g., <code>{{ request.user.username }}</code>).</li>
+                    <li><strong>Password:</strong> Use the exact password you use to log in to this website.</li>
+                </ul>
+            </div>
+
+            <!-- Git Config section -->
+            <div>
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-cog" style="color: var(--accent);"></i> 2. One-Time Setup (Introduce Yourself to Git)
+                </h4>
+                <p style="margin-bottom: 10px;">
+                    Before you do anything, Git needs to know who you are. Open your terminal or command prompt and copy-paste these commands:
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-family: monospace; font-size: 12.5px; position: relative;">
+                        <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;" id="cmdName">git config --global user.name "{{ request.user.display_name|default:request.user.username }}"</pre>
+                        <button type="button" onclick="copySnippetText('cmdName')" style="position: absolute; top: 8px; right: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-muted); border: 1px solid var(--border);">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-family: monospace; font-size: 12.5px; position: relative;">
+                        <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;" id="cmdEmail">git config --global user.email "{{ request.user.email|default:'user@example.com' }}"</pre>
+                        <button type="button" onclick="copySnippetText('cmdEmail')" style="position: absolute; top: 8px; right: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-muted); border: 1px solid var(--border);">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-family: monospace; font-size: 12.5px; position: relative; border-left: 3px solid #ef4444;">
+                        <pre style="margin: 0; white-space: pre-wrap; overflow-x: auto;" id="cmdSafe">git config --global safe.directory "*"</pre>
+                        <button type="button" onclick="copySnippetText('cmdSafe')" style="position: absolute; top: 8px; right: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-muted); border: 1px solid var(--border);">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                        <small style="display: block; margin-top: 6px; color: #ef4444; font-size: 11px; font-family: sans-serif; font-weight: 600;">
+                            * Note: This prevents "dubious ownership" errors when accessing folders owned by other server users.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step-by-Step section -->
+            <div>
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-list-ol" style="color: #10b981;"></i> 3. Step-by-Step Example (How to save and send files)
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div>
+                        <strong style="color: var(--text-primary);">Step A: Download a Repository to your PC</strong>
+                        <p style="margin: 4px 0 6px 0; font-size: 12.5px;">Click any repository card, copy its "Clone URL", and run this command in terminal:</p>
+                        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-family: monospace; font-size: 12px; color: var(--accent);">
+                            git clone [CLONE_URL_HERE]
+                        </div>
+                    </div>
+                    <div>
+                        <strong style="color: var(--text-primary);">Step B: Make Changes & Save Locally</strong>
+                        <p style="margin: 4px 0 6px 0; font-size: 12.5px;">Place your project files inside that new folder, then save the changes in Git:</p>
+                        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-family: monospace; font-size: 12px;">
+                            git add . <br>
+                            git commit -m "Added my project files"
+                        </div>
+                    </div>
+                    <div>
+                        <strong style="color: var(--text-primary);">Step C: Send to the Web Server</strong>
+                        <p style="margin: 4px 0 6px 0; font-size: 12.5px;">Push your files so others can see them on this dashboard:</p>
+                        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-family: monospace; font-size: 12px;">
+                            git push origin master
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div style="border-top: 1px solid var(--border); margin: 2px 0;"></div>
+
+        <!-- Footer Actions -->
+        <div style="display: flex; justify-content: flex-end;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="hideGuideModal()" style="padding: 8px 20px;">
+                Got it!
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
+
+{% block extra_js %}
+<script>
+function showGuideModal() {
+    document.getElementById('easyGitGuideModal').style.display = 'flex';
+}
+function hideGuideModal() {
+    document.getElementById('easyGitGuideModal').style.display = 'none';
+}
+function copySnippetText(elementId) {
+    const text = document.getElementById(elementId).textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showSnippetCopiedState(elementId);
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showSnippetCopiedState(elementId);
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textarea);
+    }
+}
+function showSnippetCopiedState(elementId) {
+    const btn = document.querySelector(`[onclick="copySnippetText('${elementId}')"]`);
+    if (!btn) return;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
+    setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.style.color = '';
+        btn.style.borderColor = '';
+    }, 1500);
+}
+</script>
+{% endblock %}
+

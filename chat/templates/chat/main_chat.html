@@ -663,8 +663,14 @@ body, .sidebar, .sidebar *, .btn-logout {
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="background-color:rgba(0,0,0,.05); border-radius:50%; padding:8px;"></button>
       </div>
       <div class="modal-body p-4 pt-2">
-        <div id="membersList" class="d-flex flex-column" style="max-height:450px; overflow-y:auto;">
+        <div id="membersList" class="d-flex flex-column" style="max-height:380px; overflow-y:auto;">
           <!-- Members will be injected here -->
+        </div>
+        <!-- Add Member button — only shown to admin (toggled by JS) -->
+        <div id="addMemberBtnWrap" style="display:none; margin-top:14px;">
+          <button class="btn btn-primary w-100" style="border-radius:14px; font-weight:600; font-size:13px; padding:10px;" onclick="Chat.openAddMemberModal()">
+            <i class="fas fa-user-plus me-2"></i>Add Member
+          </button>
         </div>
       </div>
     </div>
@@ -685,6 +691,34 @@ body, .sidebar, .sidebar *, .btn-logout {
         </div>
         <div id="forwardList" class="d-flex flex-column" style="max-height:350px; overflow-y:auto; gap: 8px;">
           <!-- Rooms/Contacts to forward to will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Member Modal (admin only) -->
+<div class="modal fade" id="addMemberModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content overflow-hidden" style="border-radius:28px; border:none; box-shadow:0 25px 80px rgba(0,0,0,.35); background:var(--c-surface); max-width:420px; margin:auto;">
+      <div class="modal-header border-0 p-4 pb-2" style="background: linear-gradient(135deg, rgba(99,102,241,.12), transparent);">
+        <div>
+          <h5 class="modal-title fw-bold" style="color:var(--c-text); font-size:19px; letter-spacing:-0.5px;">
+            <i class="fas fa-user-plus me-2" style="color:var(--c-accent);"></i>Add Member
+          </h5>
+          <div style="font-size:12px; color:var(--c-muted); margin-top:2px;">Select users to add to the group</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="background-color:rgba(0,0,0,.05); border-radius:50%; padding:8px;"></button>
+      </div>
+      <div class="modal-body p-4 pt-3">
+        <div class="mb-3">
+          <div style="position:relative;">
+            <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--c-muted); font-size:13px;"></i>
+            <input type="text" id="addMemberSearch" placeholder="Search users..." style="width:100%; padding:10px 12px 10px 36px; border-radius:12px; background:var(--c-bg); border:1px solid var(--c-border); color:var(--c-text); font-size:13px; outline:none;">
+          </div>
+        </div>
+        <div id="addMemberList" class="d-flex flex-column" style="max-height:380px; overflow-y:auto; gap:8px;">
+          <!-- Non-members will be injected here -->
         </div>
       </div>
     </div>
@@ -783,20 +817,29 @@ const Chat = (() => {
     elSearch.addEventListener('input', filterRooms);
     elSearchInput.addEventListener('input', debounce(performSearch, 400));
     
-    // Emoji setup
-    const picker = document.createElement('emoji-picker');
-    picker.dataSource = "{% static 'vendor/emoji-picker-element/data.json' %}";
-    picker.style.display = 'none';
-    picker.style.position = 'absolute';
-    picker.style.bottom = '80px';
-    picker.style.right = '20px';
-    document.body.appendChild(picker);
+    // Emoji lazy loading setup
+    let picker = null;
     document.getElementById('emojiBtn').addEventListener('click', () => {
-        picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
-    });
-    picker.addEventListener('emoji-click', e => {
-        elInput.value += e.detail.unicode;
-        picker.style.display = 'none';
+        if (!picker) {
+            picker = document.createElement('emoji-picker');
+            picker.dataSource = "{% static 'vendor/emoji-picker-element/data.json' %}";
+            picker.style.display = 'none';
+            picker.style.position = 'absolute';
+            picker.style.bottom = '80px';
+            picker.style.right = '20px';
+            picker.style.zIndex = '1000';
+            document.body.appendChild(picker);
+            
+            picker.addEventListener('emoji-click', e => {
+                elInput.value += e.detail.unicode;
+                picker.style.display = 'none';
+                elInput.focus();
+            });
+            
+            picker.style.display = 'block';
+        } else {
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        }
     });
     
     document.body.classList.add('chat-mode');
@@ -1335,6 +1378,15 @@ const Chat = (() => {
         }
     }
 
+    if (d.message_type === 'system') {
+      var row = document.createElement('div');
+      row.className = 'cht-system-row';
+      row.style.cssText = 'text-align: center; margin: 14px auto; font-size: 12px; color: var(--c-muted); font-style: italic; width: 100%; display: block; max-width: 80%; background: var(--c-accent-ghost); border-radius: 8px; padding: 6px 12px; border: 1px dashed var(--c-border);';
+      row.innerHTML = '<span>' + h(d.content || d.message || '') + '</span>';
+      elMsgs.appendChild(row);
+      return;
+    }
+
     var row  = document.createElement('div');
     row.className = 'cht-bubble-row ' + (isMe ? 'me' : 'them') + (d.is_deleted ? ' deleted' : '');
     row.dataset.isme = isMe ? 'true' : 'false';
@@ -1616,52 +1668,63 @@ const Chat = (() => {
 
   // ── Drag-and-drop file upload for chat ──
   let draggedFiles = [];
-  let dragCounter = 0;
+  let _dropEnterCount = 0;  // Counter to reliably track nested dragenter/dragleave events
+
+  function _getFileIcon(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (['zip','rar','7z','tar','gz','bz2'].includes(ext)) return 'fa-file-archive';
+    if (['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext)) return 'fa-file-image';
+    if (['mp4','mov','avi','mkv','webm'].includes(ext)) return 'fa-file-video';
+    if (['mp3','wav','ogg','flac','aac'].includes(ext)) return 'fa-file-audio';
+    if (['pdf'].includes(ext)) return 'fa-file-pdf';
+    if (['doc','docx'].includes(ext)) return 'fa-file-word';
+    if (['xls','xlsx','csv'].includes(ext)) return 'fa-file-excel';
+    if (['py','js','ts','html','css','sh','json','xml','yaml','sql'].includes(ext)) return 'fa-file-code';
+    return 'fa-file';
+  }
 
   function initChatDrop() {
-    // Insert overlay div directly into the panel (not via template clone)
     const panel = document.getElementById('chtPanel');
     if (!panel) return;
     panel.style.position = 'relative';
 
-    // Remove any existing overlay first
+    // Remove any stale overlay from a previous room open
     const existing = document.getElementById('chtDropOverlay');
     if (existing) existing.remove();
+    _dropEnterCount = 0;
 
     const ov = document.createElement('div');
     ov.id = 'chtDropOverlay';
     ov.innerHTML = '<i class="fas fa-file-upload"></i><span>Drop files to send</span><small style="font-size:13px;opacity:0.7;">Multiple files supported</small>';
     panel.appendChild(ov);
 
-    // Track whether any drag is happening over the panel
-    let isDraggingOverPanel = false;
-
     function showOverlay() {
       if (!roomId) return;
       ov.classList.add('active');
-      isDraggingOverPanel = true;
     }
     function hideOverlay() {
       ov.classList.remove('active');
-      isDraggingOverPanel = false;
     }
 
-    // Use dragenter/dragleave on the panel itself
-    // relatedTarget check: only hide when leaving panel entirely (not entering a child)
+    // ── Counter-based drag tracking ──
+    // dragenter fires for every child element entered, dragleave fires for every child left.
+    // The counter ensures the overlay stays visible until the cursor truly leaves the panel.
     panel.addEventListener('dragenter', function(e) {
+      if (!roomId) return;
       e.preventDefault();
       e.stopPropagation();
-      showOverlay();
+      _dropEnterCount++;
+      if (_dropEnterCount === 1) showOverlay();
     });
 
     panel.addEventListener('dragleave', function(e) {
-      // relatedTarget is where the cursor went — if it's still inside panel, ignore
-      if (e.relatedTarget && panel.contains(e.relatedTarget)) return;
-      hideOverlay();
+      e.preventDefault();
+      e.stopPropagation();
+      _dropEnterCount = Math.max(0, _dropEnterCount - 1);
+      if (_dropEnterCount === 0) hideOverlay();
     });
 
     panel.addEventListener('dragover', function(e) {
-      // Must preventDefault to allow drop
       e.preventDefault();
       e.stopPropagation();
       if (roomId) e.dataTransfer.dropEffect = 'copy';
@@ -1670,19 +1733,40 @@ const Chat = (() => {
     panel.addEventListener('drop', function(e) {
       e.preventDefault();
       e.stopPropagation();
+      _dropEnterCount = 0;
       hideOverlay();
       if (!roomId) return;
 
       const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
-      if (!files.length) return;
+      if (!files.length) {
+        // Handle ZIP/archive dragged from file manager — some browsers pass items, not files
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          const itemFiles = [];
+          for (let i = 0; i < e.dataTransfer.items.length; i++) {
+            const item = e.dataTransfer.items[i];
+            if (item.kind === 'file') {
+              const f = item.getAsFile();
+              if (f) itemFiles.push(f);
+            }
+          }
+          if (itemFiles.length > 0) {
+            draggedFiles = draggedFiles.concat(itemFiles);
+            renderDropChips();
+          }
+        }
+        return;
+      }
 
-      draggedFiles = draggedFiles.concat(Array.from(files));
+      draggedFiles = draggedFiles.concat(files);
       renderDropChips();
     });
 
-    // Safety: if user drags out of window, hide overlay
+    // Reset counter when drag leaves window entirely
     document.addEventListener('dragleave', function(e) {
-      if (!e.relatedTarget) hideOverlay();
+      if (!e.relatedTarget) {
+        _dropEnterCount = 0;
+        hideOverlay();
+      }
     });
   }
 
@@ -1696,7 +1780,9 @@ const Chat = (() => {
     draggedFiles.forEach(function(f, i) {
       const chip = document.createElement('div');
       chip.className = 'cht-drop-chip';
-      chip.innerHTML = `<i class="fas fa-file"></i><span title="${h(f.name)}">${h(f.name.length > 20 ? f.name.slice(0, 18) + '\u2026' : f.name)}</span>` +
+      const iconClass = _getFileIcon(f.name);
+      const sizeMb = f.size > 0 ? ' (' + (f.size / 1024 / 1024).toFixed(1) + 'MB)' : '';
+      chip.innerHTML = `<i class="fas ${iconClass}"></i><span title="${h(f.name)}${sizeMb}">${h(f.name.length > 22 ? f.name.slice(0, 20) + '\u2026' : f.name)}</span>` +
         `<span class="rm" onclick="Chat.removeDropFile(${i})"><i class="fas fa-times"></i></span>`;
       chips.appendChild(chip);
     });
@@ -1719,9 +1805,19 @@ const Chat = (() => {
     var icon = document.getElementById('attachIcon');
     if (icon) icon.className = 'fas fa-spinner fa-spin';
     
+    // Build file list array (works for both FileList and plain Array)
+    var fileArr = Array.from(files);
+    
+    // Send files sequentially if ZIP/archives are in the list (avoids timeouts on large archives)
+    var archiveExts = ['zip','rar','7z','tar','gz','bz2'];
+    var hasArchive = fileArr.some(function(f) {
+      var ext = (f.name.split('.').pop() || '').toLowerCase();
+      return archiveExts.includes(ext);
+    });
+    
     var fd = new FormData();
-    for (var i = 0; i < files.length; i++) {
-      fd.append('files', files[i]);
+    for (var i = 0; i < fileArr.length; i++) {
+      fd.append('files', fileArr[i]);
     }
     fd.append('room_id', roomId);
     
@@ -1730,15 +1826,26 @@ const Chat = (() => {
       body: fd, 
       headers: { 'X-CSRFToken': '{{ csrf_token }}' } 
     })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (!r.ok) {
+          // Server returned an HTTP error code (e.g. 413 Request Entity Too Large)
+          return r.text().then(function(txt) {
+            var msg = 'Upload failed (HTTP ' + r.status + ')';
+            if (r.status === 413) msg = 'File too large. Please reduce the file size and try again.';
+            else if (r.status === 403) msg = 'Permission denied. You may not have access to upload here.';
+            throw new Error(msg);
+          });
+        }
+        return r.json();
+      })
       .then(function(d) {
-        if (d.status !== 'success') {
-          alert(d.message || 'Upload failed');
+        if (d && d.status !== 'success') {
+          alert(d.message || 'Upload failed. Please try again.');
         }
       })
       .catch(function(e) { 
-        console.error(e); 
-        alert('Upload failed.'); 
+        console.error('[Upload error]', e); 
+        alert(e.message || 'Upload failed. Check your network connection and try again.'); 
       })
       .finally(function() { 
         if (icon) icon.className = 'fas fa-paperclip'; 
@@ -1875,12 +1982,30 @@ const Chat = (() => {
     const countLabel = document.getElementById('memberCountLabel');
     list.innerHTML = '';
     countLabel.textContent = currentParticipants.length + ' members';
+
+    const isUserAdmin = (created_by && ME === created_by);
+
+    // Show/hide the Add Member button for admins
+    const addBtnWrap = document.getElementById('addMemberBtnWrap');
+    if (addBtnWrap) addBtnWrap.style.display = isUserAdmin ? 'block' : 'none';
     
     currentParticipants.forEach(p => {
       const item = document.createElement('div');
       item.className = 'cht-modal-item';
       
       const avatarUrl = p.profile_picture || getAvatarSvg(p.username, p.avatar_color);
+      
+      const isTargetAdmin = (created_by && p.username === created_by);
+      
+      let actionButtons = '';
+      if (p.username === ME) {
+        actionButtons = `<button class="btn btn-sm btn-outline-danger py-1 px-2" style="font-size:11px; font-weight:600;" onclick="Chat.leaveGroup('${roomId}')"><i class="fas fa-sign-out-alt"></i> Leave</button>`;
+      } else {
+        actionButtons = `<button class="btn btn-sm btn-secondary py-1 px-2" style="font-size:11px;" onclick="bootstrap.Modal.getInstance(document.getElementById('membersModal')).hide(); Chat.open('DM-${p.id}', '${p.username}', 'direct')">Message</button>`;
+        if (isUserAdmin && !isTargetAdmin) {
+          actionButtons += `<button class="btn btn-sm btn-danger py-1 px-2 ms-1" style="font-size:11px;" onclick="Chat.removeMember('${roomId}', '${p.id}', '${p.username}')">Remove</button>`;
+        }
+      }
       
       item.innerHTML = `
         <div class="d-flex align-items-center gap-3 min-w-0">
@@ -1897,8 +2022,8 @@ const Chat = (() => {
             <div style="font-size:11px; color:var(--c-muted); margin-top:2px;">${p.is_online ? 'Online' : 'Offline'}</div>
           </div>
         </div>
-        <div>
-          ${p.username !== ME ? `<button class="btn btn-sm btn-secondary py-1 px-2" style="font-size:11px;" onclick="bootstrap.Modal.getInstance(document.getElementById('membersModal')).hide(); Chat.open('DM-${p.id}', '${p.username}', 'direct')">Message</button>` : ''}
+        <div class="d-flex align-items-center">
+          ${actionButtons}
         </div>
       `;
       list.appendChild(item);
@@ -1911,6 +2036,116 @@ const Chat = (() => {
   let activeForwardMsgId = null;
   let activeForwardMsgIds = [];
   let forwardModalInstance = null;
+  let addMemberModalInstance = null;
+  let _nonMembersCache = [];
+
+  // ── Add Member (admin only) ──────────────────────────────────────────────
+  function openAddMemberModal() {
+    // Hide the members modal first
+    const membersEl = document.getElementById('membersModal');
+    const membersInst = membersEl ? bootstrap.Modal.getInstance(membersEl) : null;
+    if (membersInst) membersInst.hide();
+
+    const list = document.getElementById('addMemberList');
+    const search = document.getElementById('addMemberSearch');
+    if (!list) return;
+    list.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><div class="mt-2" style="font-size:12px;color:var(--c-muted);">Loading users…</div></div>';
+    if (search) search.value = '';
+
+    fetch('/chat/api/non-members/' + roomId + '/')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          _nonMembersCache = data.users;
+          renderAddMemberList(_nonMembersCache);
+          if (search) {
+            search.oninput = () => {
+              const q = search.value.toLowerCase();
+              renderAddMemberList(_nonMembersCache.filter(u =>
+                u.username.toLowerCase().includes(q) ||
+                (u.display_name || '').toLowerCase().includes(q)
+              ));
+            };
+          }
+        } else {
+          list.innerHTML = `<div class="text-center text-danger small py-3">${data.message || 'Failed to load users'}</div>`;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        list.innerHTML = '<div class="text-center text-danger small py-3">Error loading users</div>';
+      });
+
+    if (!addMemberModalInstance) {
+      addMemberModalInstance = new bootstrap.Modal(document.getElementById('addMemberModal'));
+    }
+    addMemberModalInstance.show();
+  }
+
+  function renderAddMemberList(users) {
+    const list = document.getElementById('addMemberList');
+    list.innerHTML = '';
+    if (!users || !users.length) {
+      list.innerHTML = '<div class="text-center py-4" style="color:var(--c-muted); font-size:13px;"><i class="fas fa-check-circle mb-2" style="font-size:28px; display:block; color:#10b981;"></i>All users are already in this group</div>';
+      return;
+    }
+    users.forEach(u => {
+      const item = document.createElement('div');
+      item.className = 'cht-modal-item';
+      const avatarUrl = u.avatar_url || getAvatarSvg(u.username);
+      item.innerHTML = `
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <div class="position-relative flex-shrink-0">
+            <img src="${avatarUrl}" style="width:40px; height:40px; object-fit:cover; border-radius:12px; border:2px solid var(--c-border);">
+            <span class="presence-dot ${u.is_online ? 'online' : ''}" style="position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; border:2.5px solid var(--c-surface);"></span>
+          </div>
+          <div class="min-w-0">
+            <div style="font-size:14px; font-weight:600; color:var(--c-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${h(u.display_name || u.username)}</div>
+            <div style="font-size:11px; color:var(--c-muted); margin-top:1px;">${u.is_online ? '🟢 Online' : 'Offline'}</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-primary py-1 px-3" style="font-size:11px; font-weight:600; border-radius:10px; flex-shrink:0;"
+                id="addMemberBtn-${u.id}"
+                onclick="Chat.addMember('${roomId}', '${u.id}', '${h(u.username)}', this)">
+          <i class="fas fa-user-plus me-1"></i>Add
+        </button>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  function addMember(rId, uId, username, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adding…';
+
+    fetch('/chat/api/add-member/' + rId + '/' + uId + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'success') {
+        btn.className = 'btn btn-sm btn-success py-1 px-3';
+        btn.style.cssText = 'font-size:11px; font-weight:600; border-radius:10px; flex-shrink:0;';
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Added';
+        // Remove them from the non-members cache so search updates correctly
+        _nonMembersCache = _nonMembersCache.filter(u => String(u.id) !== String(uId));
+        // Reload history so system message appears
+        loadHistory(rId);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus me-1"></i>Add';
+        alert(d.message || 'Failed to add member.');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-user-plus me-1"></i>Add';
+      alert('Error adding member.');
+    });
+  }
+
 
   function openForwardModal(msgId) {
     if (msgId !== null) { activeForwardMsgId = msgId; activeForwardMsgIds = []; }
@@ -2055,7 +2290,60 @@ const Chat = (() => {
     }
   }
 
-  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive, leave };
+  function leaveGroup(rId) {
+    if (!confirm("Are you sure you want to leave this group?")) return;
+    const modalEl = document.getElementById('membersModal');
+    if (modalEl) {
+      const inst = bootstrap.Modal.getInstance(modalEl);
+      if (inst) inst.hide();
+    }
+    
+    fetch('/chat/api/leave-group/' + rId + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'success') {
+        window.location.reload();
+      } else {
+        alert(d.message || "Failed to leave group.");
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Error leaving group.");
+    });
+  }
+
+  function removeMember(rId, uId, username) {
+    if (!confirm("Are you sure you want to remove " + username + " from this group?")) return;
+    
+    fetch('/chat/api/remove-member/' + rId + '/' + uId + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'success') {
+        const modalEl = document.getElementById('membersModal');
+        if (modalEl) {
+          const inst = bootstrap.Modal.getInstance(modalEl);
+          if (inst) inst.hide();
+        }
+        loadHistory(rId);
+        setTimeout(() => { showMembers(); }, 400);
+      } else {
+        alert(d.message || "Failed to remove member.");
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Error removing member.");
+    });
+  }
+
+  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive, leave, leaveGroup, removeMember, openAddMemberModal, renderAddMemberList, addMember };
 })();
 
 // Expose Chat globally so the Quick Chat global-notification WebSocket can call into it

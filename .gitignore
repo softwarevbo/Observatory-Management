@@ -141,3 +141,5 @@ docker-compose.override.yml
 # ─── pyproject / pip ───────────────────────────────────────
 pip-log.txt
 pip-delete-this-directory.txt
+backups/backup_20260604_162210.tar.gz
+backups/backup_20260604_162435.tar.gz

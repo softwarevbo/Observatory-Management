@@ -1,5 +1,6 @@
 import os
 import base64
+import logging
 import shutil
 import tempfile
 import subprocess
@@ -160,6 +161,30 @@ def get_clone_url(request, repo):
 
 # --- Git Smart HTTP Server Endpoint ---
 
+logger = logging.getLogger(__name__)
+
+def _find_git_http_backend():
+    """Locate the git-http-backend CGI executable on this system."""
+    candidates = [
+        '/usr/lib/git-core/git-http-backend',
+        '/usr/libexec/git-core/git-http-backend',
+        '/usr/lib/git/git-http-backend',
+    ]
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    # Fallback: ask the shell
+    try:
+        result = subprocess.run(['which', 'git-http-backend'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except Exception:
+        pass
+    # Last resort — most common path on Debian/Ubuntu
+    return '/usr/lib/git-core/git-http-backend'
+
+_GIT_HTTP_BACKEND = _find_git_http_backend()
+
 @csrf_exempt
 def git_smart_http_view(request, slug, git_path):
     """
@@ -168,6 +193,14 @@ def git_smart_http_view(request, slug, git_path):
     """
     # Retrieve repository model
     repo = get_object_or_404(Repository, slug=slug)
+
+    # Verify the bare repository directory actually exists on disk
+    if not os.path.isdir(repo.git_dir):
+        logger.error("Git repo directory missing: %s", repo.git_dir)
+        return HttpResponse(
+            f"Repository directory not found. Please contact an administrator.",
+            status=500, content_type="text/plain"
+        )
 
     # Detect if request is pushing changes (git-receive-pack service type)
     is_push = (git_path == 'git-receive-pack' or request.GET.get('service') == 'git-receive-pack')
@@ -215,22 +248,55 @@ def git_smart_http_view(request, slug, git_path):
     if request.user.is_authenticated:
         env['REMOTE_USER'] = request.user.username
 
-    # Spawn git-http-backend process
-    proc = subprocess.Popen(
-        ['/usr/lib/git-core/git-http-backend'],
-        env=env,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
+    # CRITICAL: Bypass git safe.directory ownership checks (git ≥ 2.35.2).
+    # Without this, git-http-backend returns fatal errors when the Django process
+    # user differs from the directory owner.
+    env['GIT_CONFIG_COUNT'] = '1'
+    env['GIT_CONFIG_KEY_0'] = 'safe.directory'
+    env['GIT_CONFIG_VALUE_0'] = '*'
 
-    # Pipe body payload from request into the subprocess stdin
-    input_data = request.body
-    stdout_data, stderr_data = proc.communicate(input=input_data)
+    try:
+        # Spawn git-http-backend process
+        proc = subprocess.Popen(
+            [_GIT_HTTP_BACKEND],
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        # Pipe body payload from request into the subprocess stdin
+        input_data = request.body
+        stdout_data, stderr_data = proc.communicate(input=input_data, timeout=120)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        logger.error("git-http-backend timed out for repo=%s path=%s", slug, git_path)
+        return HttpResponse("Git operation timed out.", status=504, content_type="text/plain")
+    except FileNotFoundError:
+        logger.error("git-http-backend not found at: %s", _GIT_HTTP_BACKEND)
+        return HttpResponse(
+            "Git HTTP backend not installed on server.",
+            status=500, content_type="text/plain"
+        )
+    except Exception as exc:
+        logger.exception("git-http-backend process error for repo=%s: %s", slug, exc)
+        return HttpResponse(
+            "Internal server error during Git operation.",
+            status=500, content_type="text/plain"
+        )
 
     # Check for process execution failures
     if proc.returncode != 0:
-        return HttpResponse(stderr_data, status=500, content_type="text/plain")
+        stderr_text = stderr_data.decode('utf-8', errors='replace') if stderr_data else '(no stderr)'
+        logger.error(
+            "git-http-backend failed (rc=%d) for repo=%s path=%s: %s",
+            proc.returncode, slug, git_path, stderr_text
+        )
+        return HttpResponse(
+            f"Git backend error: {stderr_text}",
+            status=500, content_type="text/plain"
+        )
 
     # CGI outputs headers first followed by double newlines. Parse and separate them
     header_body_sep = b'\r\n\r\n'
