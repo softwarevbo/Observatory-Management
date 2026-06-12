@@ -486,7 +486,7 @@ body, .sidebar, .sidebar *, .btn-logout {
                   <div class="cht-room-name" style="font-weight: 600; font-size: 14px;">{{ p.username }} (You)</div>
                   <span class="cht-unread-badge {% if room.unread_count == 0 %}d-none{% endif %}" data-room-id="{{ room.room_id }}" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">{{ room.unread_count }}</span>
                 </div>
-                <div class="cht-room-sub">{{ room.last_msg.content|default:"No messages yet"|truncatechars:30 }}</div>
+                <div class="cht-room-sub">{{ room.last_msg.decrypted_content|default:"No messages yet"|truncatechars:30 }}</div>
               </div>
             </div>
             {% endwith %}
@@ -503,7 +503,7 @@ body, .sidebar, .sidebar *, .btn-logout {
                       <div class="cht-room-name" style="font-weight: 600; font-size: 14px;">{{ p.username }}</div>
                       <span class="cht-unread-badge {% if room.unread_count == 0 %}d-none{% endif %}" data-room-id="{{ room.room_id }}" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">{{ room.unread_count }}</span>
                     </div>
-                    <div class="cht-room-sub">{{ room.last_msg.content|default:"No messages yet"|truncatechars:30 }}</div>
+                    <div class="cht-room-sub">{{ room.last_msg.decrypted_content|default:"No messages yet"|truncatechars:30 }}</div>
                   </div>
                 </div>
               {% endif %}
@@ -519,7 +519,7 @@ body, .sidebar, .sidebar *, .btn-logout {
                 <div class="cht-room-name" style="font-weight: 600; font-size: 14px;">{{ room.name }}</div>
                 <span class="cht-unread-badge {% if room.unread_count == 0 %}d-none{% endif %}" data-room-id="{{ room.room_id }}" style="background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 8px;">{{ room.unread_count }}</span>
               </div>
-              <div class="cht-room-sub">{{ room.last_msg.content|default:"No messages yet"|truncatechars:30 }}</div>
+              <div class="cht-room-sub">{{ room.last_msg.decrypted_content|default:"No messages yet"|truncatechars:30 }}</div>
             </div>
           </div>
         {% endif %}
@@ -638,7 +638,7 @@ body, .sidebar, .sidebar *, .btn-logout {
           <input type="file" id="fileInp" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="Chat.uploadFile(this)" multiple>
           <label for="fileInp" class="cht-ib" title="Attach file"><i class="fas fa-paperclip" id="attachIcon"></i></label>
           <div class="cht-field-wrap">
-            <input type="text" class="cht-field" id="msgInput" placeholder="Type a message…" autocomplete="off">
+            <textarea class="cht-field" id="msgInput" placeholder="Type a message…" autocomplete="off" rows="1" style="resize:none; height:38px; line-height:18px; overflow-y:auto;"></textarea>
           </div>
           <button class="cht-send" id="sendBtn" type="button" title="Send"><i class="fas fa-paper-plane"></i></button>
         </div>
@@ -730,7 +730,7 @@ body, .sidebar, .sidebar *, .btn-logout {
 const Chat = (() => {
   'use strict';
 
-  let ws=null, roomId=null, activeRoomUUID=null, replyId=null, editId=null, isTyping=false, typTimer=null, currentParticipants=[], currentRoomType=null, created_by=null;
+  let ws=null, roomId=null, activeRoomUUID=null, replyId=null, editId=null, isTyping=false, typTimer=null, currentParticipants=[], currentRoomType=null, created_by=null, is_group_admin=false;
   let selectedMsgIds = new Set();
   let inSelectMode = false;
   let lastRenderedDate = null;
@@ -1108,9 +1108,10 @@ const Chat = (() => {
         currentParticipants = data.participants || [];
         currentRoomType = data.room_type;
         created_by = data.created_by || null;
+        is_group_admin = data.is_group_admin || false;
 
         const delGrpBtn = document.getElementById('menuItemDeleteGroup');
-        if (delGrpBtn) delGrpBtn.style.display = (currentRoomType === 'group' && created_by === ME) ? 'block' : 'none';
+        if (delGrpBtn) delGrpBtn.style.display = (currentRoomType === 'group' && is_group_admin) ? 'block' : 'none';
 
         var elPanelMeta = document.getElementById('panelMeta');
         if (elPanelMeta) {
@@ -1983,7 +1984,7 @@ const Chat = (() => {
     list.innerHTML = '';
     countLabel.textContent = currentParticipants.length + ' members';
 
-    const isUserAdmin = (created_by && ME === created_by);
+    const isUserAdmin = is_group_admin;
 
     // Show/hide the Add Member button for admins
     const addBtnWrap = document.getElementById('addMemberBtnWrap');

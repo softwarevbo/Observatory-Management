@@ -39,18 +39,21 @@
     }
     {% endif %}
 
+/* ── Markdown Body ── */
 .markdown-body {
     font-size: 15px;
-    line-height: 1.6;
+    line-height: 1.7;
     color: var(--text-primary);
 }
-.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
     margin-top: 24px;
-    margin-bottom: 16px;
-    font-weight: 600;
+    margin-bottom: 14px;
+    font-weight: 700;
     line-height: 1.25;
+    color: var(--text-primary);
 }
-.markdown-body h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+.markdown-body h1 { font-size: 2em;   border-bottom: 1px solid var(--border); padding-bottom: .3em; }
 .markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
 .markdown-body h3 { font-size: 1.25em; }
 .markdown-body pre {
@@ -70,10 +73,7 @@
     font-family: 'Fira Code', monospace;
     font-size: 85%;
 }
-.markdown-body pre code {
-    background-color: transparent;
-    padding: 0;
-}
+.markdown-body pre code { background-color: transparent; padding: 0; }
 .markdown-body blockquote {
     padding: 0 1em;
     color: var(--text-muted);
@@ -82,10 +82,32 @@
     font-style: italic;
 }
 .markdown-body ul, .markdown-body ol { margin-bottom: 16px; padding-left: 2em; }
-.markdown-body p { margin-top: 0; margin-bottom: 16px; }
+.markdown-body li { margin-bottom: 4px; }
+.markdown-body p  { margin-top: 0; margin-bottom: 14px; }
 .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-.markdown-body table th, .markdown-body table td { border: 1px solid var(--border); padding: 6px 13px; }
+.markdown-body table th,
+.markdown-body table td { border: 1px solid var(--border); padding: 8px 13px; }
 .markdown-body table tr:nth-child(2n) { background-color: var(--bg-hover); }
+
+/* ── Subscript / Superscript (HTML tags from Google Docs export) ── */
+.markdown-body sub {
+    font-size: 75%;
+    vertical-align: sub;
+    line-height: 0;
+}
+.markdown-body sup {
+    font-size: 75%;
+    vertical-align: super;
+    line-height: 0;
+}
+
+/* ── KaTeX display blocks ── */
+.markdown-body .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 0;
+    margin: 16px 0;
+}
 </style>
 {% endblock %}
 
@@ -107,11 +129,11 @@
     <div class="card-header">
         <div class="card-title">{{ note.title }}</div>
     </div>
-    
-    <!-- Hidden textarea to hold raw content securely -->
+
+    <!-- Raw content stored in a textarea (never visible, never executed) -->
     <textarea id="content-raw" style="display:none;">{{ note.content }}</textarea>
-    
-    <div id="markdown-render" class="markdown-body" style="padding: 10px 0;">
+
+    <div id="markdown-render" class="markdown-body" style="padding: 16px 4px;">
         <div style="display:flex; justify-content:center; padding:40px;">
             <i class="fas fa-spinner fa-spin" style="font-size:24px; color:var(--accent); opacity:0.5;"></i>
         </div>
@@ -119,42 +141,127 @@
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const rawContentEl = document.getElementById("content-raw");
-        const renderEl = document.getElementById("markdown-render");
-        
-        if (!rawContentEl || !renderEl) return;
-        
-        const rawContent = rawContentEl.value;
-        
-        // Use the same rendering logic as kb_form.html which is known to work
-        if (typeof marked !== 'undefined') {
-            renderEl.innerHTML = marked.parse(rawContent);
-            
-            // Trigger KaTeX rendering
-            function triggerKaTeX() {
-                if (typeof renderMathInElement === 'function') {
-                    renderMathInElement(renderEl, {
-                        delimiters: [
-                            {left: '$$', right: '$$', display: true},
-                            {left: '$', right: '$', display: false},
-                            {left: '\\(', right: '\\)', display: false},
-                            {left: '\\[', right: '\\]', display: true},
-                            {left: '\\begin{equation}', right: '\\end{equation}', display: true},
-                            {left: '\\begin{align}', right: '\\end{align}', display: true},
-                            {left: '\\begin{alignat}', right: '\\end{alignat}', display: true},
-                            {left: '\\begin{gather}', right: '\\end{gather}', display: true},
-                            {left: '\\begin{CD}', right: '\\end{CD}', display: true}
-                        ],
-                        throwOnError : false
-                    });
-                } else {
-                    // Wait for KaTeX scripts (loaded with defer in base.html)
-                    setTimeout(triggerKaTeX, 50);
-                }
-            }
-            triggerKaTeX();
+/*
+ * Math-aware Markdown renderer
+ * ────────────────────────────
+ * Problem: marked.js mangles LaTeX — it turns underscores into <em> (italic),
+ * backslashes into escapes, and asterisks into <strong>.  So $a_{n}^{2}$ gets
+ * destroyed before KaTeX ever sees it.
+ *
+ * Solution (segment approach):
+ *   1. Scan the raw source with a regex that matches ALL math regions.
+ *   2. Split the source into alternating [text, math, text, math, ...] segments.
+ *   3. Pass ONLY the text segments through marked — math is NEVER touched by marked.
+ *   4. Concatenate the pieces, inject into the DOM.
+ *   5. Call KaTeX renderMathInElement() on the rendered element.
+ *
+ * This is 100% safe because marked never sees the math content.
+ */
+document.addEventListener("DOMContentLoaded", function () {
+
+    var rawEl  = document.getElementById("content-raw");
+    var outEl  = document.getElementById("markdown-render");
+    if (!rawEl || !outEl) return;
+
+    var src = rawEl.value;
+
+    // ── 1. Build a combined regex for every math notation we want to support ──
+    //
+    //   $$...$$          – display math (GFM / standard)
+    //   \[...\]          – display math (LaTeX)
+    //   \begin{}...\end{}– LaTeX environments (align, equation, etc.)
+    //   $...$            – inline math  (single-line)
+    //   \(...\)          – inline math  (LaTeX paren form)
+    //
+    // IMPORTANT: $$ must come before $ in the alternation, otherwise the $
+    // in $$ would match the inline-math rule first.
+    var MATH_RE = new RegExp(
+        /\$\$[\s\S]+?\$\$/.source                              + '|' +  // $$...$$
+        /\\\[[\s\S]*?\\\]/.source                              + '|' +  // \[...\]
+        /\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\}/.source       + '|' +  // \begin..\end
+        /\$[^\$\n]+?\$/.source                                 + '|' +  // $...$
+        /\\\([\s\S]*?\\\)/.source,                                       // \(...\)
+        'g'
+    );
+
+    // ── 2. Split into alternating text / math segments ─────────────────────────
+    var segments = [];
+    var last = 0;
+    var m;
+    MATH_RE.lastIndex = 0;
+
+    while ((m = MATH_RE.exec(src)) !== null) {
+        if (m.index > last) {
+            segments.push({ isMath: false, text: src.slice(last, m.index) });
         }
-    });
+        segments.push({ isMath: true, text: m[0] });
+        last = m.index + m[0].length;
+    }
+    if (last < src.length) {
+        segments.push({ isMath: false, text: src.slice(last) });
+    }
+
+    // ── 3. Render each segment ─────────────────────────────────────────────────
+    if (typeof marked === 'undefined') {
+        outEl.innerHTML = '<p style="color:var(--red)"><b>Error:</b> Markdown renderer (marked.js) not loaded.</p>';
+        return;
+    }
+
+    // GFM mode: intra-word underscores like a_2 are NOT treated as italic.
+    // This is the correct CommonMark / GitHub behavior.
+    try {
+        marked.setOptions({ gfm: true, pedantic: false, breaks: false });
+    } catch(e) { /* older marked versions may not have all options */ }
+
+    var html = '';
+    for (var i = 0; i < segments.length; i++) {
+        var seg = segments[i];
+        if (seg.isMath) {
+            // Math content goes straight into the output — untouched.
+            // Wrap display math in a block div so it centres properly.
+            var isDisplay = (
+                seg.text.slice(0, 2) === '$$'      ||
+                seg.text.slice(0, 2) === '\\['     ||
+                seg.text.slice(0, 6) === '\\begin'
+            );
+            if (isDisplay) {
+                html += '<div class="math-display-wrapper">' + seg.text + '</div>';
+            } else {
+                html += seg.text;
+            }
+        } else {
+            // Only non-math text goes through marked.
+            html += marked.parse(seg.text);
+        }
+    }
+
+    outEl.innerHTML = html;
+
+    // ── 4. Run KaTeX AFTER the HTML is in the DOM ──────────────────────────────
+    // core_base.html loads katex.min.js and auto-render.min.js with `defer`,
+    // so they may not be ready yet.  Poll every 30 ms until available.
+    function runKaTeX() {
+        if (typeof renderMathInElement === 'function') {
+            renderMathInElement(outEl, {
+                delimiters: [
+                    { left: '$$',                right: '$$',              display: true  },
+                    { left: '\\[',               right: '\\]',             display: true  },
+                    { left: '\\begin{equation}', right: '\\end{equation}', display: true  },
+                    { left: '\\begin{align}',    right: '\\end{align}',    display: true  },
+                    { left: '\\begin{alignat}',  right: '\\end{alignat}',  display: true  },
+                    { left: '\\begin{gather}',   right: '\\end{gather}',   display: true  },
+                    { left: '\\begin{CD}',       right: '\\end{CD}',       display: true  },
+                    { left: '$',                 right: '$',               display: false },
+                    { left: '\\(',               right: '\\)',             display: false }
+                ],
+                throwOnError: false,
+                errorColor: '#ef4444'
+            });
+        } else {
+            setTimeout(runKaTeX, 30);
+        }
+    }
+    runKaTeX();
+});
 </script>
 {% endblock %}

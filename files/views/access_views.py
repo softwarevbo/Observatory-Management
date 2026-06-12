@@ -144,6 +144,9 @@ def category_create(request, pk):
         )
         
         messages.success(request, f'Folder "{cat.name}" created successfully.')
+        next_url = request.POST.get("next") or request.GET.get("next")
+        if next_url:
+            return redirect(next_url)
         return redirect("files:project_files", pk=project.pk)
     
     return render(

@@ -276,6 +276,7 @@
     line-height: 1.4;
     word-break: break-word;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    white-space: pre-wrap;
   }
   .me .qc-msg-bubble {
     background: var(--accent);
@@ -320,6 +321,10 @@
     font-size: 13px;
     outline: none;
     transition: border-color 0.2s;
+    resize: none;
+    height: 36px;
+    line-height: 18px;
+    overflow-y: auto;
   }
   .qc-input:focus {
     border-color: var(--accent);
@@ -1058,7 +1063,7 @@
       <button class="qc-header-btn" id="qcAttachBtn" title="Attach files" style="color: var(--text-muted); font-size: 16px; padding: 4px;">
         <i class="fas fa-paperclip"></i>
       </button>
-      <input type="text" class="qc-input" id="qcMessageInput" placeholder="Type a message..." autocomplete="off">
+      <textarea class="qc-input" id="qcMessageInput" placeholder="Type a message..." autocomplete="off" rows="1"></textarea>
       <!-- Select mode toggle inside input row -->
       <button class="qc-header-btn" id="qcSelModeBtn" title="Select messages"
         onclick="qcEnterSelectMode()"
@@ -1308,7 +1313,7 @@
   // Send Action
   elSendBtn.addEventListener('click', qcSendMessage);
   elMessageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       qcSendMessage();
     }

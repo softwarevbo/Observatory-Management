@@ -1324,3 +1324,8 @@
 .btn-close:focus {
   box-shadow: none !important;
 }
+
+/* Formats newlines in message text */
+.cht-text {
+  white-space: pre-wrap;
+}

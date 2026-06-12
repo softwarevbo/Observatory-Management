@@ -369,9 +369,18 @@
                                 <input type="text" name="designation" class="form-control" value="{{ user.designation }}">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Phone Number</label>
-                            <input type="text" name="phone" class="form-control" value="{{ user.phone }}">
+                        <div class="settings-form-row">
+                            <div class="form-group">
+                                <label>Phone Number</label>
+                                <input type="text" name="phone" class="form-control" value="{{ user.phone }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <input type="email" name="email" class="form-control" id="id_profile_email" value="{{ user.email }}" placeholder="your@email.com">
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:5px;">
+                                    <i class="fas fa-info-circle"></i> Used for notifications and account recovery.
+                                </div>
+                            </div>
                         </div>
                     </div>
 

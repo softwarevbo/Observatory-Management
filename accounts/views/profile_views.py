@@ -104,6 +104,7 @@ def settings_view(request):
 
         # ─── ACTION: Update Personal Profile ───
         if action == "update_profile":
+            from accounts.models import User as UserModel
             user = request.user
             # Update user model fields from POST payload, fallback to current values if omitted
             (
@@ -119,6 +120,16 @@ def settings_view(request):
                 request.POST.get("designation", user.designation),
                 request.POST.get("phone", user.phone),
             )
+            
+            # Update email with uniqueness check — ensure no other user has this email
+            new_email = request.POST.get("email", "").strip()
+            if new_email and new_email != user.email:
+                if UserModel.objects.filter(email=new_email).exclude(pk=user.pk).exists():
+                    messages.error(request, "That email address is already in use by another account.")
+                    return redirect("/accounts/settings/#account")
+                user.email = new_email
+            elif not new_email:
+                user.email = ""  # Allow clearing the email field
             
             # Save uploaded profile picture if supplied in request.FILES
             if "profile_picture" in request.FILES:

@@ -21,6 +21,22 @@ def get_room_group_name(room):
     return f"chat_{room.room_id}"
 
 
+def can_manage_room_members(room, user):
+    """
+    Checks if a user has permission to manage members in a chat room.
+    Permits room creator, project managers (for project rooms), and system admins.
+    """
+    if user.is_admin:
+        return True
+    if room.room_type == 'project' and room.project:
+        # Check if user is a manager of the associated project
+        if room.project.managers.filter(pk=user.pk).exists():
+            return True
+    if room.created_by and room.created_by == user:
+        return True
+    return False
+
+
 @login_required
 def chat_home(request):
     """
@@ -269,7 +285,8 @@ def get_messages(request, room_id):
         'room_name': room.name or "Group",
         'room_type': room.room_type,
         'room_id': str(room.room_id),
-        'created_by': room.created_by.username if room.created_by else None
+        'created_by': room.created_by.username if room.created_by else None,
+        'is_group_admin': can_manage_room_members(room, request.user)
     })
 
 
@@ -834,7 +851,7 @@ def remove_member(request, room_id, user_id):
         room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
         if room.room_type in ['group', 'project']:
             # Authorization check: only group creator can remove members
-            if room.created_by and request.user != room.created_by:
+            if not can_manage_room_members(room, request.user):
                 return JsonResponse({'status': 'error', 'message': 'Only the group creator/admin can remove members'}, status=403)
             
             target_user = User.objects.get(id=user_id)
@@ -885,7 +902,7 @@ def get_non_members(request, room_id):
         room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
         if room.room_type not in ['group', 'project']:
             return JsonResponse({'status': 'error', 'message': 'Not a group chat'}, status=400)
-        if room.created_by and request.user != room.created_by:
+        if not can_manage_room_members(room, request.user):
             return JsonResponse({'status': 'error', 'message': 'Only the group admin can view non-members'}, status=403)
 
         non_members = User.objects.exclude(
@@ -921,7 +938,7 @@ def add_member(request, room_id, user_id):
         room = ChatRoom.objects.get(room_id=uuid.UUID(room_id))
         if room.room_type in ['group', 'project']:
             # Authorization: only group creator/admin can add members
-            if room.created_by and request.user != room.created_by:
+            if not can_manage_room_members(room, request.user):
                 return JsonResponse({'status': 'error', 'message': 'Only the group creator/admin can add members'}, status=403)
 
             target_user = User.objects.get(id=user_id)

@@ -143,3 +143,6 @@ pip-log.txt
 pip-delete-this-directory.txt
 backups/backup_20260604_162210.tar.gz
 backups/backup_20260604_162435.tar.gz
+db.sqlite3-shm
+db.sqlite3-wal
+backups/db_backup_20260604_162210.sqlite3
