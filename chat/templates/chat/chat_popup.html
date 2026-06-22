@@ -728,43 +728,43 @@
     margin-bottom: 2px;
   }
 
-  /* Hover Actions Bar on message row */
-  .qc-msg-bubble-wrap {
+  /* WhatsApp like action button */
+  .qc-msg-bubble {
     position: relative;
   }
-  .qc-msg-actions {
+  .qc-wa-action {
     position: absolute;
-    top: -24px;
-    display: none;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 2px 6px;
-    gap: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    top: 0;
+    right: 0;
     z-index: 10;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
   }
-  .me .qc-msg-actions {
-    right: 12px;
+  .qc-msg-bubble:hover .qc-wa-action, .qc-wa-action.show {
+    opacity: 1;
+    pointer-events: auto;
   }
-  .them .qc-msg-actions {
-    left: 12px;
-  }
-  .qc-msg-bubble-wrap:hover .qc-msg-actions {
+  .qc-wa-btn {
+    border: none;
+    width: 32px;
+    height: 24px;
+    border-top-right-radius: 12px;
     display: flex;
     align-items: center;
-  }
-  .qc-msg-action-btn {
-    background: none;
-    border: none;
-    color: var(--text-muted);
+    justify-content: flex-end;
+    padding-right: 8px;
     cursor: pointer;
-    font-size: 12px;
-    padding: 2px 4px;
-    transition: color 0.15s;
+    font-size: 13px;
+    outline: none;
   }
-  .qc-msg-action-btn:hover {
-    color: var(--accent);
+  .me .qc-wa-btn {
+    background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent));
+    color: #ffffff;
+  }
+  .them .qc-wa-btn {
+    background: linear-gradient(90deg, transparent, var(--bg-card) 30%, var(--bg-card));
+    color: var(--text-muted);
   }
 
   /* Emoji reaction picker on hover */
@@ -1108,6 +1108,22 @@
 </div>
 
 <!-- Forward Message Modal -->
+<!-- WA-style floating message context menu -->
+<div id="qcMsgCtxMenu" style="
+  display: none;
+  position: fixed;
+  z-index: 99999;
+  background: var(--bg-card, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+  min-width: 180px;
+  padding: 6px 0;
+  font-size: 14px;
+">
+  <div id="qcMsgCtxBody"></div>
+</div>
+
 <div class="qc-modal" id="qcForwardModal" style="display: none;">
   <div class="qc-modal-content" style="max-width: 380px;">
     <div class="qc-modal-header">
@@ -1905,37 +1921,23 @@
     }
     
     html += `<div class="qc-msg-bubble-wrap">`;
-    
-    // Hover toolbar actions
-    html += `
-      <div class="qc-msg-actions">
-        <button type="button" class="qc-msg-action-btn" title="Reply" onclick="event.stopPropagation(); qcStartReply('${msg.id}', '${escapeJS(msg.sender)}', '${escapeJS(msg.content || msg.message || '')}')">
-          <i class="fas fa-reply"></i>
-        </button>
-        <button type="button" class="qc-msg-action-btn" title="Forward" onclick="event.stopPropagation(); qcOpenForwardModal('${msg.id}')">
-          <i class="fas fa-share"></i>
-        </button>
-        <div class="qc-msg-action-btn qc-msg-react-trigger" title="React">
-          <i class="far fa-smile"></i>
-          <div class="qc-msg-react-picker">
-            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '👍')">👍</span>
-            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '❤️')">❤️</span>
-            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '😂')">😂</span>
-            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '😮')">😮</span>
-            <span onclick="event.stopPropagation(); qcSendReaction('${msg.id}', '😢')">😢</span>
-          </div>
-        </div>
-        <button type="button" class="qc-msg-action-btn" title="Pin Message" onclick="event.stopPropagation(); qcPinMessage('${msg.id}', '${escapeJS(msg.content || msg.message || '')}')">
-          <i class="fas fa-thumbtack"></i>
-        </button>
-      </div>
-    `;
 
     if (!isMe && activeRoomType !== 'direct' && msg.sender) {
       html += `<div class="qc-msg-sender">${escapeHTML(msg.sender)}</div>`;
     }
     
     html += `<div class="qc-msg-bubble">`;
+    
+    // WA-style chevron action button inside bubble
+    const stJS = escapeJS(msg.content || msg.message || '');
+    const ssJS = escapeJS(msg.sender || '');
+    html += `
+      <div class="qc-wa-action" id="qcwa-${msg.id}">
+        <button type="button" class="qc-wa-btn" onclick="event.stopPropagation(); qcShowMsgMenu(event, '${msg.id}', '${ssJS}', '${stJS}', ${isMe})">
+          <i class="fas fa-chevron-down"></i>
+        </button>
+      </div>
+    `;
     
     // Reply block if replying
     if (msg.parent_id) {
@@ -2040,6 +2042,18 @@
     
     row.innerHTML = html;
     elMessagesArea.appendChild(row);
+
+    // Context menu binding for right click on quick chat popup bubbles
+    var bubbleEl = row.querySelector('.qc-msg-bubble');
+    if (bubbleEl && msg.id) {
+      bubbleEl.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var ss = escapeJS(msg.sender || '');
+        var st = escapeJS(msg.content || msg.message || '');
+        qcShowMsgMenu(e, msg.id, ss, st, isMe);
+      });
+    }
   }
 
   // ── Multi-select helpers ──
@@ -2200,6 +2214,99 @@
   window.qcClosePreview = function() {
     document.getElementById('qcPreviewModal').style.display = 'none';
   };
+
+  // WA-style message context menu
+  const qcCtxMenu = document.getElementById('qcMsgCtxMenu');
+  const qcCtxBody = document.getElementById('qcMsgCtxBody');
+  let qcCtxOpen = false;
+
+  function qcCloseCtxMenu() {
+    if (qcCtxMenu) { qcCtxMenu.style.display = 'none'; qcCtxOpen = false; }
+  }
+  document.addEventListener('click', function(e) {
+    if (qcCtxOpen && !e.target.closest('#qcMsgCtxMenu')) qcCloseCtxMenu();
+  });
+
+  window.qcShowMsgMenu = function(e, msgId, sender, content, isMyMsg) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const items = [
+      { icon: 'fa-reply', label: 'Reply', action: `qcStartReply('${msgId}','${sender}','${content.substring(0,60)}')` },
+      { icon: 'fa-share', label: 'Forward', action: `qcOpenForwardModal('${msgId}')` },
+      { icon: 'fa-thumbtack', label: 'Pin', action: `qcPinMessage('${msgId}','${content.substring(0,100)}')` },
+      null, // divider
+      { icon: 'fa-thumbs-up', label: '👍 React', action: `qcSendReaction('${msgId}','👍')`, inline: true },
+      { icon: 'fa-heart', label: '❤️', action: `qcSendReaction('${msgId}','❤️')`, inline: true },
+      { icon: 'fa-laugh', label: '😂', action: `qcSendReaction('${msgId}','😂')`, inline: true },
+      { icon: 'fa-surprise', label: '😮', action: `qcSendReaction('${msgId}','😮')`, inline: true },
+      { icon: 'fa-sad-tear', label: '😢', action: `qcSendReaction('${msgId}','😢')`, inline: true },
+    ];
+
+    // Emoji row
+    const emojiRow = items.filter(x => x && x.inline);
+    const normalItems = items.filter(x => !x || !x.inline);
+
+    let html = '';
+    normalItems.forEach(function(item) {
+      if (!item) {
+        html += `<div style="height:1px; background: var(--border, #334155); margin: 4px 0;"></div>`;
+        // Emoji row
+        html += `<div style="display:flex; justify-content:space-around; padding: 8px 12px; font-size:20px;">`;
+        emojiRow.forEach(function(em) {
+          html += `<span style="cursor:pointer; padding: 2px 4px; border-radius:6px;" onclick="qcCloseCtxMenuPub(); ${em.action}">${em.label}</span>`;
+        });
+        html += `</div>`;
+        html += `<div style="height:1px; background: var(--border, #334155); margin: 4px 0;"></div>`;
+        return;
+      }
+      html += `<div style="display:flex; align-items:center; gap:10px; padding: 9px 16px; cursor:pointer; border-radius:8px; transition: background 0.1s;" onmouseenter="this.style.background='var(--accent-ghost, rgba(99,102,241,0.1))'" onmouseleave="this.style.background=''" onclick="qcCloseCtxMenuPub(); ${item.action}">
+        <i class="fas ${item.icon}" style="color:var(--accent,#6366f1); width:16px; text-align:center;"></i>
+        <span style="color:var(--text-primary,#e2e8f0); font-size:13px; font-weight:500;">${item.label}</span>
+      </div>`;
+    });
+
+    qcCtxBody.innerHTML = html;
+
+    // Position
+    const rect = e.currentTarget && e.type !== 'contextmenu' ? e.currentTarget.getBoundingClientRect() : null;
+    qcCtxMenu.style.display = 'block';
+    qcCtxMenu.style.visibility = 'hidden';
+    const menuW = qcCtxMenu.offsetWidth || 190;
+    const menuH = qcCtxMenu.offsetHeight || 240;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    
+    let left = 0, top = 0;
+    if (e.type === 'contextmenu') {
+      left = e.clientX;
+      top = e.clientY;
+    } else if (rect) {
+      left = rect.right - menuW;
+      top = rect.bottom + 4;
+    } else {
+      left = e.clientX || 0;
+      top = e.clientY || 0;
+    }
+    
+    if (left < 4) left = 4;
+    if (left + menuW > vw - 4) left = vw - menuW - 4;
+    if (top + menuH > vh - 4) {
+      if (e.type === 'contextmenu') {
+        top = top - menuH - 4;
+      } else if (rect) {
+        top = rect.top - menuH - 4;
+      } else {
+        top = top - menuH - 4;
+      }
+    }
+    if (top < 4) top = 4;
+    qcCtxMenu.style.left = left + 'px';
+    qcCtxMenu.style.top = top + 'px';
+    qcCtxMenu.style.visibility = 'visible';
+    qcCtxOpen = true;
+  };
+
+  window.qcCloseCtxMenuPub = function() { qcCloseCtxMenu(); };
 
   // Reply handlers
   window.qcStartReply = function(msgId, sender, content) {

@@ -197,6 +197,7 @@ class InventoryAccessMiddleware:
                 "/accounts/",
                 "/media/",
                 "/static/",
+                "/__debug__/",
             ]
             if not any(path.startswith(prefix) for prefix in allowed):
                 return redirect("/inventory/dashboard/")

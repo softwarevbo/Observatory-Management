@@ -90,6 +90,43 @@ body, .sidebar, .sidebar *, .btn-logout {
   border-color: var(--border-light) !important;
 }
 
+/* ── Floating Actions Toolbar (Permanently Visible) ── */
+
+/* WhatsApp like action button */
+.cht-wa-action {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.cht-b:hover .cht-wa-action, .cht-wa-action.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cht-wa-btn {
+  border: none;
+  width: 32px;
+  height: 24px;
+  border-top-right-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  outline: none;
+}
+.me .cht-wa-btn {
+  background: linear-gradient(90deg, transparent, var(--c-bubble-me) 30%, var(--c-bubble-me));
+  color: #ffffff;
+}
+.them .cht-wa-btn {
+  background: linear-gradient(90deg, transparent, var(--c-bubble-them) 30%, var(--c-bubble-them));
+  color: var(--c-muted);
+}
 /* ── Multi-select styles ── */
 .cht-bubble-row.selecting .cht-bw {
   cursor: pointer;
@@ -119,7 +156,7 @@ body, .sidebar, .sidebar *, .btn-logout {
   transform: rotate(45deg) translateY(-2px);
 }
 .cht-bubble-row.selected { background: rgba(99,102,241,.07); border-radius: 8px; }
-.select-mode .cht-actions { display: none !important; }
+.select-mode .cht-actions, .select-mode .cht-wa-action { display: none !important; }
 
 /* Selection toolbar */
 #chtSelectToolbar {
@@ -307,66 +344,6 @@ body, .sidebar, .sidebar *, .btn-logout {
   align-items: center !important;
 }
 
-/* ── Floating Actions Toolbar (Permanently Visible) ── */
-.cht-actions {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 2px !important;
-  opacity: 1 !important;
-  pointer-events: all !important;
-  position: absolute !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  z-index: 100 !important;
-  visibility: visible !important;
-  background: var(--c-surface) !important;
-  border: 1px solid var(--c-border) !important;
-  border-radius: 24px !important;
-  padding: 3px 6px !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16) !important;
-}
-
-.me .cht-actions {
-  right: 100% !important;
-  margin-right: 12px !important;
-  left: auto !important;
-}
-
-.them .cht-actions {
-  left: 100% !important;
-  margin-left: 12px !important;
-  right: auto !important;
-}
-
-/* Rounded, flat buttons inside floating bar */
-.cht-act-btn {
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 50% !important;
-  border: none !important;
-  background: transparent !important;
-  color: var(--c-muted) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 11px !important;
-  cursor: pointer !important;
-  box-shadow: none !important;
-  transition: background-color 0.15s ease, color 0.15s ease !important;
-  padding: 0 !important;
-}
-
-.cht-act-btn:hover {
-  background-color: var(--c-accent-ghost) !important;
-  color: var(--c-accent) !important;
-  transform: none !important;
-}
-
-.cht-act-btn.del:hover {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  color: var(--c-danger) !important;
-}
 
 /* ── Modal & Pop Up Premium Styling ── */
 .modal-content {
@@ -651,6 +628,22 @@ body, .sidebar, .sidebar *, .btn-logout {
 
 
 
+<!-- WA-style floating message context menu -->
+<div id="chtMsgCtxMenu" style="
+  display: none;
+  position: fixed;
+  z-index: 99999;
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-border, #e2e8f0);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  min-width: 180px;
+  padding: 6px 0;
+  font-size: 14px;
+">
+  <div id="chtMsgCtxBody"></div>
+</div>
+
 <!-- Members Modal -->
 <div class="modal fade" id="membersModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -847,6 +840,26 @@ const Chat = (() => {
 
     // ── Chat drag-and-drop init ──
     initChatDrop();
+
+    // Manual toggle for bootstrap dropdowns to ensure they are clickable
+    document.querySelectorAll('.dropdown').forEach(function(dropdown) {
+      const button = dropdown.querySelector('[data-bs-toggle="dropdown"]');
+      const menu = dropdown.querySelector('.dropdown-menu');
+      if (button && menu) {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const isOpen = menu.classList.contains('show');
+          document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+          if (!isOpen) {
+            menu.classList.add('show');
+          }
+        });
+      }
+    });
+    document.addEventListener('click', function() {
+      document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    });
   }
 
   // ── Pin Chats ──
@@ -1417,6 +1430,8 @@ const Chat = (() => {
 
     html += '<div class="cht-bw">';
     
+    html += '<div class="cht-b">';
+
     if (!d.is_deleted && mid) {
       var st  = js(d.content || d.message || '');
       var ss  = js(d.sender || '');
@@ -1429,39 +1444,10 @@ const Chat = (() => {
           if (diff < 10) canEdit = true;
       }
 
-      html += '<div class="cht-actions dropdown">';
-      html += '<button type="button" class="cht-act-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Actions"><i class="fas fa-ellipsis-v"></i></button>';
-      html += '<ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:13px; min-width:140px; border-radius:12px; background:var(--c-surface); border:1px solid var(--c-border); z-index: 1050; padding: 4px 0;">';
-      
-      // Reply
-      html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.startReply(\'' + mid + '\',\'' + ss + '\',\'' + st.substring(0,60) + '\')"><i class="fas fa-reply me-2 text-primary"></i>Reply</a></li>';
-      
-      // Forward
-      html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.openForwardModal(\'' + mid + '\')"><i class="fas fa-share me-2 text-info"></i>Forward</a></li>';
-      
-      // Pin
-      html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.pinMessage(\'' + mid + '\',\'' + st.substring(0,100).replace(/'/g, "\\'") + '\')"><i class="fas fa-thumbtack me-2 text-warning"></i>Pin</a></li>';
-      
-      // React Quick Bar
-      html += '<li><hr class="dropdown-divider"></li>';
-      html += '<li class="px-2 py-1 d-flex gap-2" style="font-size:16px; justify-content: space-around;">';
-      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'👍\')">👍</span>';
-      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'❤️\')">❤️</span>';
-      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😂\')">😂</span>';
-      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😮\')">😮</span>';
-      html += '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); Chat.react(\'' + mid + '\',\'😢\')">😢</span>';
-      html += '</li>';
-      
-      if (canEdit) {
-        html += '<li><hr class="dropdown-divider"></li>';
-        html += '<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.startEdit(\'' + mid + '\',\'' + st + '\')"><i class="fas fa-pen me-2 text-muted"></i>Edit</a></li>';
-        html += '<li><a class="dropdown-item py-2 text-danger" href="#" onclick="event.preventDefault(); event.stopPropagation(); Chat.delMsg(\'' + mid + '\')"><i class="fas fa-trash me-2"></i>Delete</a></li>';
-      }
-      html += '</ul>';
+      html += '<div class="cht-wa-action">';
+      html += '<button type="button" class="cht-wa-btn" onclick="event.preventDefault(); event.stopPropagation(); Chat.showMsgMenu(event,\'' + mid + '\',\'' + ss + '\',\'' + st.substring(0,100) + '\',' + canEdit + ')" title="Menu"><i class="fas fa-chevron-down"></i></button>';
       html += '</div>';
     }
-
-    html += '<div class="cht-b">';
 
     if (d.parent_content) {
       html += '<div class="cht-reply-preview" onclick="event.preventDefault(); event.stopPropagation(); Chat.scrollToMsg(\'cm-' + d.parent_id + '\')" style="cursor:pointer;"><div class="cht-reply-author">' + h(d.parent_sender||'') + '</div><div class="cht-reply-text">' + h(d.parent_content) + '</div></div>';
@@ -1542,6 +1528,26 @@ const Chat = (() => {
 
     row.innerHTML = html;
     elMsgs.appendChild(row);
+
+    // Context menu binding for right click
+    var bubbleEl = row.querySelector('.cht-b');
+    if (bubbleEl && !d.is_deleted && mid) {
+      bubbleEl.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var ss = js(d.sender || '');
+        var st = js(d.content || d.message || '');
+        
+        var canEdit = false;
+        if (isMe && d.raw_timestamp) {
+            var msgTime = new Date(d.raw_timestamp);
+            var now = new Date();
+            var diff = (now - msgTime) / 1000 / 60; 
+            if (diff < 10) canEdit = true;
+        }
+        showMsgMenu(e, mid, ss, st, canEdit);
+      });
+    }
   }
 
   function applyEdit(d) {
@@ -1880,6 +1886,92 @@ const Chat = (() => {
   }
 
   function toggleSidebar() { document.getElementById('chtSidebar').classList.toggle('open'); }
+
+  // WA-style message context menu
+  var chtCtxMenuEl = document.getElementById('chtMsgCtxMenu');
+  var chtCtxBodyEl = document.getElementById('chtMsgCtxBody');
+  var chtCtxOpen = false;
+
+  document.addEventListener('click', function(e) {
+    if (chtCtxOpen && !e.target.closest('#chtMsgCtxMenu')) {
+      chtCtxMenuEl.style.display = 'none'; chtCtxOpen = false;
+    }
+  });
+
+  function showMsgMenu(e, mid, sender, content, canEdit) {
+    e.preventDefault();
+    e.stopPropagation();
+    var ss = sender.replace(/'/g, "\\'");
+    var st = content.replace(/'/g, "\\'");
+
+    var menuItems = [
+      { icon: 'fa-reply', label: 'Reply', color: '#6366f1', fn: "Chat.startReply('" + mid + "','" + ss + "','" + st.substring(0,60) + "')" },
+      { icon: 'fa-share', label: 'Forward', color: '#0ea5e9', fn: "Chat.openForwardModal('" + mid + "')" },
+      { icon: 'fa-thumbtack', label: 'Pin', color: '#f59e0b', fn: "Chat.pinMessage('" + mid + "','" + st.substring(0,100) + "')" },
+    ];
+    if (canEdit) {
+      menuItems.push({ icon: 'fa-pen', label: 'Edit', color: '#64748b', fn: "Chat.startEdit('" + mid + "','" + st + "')" });
+      menuItems.push({ icon: 'fa-trash', label: 'Delete', color: '#ef4444', fn: "Chat.delMsg('" + mid + "')" });
+    }
+
+    var html = '';
+    menuItems.forEach(function(item) {
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background=\'rgba(99,102,241,0.08)\'" onmouseleave="this.style.background=\'\'" onclick="chtCloseMenu(); ' + item.fn + '">';
+      html += '<i class="fas ' + item.icon + '" style="color:' + item.color + ';width:16px;text-align:center;"></i>';
+      html += '<span style="color:var(--c-text,#1e293b);font-size:13px;font-weight:500;">' + item.label + '</span>';
+      html += '</div>';
+    });
+    // Emoji row
+    html += '<div style="height:1px;background:var(--c-border,#e2e8f0);margin:4px 0;"></div>';
+    html += '<div style="display:flex;justify-content:space-around;padding:8px 12px;font-size:20px;">';
+    ['👍','❤️','😂','😮','😢'].forEach(function(em) {
+      html += '<span style="cursor:pointer;padding:2px 4px;border-radius:6px;transition:transform 0.1s;" onmouseenter="this.style.transform=\'scale(1.3)\'" onmouseleave="this.style.transform=\'\'" onclick="chtCloseMenu(); Chat.react(\'' + mid + '\',\'' + em + '\')">' + em + '</span>';
+    });
+    html += '</div>';
+
+    chtCtxBodyEl.innerHTML = html;
+    chtCtxMenuEl.style.display = 'block';
+    chtCtxMenuEl.style.visibility = 'hidden';
+    var menuW = chtCtxMenuEl.offsetWidth || 190;
+    var menuH = chtCtxMenuEl.offsetHeight || 220;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    
+    var rect = null;
+    if (e.currentTarget && e.type !== 'contextmenu') {
+      rect = e.currentTarget.getBoundingClientRect();
+    }
+    
+    var left = 0, top = 0;
+    if (e.type === 'contextmenu') {
+      left = e.clientX;
+      top = e.clientY;
+    } else if (rect) {
+      left = rect.right - menuW;
+      top = rect.bottom + 4;
+    } else {
+      left = e.clientX || 0;
+      top = e.clientY || 0;
+    }
+    
+    if (left < 4) left = 4;
+    if (left + menuW > vw - 4) left = vw - menuW - 4;
+    if (top + menuH > vh - 4) {
+      if (e.type === 'contextmenu') {
+        top = top - menuH - 4;
+      } else if (rect) {
+        top = rect.top - menuH - 4;
+      } else {
+        top = top - menuH - 4;
+      }
+    }
+    if (top < 4) top = 4;
+    chtCtxMenuEl.style.left = left + 'px';
+    chtCtxMenuEl.style.top = top + 'px';
+    chtCtxMenuEl.style.visibility = 'visible';
+    chtCtxOpen = true;
+  }
+
+  window.chtCloseMenu = function() { chtCtxMenuEl.style.display = 'none'; chtCtxOpen = false; };
 
   function h(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -2344,7 +2436,7 @@ const Chat = (() => {
     });
   }
 
-  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive, leave, leaveGroup, removeMember, openAddMemberModal, renderAddMemberList, addMember };
+  return { init, open, startReply, startEdit, clearCtx, delMsg, react, uploadFile, toggleSidebar, showMembers, clearChat, deleteGroup, toggleSearch, scrollToMsg, openForwardModal, forwardTo, handleWS, updateRoomSnippet, reorderRooms, enterSelectMode, exitSelectMode, toggleMsgSelect, selectAll, deleteSelected, forwardSelected, pinMessage, unpinMessage, removeDropFile, sendDroppedFiles, isRoomActive, leave, leaveGroup, removeMember, openAddMemberModal, renderAddMemberList, addMember, showMsgMenu };
 })();
 
 // Expose Chat globally so the Quick Chat global-notification WebSocket can call into it

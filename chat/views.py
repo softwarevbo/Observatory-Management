@@ -249,8 +249,8 @@ def get_messages(request, room_id):
     if clear_history:
         messages_query = messages_query.filter(created_at__gt=clear_history.cleared_at)
         
-    # Prefetch relations to prevent database overheads
-    messages = messages_query.prefetch_related('reactions', 'attachments', 'read_receipts').order_by('created_at')[:100]
+    # Prefetch relations to prevent database overheads and fetch the latest 100 messages chronologically
+    messages = list(messages_query.prefetch_related('reactions', 'attachments', 'read_receipts').order_by('-created_at')[:100])[::-1]
     
     msgs_data = [{
         'id': m.id,
