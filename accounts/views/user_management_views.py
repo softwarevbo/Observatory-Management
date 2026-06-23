@@ -402,7 +402,7 @@ def inventory_user_create(request):
             return redirect("/accounts/users/?tab=inventory")
 
         # Validate username uniqueness
-        if InventoryUser.objects.filter(username=username).exists():
+        if InventoryUser.objects.filter(username=username).exists() or User.objects.filter(username=username).exists():
             messages.error(request, "Username already exists.")
             return redirect("/accounts/users/?tab=inventory")
 
@@ -528,7 +528,8 @@ def telescope_user_create(request):
             messages.error(request, "Username and password are required.")
             return redirect("/accounts/users/?tab=telescope")
 
-        if User.objects.filter(username=username).exists():
+        from inventory.models import InventoryUser
+        if User.objects.filter(username=username).exists() or InventoryUser.objects.filter(username=username).exists():
             messages.error(request, "Username already exists.")
             return redirect("/accounts/users/?tab=telescope")
 

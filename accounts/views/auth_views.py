@@ -21,8 +21,10 @@ def login_view(request):
     Using `@never_cache` ensures that the login page and response are never cached by the browser,
     preventing security leaks when users log out and press back.
     """
-    # If the user is already logged in, redirect them immediately to the project dashboard
+    # If the user is already logged in, redirect them immediately to their designated portal
     if request.user.is_authenticated:
+        if not request.user.is_superuser and not getattr(request.user, "is_admin", False) and not getattr(request.user, "can_access_pm", False) and getattr(request.user, "can_access_telescope", False):
+            return redirect(reverse("telescope:dashboard"))
         return redirect(reverse("tasks:dashboard"))
     
     # Initialize the custom login form with POST data if present, otherwise None

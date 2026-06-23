@@ -72,14 +72,17 @@ class BranchStaffManagementView(View):
             password = request.POST.get("password", "").strip()
             if not username or not password:
                 messages.error(request, "Username and password are required.")
-            elif InventoryUser.objects.filter(username=username).exists():
-                messages.error(request, "Username already exists.")
             else:
-                user = InventoryUser.objects.create(
-                    username=username, branch=branch, role="staff"
-                )
-                user.set_password(password)
-                messages.success(request, f"Staff user '{username}' created.")
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                if InventoryUser.objects.filter(username=username).exists() or User.objects.filter(username=username).exists():
+                    messages.error(request, "Username already exists.")
+                else:
+                    user = InventoryUser.objects.create(
+                        username=username, branch=branch, role="staff"
+                    )
+                    user.set_password(password)
+                    messages.success(request, f"Staff user '{username}' created.")
         elif action == "toggle_status":
             user_id = request.POST.get("user_id")
             try:

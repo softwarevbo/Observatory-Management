@@ -87,7 +87,9 @@ class InventoryUserManagementView(View):
             if not username or not password:
                 messages.error(request, "Username and password are required.")
                 return redirect("inventory-users-management")
-            if InventoryUser.objects.filter(username=username).exists():
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            if InventoryUser.objects.filter(username=username).exists() or User.objects.filter(username=username).exists():
                 messages.error(request, "Username already exists.")
                 return redirect("inventory-users-management")
 

@@ -88,33 +88,6 @@
                 </div>
             </div>
 
-            <!-- System Access Section -->
-            <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
-                <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px">
-                    <i class="fas fa-universal-access" style="margin-right:6px;color:var(--accent)"></i>System Access Permissions
-                </div>
-                <div class="grid-3" style="gap:15px; margin-bottom: 15px;">
-                    <div class="form-group" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
-                        {{ form.can_access_pm }}
-                        <span style="font-size:13px;color:var(--text-secondary)">Project Management</span>
-                    </div>
-                    <div class="form-group" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
-                        {{ form.can_access_inventory }}
-                        <span style="font-size:13px;color:var(--text-secondary)">Inventory</span>
-                    </div>
-                    <div class="form-group" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm)">
-                        {{ form.can_access_telescope }}
-                        <span style="font-size:13px;color:var(--text-secondary)">Telescope Control</span>
-                    </div>
-                </div>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Inventory Branch Assignment</label>
-                        {{ form.inventory_branch }}
-                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Assign user to a specific branch for inventory isolation.</div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Password Section (create only) -->
             {% if form.password1 %}

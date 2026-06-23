@@ -202,6 +202,26 @@ class InventoryAccessMiddleware:
             if not any(path.startswith(prefix) for prefix in allowed):
                 return redirect("/inventory/dashboard/")
 
+        # ─── 3. Block Telescope-Only Users from Project Management (PM) ─────────────
+        # If the user is logged in as a standard user but does not have PM access,
+        # redirect them to the telescope dashboard if they attempt to access PM urls.
+        if (
+            is_pm_user
+            and not request.user.is_superuser
+            and not getattr(request.user, "is_admin", False)
+            and not getattr(request.user, "can_access_pm", False)
+        ):
+            allowed = [
+                "/telescope/",
+                "/accounts/",
+                "/media/",
+                "/static/",
+                "/__debug__/",
+            ]
+            if not any(path.startswith(prefix) for prefix in allowed) and path != "/":
+                return redirect("telescope:dashboard")
+
         # Process the request normally and return the generated response
         response = self.get_response(request)
         return response
+

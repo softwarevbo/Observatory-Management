@@ -222,10 +222,12 @@ class UserAdmin(BaseUserAdmin):
         """Renders the status (Active/Inactive) as a color-coded HTML text."""
         if obj.is_active:
             return format_html(
-                '<span style="color:#22c55e;font-weight:600;">✅ Active</span>'
+                '<span style="color:#22c55e;font-weight:600;">{}</span>',
+                "✅ Active"
             )
         return format_html(
-            '<span style="color:#ef4444;font-weight:600;">❌ Inactive</span>'
+            '<span style="color:#ef4444;font-weight:600;">{}</span>',
+            "❌ Inactive"
         )
 
     @admin.display(description="Superuser")
@@ -233,7 +235,8 @@ class UserAdmin(BaseUserAdmin):
         """Displays a purple star badge for superusers, otherwise empty."""
         if obj.is_superuser:
             return format_html(
-                '<span style="color:#a855f7;font-weight:600;">⭐ Yes</span>'
+                '<span style="color:#a855f7;font-weight:600;">{}</span>',
+                "⭐ Yes"
             )
         return "—"
 

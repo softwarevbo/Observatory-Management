@@ -85,10 +85,6 @@ class UserCreateForm(forms.ModelForm):
             "designation",
             "phone",
             "avatar_color",
-            "can_access_pm",
-            "can_access_inventory",
-            "can_access_telescope",
-            "inventory_branch",
         ]
         # Customizing CSS styling and attributes for automatically generated inputs
         widgets = {
@@ -115,10 +111,6 @@ class UserCreateForm(forms.ModelForm):
             "avatar_color": forms.TextInput(
                 attrs={"class": "form-control", "type": "color"}
             ),
-            "can_access_pm": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "can_access_inventory": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "can_access_telescope": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "inventory_branch": forms.Select(attrs={"class": "form-control"}),
         }
 
     def clean_username(self):
@@ -127,7 +119,10 @@ class UserCreateForm(forms.ModelForm):
         Django runs all methods starting with 'clean_<fieldname>' during `form.is_valid()`.
         """
         username = self.cleaned_data.get("username")
-        if User.objects.filter(username=username).exists():
+        from django.contrib.auth import get_user_model
+        from inventory.models import InventoryUser
+        User = get_user_model()
+        if User.objects.filter(username=username).exists() or InventoryUser.objects.filter(username=username).exists():
             raise ValidationError("This username is already taken.")
         return username
 
@@ -180,10 +175,6 @@ class UserEditForm(forms.ModelForm):
             "phone",
             "avatar_color",
             "is_active",
-            "can_access_pm",
-            "can_access_inventory",
-            "can_access_telescope",
-            "inventory_branch",
         ]
         widgets = {
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -197,10 +188,6 @@ class UserEditForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "color"}
             ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "can_access_pm": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "can_access_inventory": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "can_access_telescope": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "inventory_branch": forms.Select(attrs={"class": "form-control"}),
         }
 
 

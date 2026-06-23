@@ -20,7 +20,7 @@ Parameters:
         height:{{ final_size }}px;
         border-radius:{{ final_radius }};
         font-size:{{ final_fs }}px;
-        background:{{ avatar_user.avatar_color }};
+        background:{{ avatar_user.avatar_color|default:"#4f8ef7" }};
         overflow:hidden;
         display:inline-flex;
         align-items:center;
@@ -35,7 +35,7 @@ Parameters:
              alt="{{ avatar_user.display_name }}"
              style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">
     {% else %}
-        {{ avatar_user.initials }}
+        {{ avatar_user.initials|default:avatar_user.username|slice:":2"|upper }}
     {% endif %}
 </div>
 {% endwith %}

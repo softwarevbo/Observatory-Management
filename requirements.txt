@@ -22,6 +22,8 @@ coverage
 pytest
 pytest-django
 flake8-html
-flake8-visualize
+pandas
+python-docx
 python-markdown-math
 cryptography
+django-debug-toolbar

@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.shortcuts import redirect, render
 from django.urls import include, path
 from django.views.generic.base import RedirectView
+from . import views
 
 """
 This module defines the global URL routing configurations for the IIA Management system.
@@ -41,7 +42,7 @@ urlpatterns = [
     path("resource-hub/", include("resource_hub.urls", namespace="resource_hub")),
     
     # Root dashboard default redirection
-    path("", lambda request: redirect("tasks:dashboard"), name="home"),
+    path("", views.home_redirect_view, name="home"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Custom 404 handler registration

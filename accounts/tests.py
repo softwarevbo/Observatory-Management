@@ -142,3 +142,222 @@ class TelescopeUserManagementTest(TestCase):
         
         # Check that the user no longer exists in the database
         self.assertFalse(User.objects.filter(pk=self.tele_user.pk).exists())
+
+
+class UserFormPermissionsTest(TestCase):
+    """
+    Test case to verify that System Access Permissions and Inventory Branch fields
+    are completely removed from the standard User forms and default correctly.
+    """
+
+    def test_user_create_form_fields(self):
+        from accounts.forms import UserCreateForm
+        form = UserCreateForm()
+        self.assertNotIn("can_access_pm", form.fields)
+        self.assertNotIn("can_access_inventory", form.fields)
+        self.assertNotIn("can_access_telescope", form.fields)
+        self.assertNotIn("inventory_branch", form.fields)
+
+    def test_user_edit_form_fields(self):
+        from accounts.forms import UserEditForm
+        form = UserEditForm()
+        self.assertNotIn("can_access_pm", form.fields)
+        self.assertNotIn("can_access_inventory", form.fields)
+        self.assertNotIn("can_access_telescope", form.fields)
+        self.assertNotIn("inventory_branch", form.fields)
+
+    def test_user_creation_defaults(self):
+        from accounts.forms import UserCreateForm
+        data = {
+            "username": "new_pm_user",
+            "first_name": "PM",
+            "last_name": "User",
+            "email": "pm@example.com",
+            "role": "member",
+            "team": "software",
+            "avatar_color": "#6366f1",
+            "password1": "pass@1234",
+            "password2": "pass@1234",
+        }
+        form = UserCreateForm(data=data)
+        self.assertTrue(form.is_valid(), form.errors)
+        user = form.save()
+        self.assertTrue(user.can_access_pm)
+        self.assertFalse(user.can_access_inventory)
+        self.assertFalse(user.can_access_telescope)
+        self.assertIsNone(user.inventory_branch)
+
+
+class UserPortalIsolationTest(TestCase):
+    """
+    Test case to verify that user isolation and dynamic routing work correctly
+    for telescope-only users vs project management users.
+    """
+
+    def setUp(self):
+        # Create standard PM user
+        self.pm_user = User.objects.create_user(
+            username="pmuser",
+            email="pm@example.com",
+            password="pass@1234",
+            can_access_pm=True,
+            can_access_telescope=False,
+            avatar_color="#6366f1",
+        )
+        # Create Telescope-only user
+        self.tele_user = User.objects.create_user(
+            username="teleuser",
+            email="tele@example.com",
+            password="pass@1234",
+            can_access_pm=False,
+            can_access_telescope=True,
+            avatar_color="#8b5cf6",
+        )
+
+    def test_pm_user_root_redirect(self):
+        self.client.login(username="pmuser", password="pass@1234")
+        response = self.client.get("/")
+        self.assertRedirects(response, reverse("tasks:dashboard"))
+
+    def test_tele_user_root_redirect(self):
+        self.client.login(username="teleuser", password="pass@1234")
+        response = self.client.get("/")
+        self.assertRedirects(response, reverse("telescope:dashboard"))
+
+    def test_tele_user_restricted_from_pm(self):
+        self.client.login(username="teleuser", password="pass@1234")
+        # Try to access a PM page like the dashboard
+        response = self.client.get(reverse("tasks:dashboard"))
+        # Expect redirect to the telescope dashboard
+        self.assertRedirects(response, reverse("telescope:dashboard"))
+
+    def test_tele_user_login_page_redirect(self):
+        self.client.login(username="teleuser", password="pass@1234")
+        # Access the standard login page while logged in
+        response = self.client.get(reverse("accounts:login"))
+        # Expect redirect to the telescope dashboard
+        self.assertRedirects(response, reverse("telescope:dashboard"))
+
+
+class GlobalUsernameUniquenessTest(TestCase):
+    """
+    Test case to verify username uniqueness constraints are enforced across both
+    standard User and InventoryUser models.
+    """
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from inventory.models import InventoryUser
+        User = get_user_model()
+        # Create standard PM user
+        self.pm_user = User.objects.create_user(
+            username="clashinguser",
+            email="pm@example.com",
+            password="pass@1234",
+            can_access_pm=True,
+            can_access_telescope=False,
+            avatar_color="#6366f1",
+        )
+        # Create Inventory user
+        self.inv_user = InventoryUser.objects.create(
+            username="invclash",
+            email="inv@example.com",
+            role="staff",
+            is_active=True,
+        )
+        self.inv_user.set_password("pass@1234")
+
+    def test_standard_user_creation_clash_with_inventory(self):
+        from accounts.forms import UserCreateForm
+        data = {
+            "username": "invclash",  # Clashes with existing Inventory user
+            "first_name": "New",
+            "last_name": "User",
+            "email": "new@example.com",
+            "role": "member",
+            "team": "software",
+            "avatar_color": "#6366f1",
+            "password1": "pass@1234",
+            "password2": "pass@1234",
+        }
+        form = UserCreateForm(data=data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("username", form.errors)
+        self.assertEqual(form.errors["username"][0], "This username is already taken.")
+
+    def test_inventory_user_creation_clash_with_standard(self):
+        from django.contrib.auth import get_user_model
+        from inventory.models import InventoryUser
+        User = get_user_model()
+        # Simulate creating an inventory user with standard user's username
+        admin = User.objects.create_superuser(username="admin", email="admin@example.com", password="pass@1234")
+        self.client.login(username="admin", password="pass@1234")
+        
+        url = reverse("accounts:inventory_user_create")
+        data = {
+            "username": "clashinguser",  # Clashes with PM user
+            "email": "another@example.com",
+            "password": "pass@1234",
+            "role": "staff",
+        }
+        response = self.client.post(url, data)
+        self.assertRedirects(response, "/accounts/users/?tab=inventory")
+        
+        # Verify it was not created
+        self.assertFalse(InventoryUser.objects.filter(username="clashinguser").exists())
+
+    def test_telescope_user_creation_clash_with_inventory(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="admin", email="admin@example.com", password="pass@1234")
+        self.client.login(username="admin", password="pass@1234")
+        
+        url = reverse("accounts:telescope_user_create")
+        data = {
+            "username": "invclash",  # Clashes with Inventory user
+            "email": "another@example.com",
+            "password": "pass@1234",
+        }
+        response = self.client.post(url, data)
+        self.assertRedirects(response, "/accounts/users/?tab=telescope")
+        
+        # Verify standard User was not created with this username
+        self.assertFalse(User.objects.filter(username="invclash").exists())
+
+
+class UserAdminTest(TestCase):
+    """
+    Test case to verify custom UserAdmin functionality (e.g. badges, querysets).
+    """
+
+    def test_badges(self):
+        from django.contrib.admin.sites import AdminSite
+        from accounts.admin import UserAdmin
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="testuser",
+            email="testuser@example.com",
+            password="password123",
+            role="admin",
+            is_active=True,
+            is_superuser=True
+        )
+        site = AdminSite()
+        admin_instance = UserAdmin(User, site)
+        
+        # Test role_badge
+        role_html = admin_instance.role_badge(user)
+        self.assertIn("Admin", role_html)
+        
+        # Test status_badge
+        status_html = admin_instance.status_badge(user)
+        self.assertIn("Active", status_html)
+        
+        # Test is_superuser_badge
+        superuser_html = admin_instance.is_superuser_badge(user)
+        self.assertIn("Yes", superuser_html)
+
+
+
+
