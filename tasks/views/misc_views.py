@@ -1,3 +1,5 @@
+import os
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q, Sum
@@ -487,10 +489,18 @@ def category_permanent_delete(request, pk):
         return redirect("tasks:trash")
         
     name = cat.name
-    # Delete all files in this category physically? 
-    # Usually Django CASCADE will handle DB deletion, but we should handle file deletion if needed.
-    # For now, let's just delete the object.
-    cat.delete()
+    # Capture physical path BEFORE deleting DB record (CASCADE wipes the model)
+    phys_path = cat.physical_dir_path
+    cat.delete()  # CASCADE deletes all nested subcategories and DB file records
+
+    # Delete the matching physical directory from disk after DB deletion is complete
+    if phys_path and os.path.isdir(phys_path):
+        try:
+            import shutil
+            shutil.rmtree(phys_path)
+        except Exception:
+            pass  # Non-blocking — DB record already permanently removed
+
     messages.success(request, f"Folder '{name}' permanently deleted.")
     return redirect("tasks:trash")
 @login_required

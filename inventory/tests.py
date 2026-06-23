@@ -101,3 +101,75 @@ class InventoryAPITest(APITestCase):
         url = reverse("inventory_settings")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
+
+
+import json
+
+class InventoryChatAPITest(APITestCase):
+    """Test suite validating inventory chat API endpoints."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.inv_user1 = InventoryUser.objects.create(
+            username="testuser1", is_active=True, role="super_admin"
+        )
+        self.inv_user2 = InventoryUser.objects.create(
+            username="testuser2", is_active=True, role="staff"
+        )
+        self.client = APIClient()
+        self.client.login(username="testuser", password="testpass")
+        
+        session = self.client.session
+        session["inv_user_id"] = self.inv_user1.id
+        session.save()
+
+    def test_inv_chat_users_list(self):
+        """Verifies that the users list endpoint returns active inventory users and unread counts."""
+        url = reverse("inv-chat-users")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data["contacts"]), 1)
+        self.assertEqual(data["contacts"][0]["username"], "testuser2")
+
+    def test_inv_chat_send_and_retrieve_messages(self):
+        """Verifies sending and retrieving messages between inventory users."""
+        url_send = reverse("inv-chat-send", kwargs={"user_id": self.inv_user2.id})
+        response = self.client.post(url_send, {"content": "Hello user2"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["content"], "Hello user2")
+
+        # Now retrieve messages
+        url_messages = reverse("inv-chat-messages", kwargs={"user_id": self.inv_user2.id})
+        response = self.client.get(url_messages)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data["messages"]), 1)
+        self.assertEqual(data["messages"][0]["content"], "Hello user2")
+        self.assertTrue(data["messages"][0]["is_mine"])
+
+    def test_inv_chat_poll(self):
+        """Verifies the polling endpoint returns new messages correctly."""
+        from .models import InventoryMessage
+        # Create a message from user 2 to user 1
+        msg = InventoryMessage.objects.create(
+            sender=self.inv_user2,
+            recipient=self.inv_user1,
+            content="Polling message"
+        )
+
+        url_poll = reverse("inv-chat-poll", kwargs={"user_id": self.inv_user2.id})
+        # Poll without after_id
+        response = self.client.get(url_poll)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data["messages"]), 1)
+        self.assertEqual(data["messages"][0]["id"], msg.id)
+
+        # Poll with after_id equal to msg.id (no new messages)
+        response = self.client.get(url_poll, {"after_id": msg.id})
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data["messages"]), 0)
+

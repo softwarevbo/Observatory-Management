@@ -110,3 +110,11 @@ urlpatterns += [
         name="inventory-shortage-export-pdf",
     ),
 ]
+
+# ─── Inventory Chat API ────────────────────────────────────────────────────────
+urlpatterns += [
+    path("chat/users/", views.inv_chat_users, name="inv-chat-users"),
+    path("chat/<int:user_id>/messages/", views.inv_chat_messages, name="inv-chat-messages"),
+    path("chat/<int:user_id>/send/", views.inv_chat_send, name="inv-chat-send"),
+    path("chat/<int:user_id>/poll/", views.inv_chat_poll, name="inv-chat-poll"),
+]

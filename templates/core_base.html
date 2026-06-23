@@ -1605,7 +1605,7 @@
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.5.3.3.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
     {% block core_extra_js %}{% endblock %}
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and "/inventory/" not in request.path %}
     {% include 'chat/chat_popup.html' %}
     {% endif %}
 </body>

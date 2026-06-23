@@ -42,7 +42,7 @@ def upload_to(instance, filename):
             if getattr(instance, "version", 1) > 1:
                 path_parts.append(f"v{instance.version}")
 
-        return os.path.join("projects", *path_parts, filename)
+        return os.path.join("projects", *path_parts, filename).replace("\\", "/")
 
     # Redirection path for global uploads lacking specific project links
     uid = uuid.uuid4().hex[:8]
@@ -109,30 +109,90 @@ class FileCategory(models.Model):
     def display_name(self):
         return self.name
 
+    @property
+    def physical_dir_path(self):
+        """
+        Returns the absolute filesystem path for this category's physical directory
+        under media/projects/<project_id>/... mirroring the category tree.
+        Returns None if the category has no project attached.
+        """
+        if not self.project:
+            return None
+        try:
+            project_id = self.project.project_id or f"PRJ-{self.project.pk}"
+            parts = []
+            cat = self
+            while cat:
+                parts.append(cat.name)
+                cat = cat.parent
+            parts.reverse()
+            return os.path.join(settings.MEDIA_ROOT, "projects", project_id, *parts)
+        except Exception:
+            return None
+
+    def update_descendant_files(self):
+        """Recursively updates the database file path of all files in this category and all subcategories."""
+        for pf in self.files.all():
+            pf.save()
+        for child in self.children.all():
+            child.update_descendant_files()
+
     def save(self, *args, **kwargs):
         """
-        Overrides save() to trigger file-path updates.
-        If a folder is renamed, all nested subfolders and files are moved on the filesystem.
+        Overrides save() to keep the physical filesystem directory in sync with DB records.
+        - New folder  → creates matching physical directory under media/projects/.
+        - Renamed/moved folder → moves/renames the physical directory and propagates
+          updated file paths to all nested ProjectFile records and sub-folders.
         """
-        # Skip rename logic on bulk-trash actions that specify update_fields
+        # Skip rename/sync logic on bulk-trash field updates to avoid recursion
         update_fields = kwargs.get('update_fields')
         if update_fields is not None:
             super().save(*args, **kwargs)
             return
 
         is_new = not self.pk
+        old_physical_path = None
         old_name = None
+
         if not is_new:
-            old_name = FileCategory.objects.get(pk=self.pk).name
+            try:
+                old_obj = FileCategory.objects.select_related('project', 'parent').get(pk=self.pk)
+                old_name = old_obj.name
+                old_physical_path = old_obj.physical_dir_path
+            except FileCategory.DoesNotExist:
+                pass
 
         super().save(*args, **kwargs)
 
-        # Propagate renaming path changes recursively
-        if not is_new and old_name != self.name:
-            for pf in self.files.all():
-                pf.save() # Invokes physical move logic inside ProjectFile.save()
-            for sub in self.children.all():
-                sub.save() # Recursive call down subfolders tree
+        # ── Create physical directory for newly created folder ──────────────────
+        if is_new:
+            try:
+                phys = self.physical_dir_path
+                if phys:
+                    os.makedirs(phys, exist_ok=True)
+            except Exception:
+                pass  # Non-blocking — DB record already saved successfully
+
+        # ── Sync physical directory when folder is renamed or re-parented ────────
+        elif old_physical_path is not None:
+            new_phys = self.physical_dir_path
+            if new_phys and old_physical_path != new_phys:
+                try:
+                    import shutil
+                    if os.path.isdir(old_physical_path):
+                        os.makedirs(os.path.dirname(new_phys), exist_ok=True)
+                        shutil.move(old_physical_path, new_phys)
+                    else:
+                        # Old directory absent — create the new path cleanly
+                        os.makedirs(new_phys, exist_ok=True)
+                except Exception:
+                    pass  # Non-blocking — DB rename already succeeded
+
+                # Propagate updated DB file-path records recursively to all descendant files
+                self.update_descendant_files()
+            elif old_name is not None and old_name != self.name:
+                # Name changed but computed path is identical (e.g., no project set)
+                self.update_descendant_files()
 
 
 class ProjectFile(models.Model):
@@ -378,7 +438,8 @@ class ProjectFile(models.Model):
         if self.pk:
             old_instance = ProjectFile.objects.filter(pk=self.pk).first()
             if old_instance and old_instance.file and self.file:
-                new_path = self.upload_to_path(self.original_name)
+                current_basename = os.path.basename(self.file.name) if self.file.name else self.original_name
+                new_path = self.upload_to_path(current_basename)
                 if old_instance.file.name != new_path:
                     import shutil
                     from django.conf import settings
@@ -389,7 +450,7 @@ class ProjectFile(models.Model):
                     if os.path.exists(old_full_path):
                         os.makedirs(os.path.dirname(new_full_path), exist_ok=True)
                         shutil.move(old_full_path, new_full_path)
-                        self.file.name = new_path
+                    self.file.name = new_path
 
         super().save(*args, **kwargs)
 

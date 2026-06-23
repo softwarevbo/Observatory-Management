@@ -77,6 +77,50 @@ class TasksModelTestCase(TestCase):
         pf.refresh_from_db()
         self.assertTrue(pf.file.read().decode("utf-8") == "Updated content.")
 
+    def test_file_category_recursive_rename(self):
+        from files.models import FileCategory, ProjectFile
+        from django.core.files.base import ContentFile
+        import os
+
+        project = Project.objects.create(name="Test Folder Sync Project", created_by=self.user)
+        # Create parent category
+        parent_cat = FileCategory.objects.create(
+            name="ParentFolder",
+            project=project,
+            created_by=self.user
+        )
+        # Create child category
+        child_cat = FileCategory.objects.create(
+            name="ChildFolder",
+            project=project,
+            parent=parent_cat,
+            created_by=self.user
+        )
+        # Create file in child category
+        pf = ProjectFile.objects.create(
+            project=project,
+            category=child_cat,
+            uploaded_by=self.user,
+            original_name="nested_file.txt",
+        )
+        pf.file.save("nested_file.txt", ContentFile(b"Nested file content"), save=False)
+        pf.save()
+
+        # Check initial path
+        pf.refresh_from_db()
+        project_id = project.project_id or f"PRJ-{project.pk}"
+        expected_initial_path = os.path.join("projects", project_id, "ParentFolder", "ChildFolder", "nested_file.txt")
+        self.assertEqual(pf.file.name.replace("\\", "/"), expected_initial_path.replace("\\", "/"))
+
+        # Rename parent category
+        parent_cat.name = "RenamedParent"
+        parent_cat.save()
+
+        # Check if grandchild file path in DB is updated correctly
+        pf.refresh_from_db()
+        expected_new_path = os.path.join("projects", project_id, "RenamedParent", "ChildFolder", "nested_file.txt")
+        self.assertEqual(pf.file.name.replace("\\", "/"), expected_new_path.replace("\\", "/"))
+
 
 class TasksViewsTestCase(TestCase):
     def setUp(self):

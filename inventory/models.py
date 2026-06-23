@@ -426,3 +426,32 @@ class SystemSettings(models.Model):
             return settings
         settings, _ = SystemSettings.objects.get_or_create(branch=None)
         return settings
+
+
+class InventoryMessage(models.Model):
+    """
+    Model representing a direct message sent between Inventory Users.
+    Uses simple DB polling (no WebSockets) because InventoryUsers are not
+    standard Django auth users and cannot authenticate via Channels.
+    """
+    sender = models.ForeignKey(
+        InventoryUser,
+        on_delete=models.CASCADE,
+        related_name="sent_inv_messages",
+    )
+    recipient = models.ForeignKey(
+        InventoryUser,
+        on_delete=models.CASCADE,
+        related_name="received_inv_messages",
+    )
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Inventory Message"
+        verbose_name_plural = "Inventory Messages"
+
+    def __str__(self):
+        return f"{self.sender.username} → {self.recipient.username}: {self.content[:40]}"

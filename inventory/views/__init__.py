@@ -9,6 +9,12 @@ from .shortage_views import *
 from .superadmin_views import *
 from .settings_views import *
 from .user_management_views import *
+from .chat_views import (
+    inv_chat_users,
+    inv_chat_messages,
+    inv_chat_send,
+    inv_chat_poll,
+)
 
 """
 Package initializer for inventory view controllers.

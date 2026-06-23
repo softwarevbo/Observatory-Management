@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum, Count, Case, When, IntegerField
+from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, render, redirect
 from django.core.paginator import Paginator
 
@@ -212,16 +213,24 @@ def file_list(request):
     }
     cat_sort_field = CAT_SORT_MAP.get(sort, "name")
 
-    all_files_for_tree = ProjectFile.objects.filter(
+    all_files_for_tree = list(ProjectFile.objects.filter(
         project_id__in=project_ids,
         versions__isnull=True,
         is_in_trash=False
-    ).distinct().order_by(sort_field)
+    ).distinct().order_by(sort_field))
 
-    all_categories_for_tree = FileCategory.objects.filter(
+    # Determine case-insensitive category sort expression (mirrors OS filesystem ordering)
+    if cat_sort_field == 'name':
+        _cat_order_expr = Lower('name')
+    elif cat_sort_field == '-name':
+        _cat_order_expr = Lower('name').desc()
+    else:
+        _cat_order_expr = cat_sort_field
+
+    all_categories_for_tree = list(FileCategory.objects.filter(
         project_id__in=project_ids,
         is_in_trash=False
-    ).distinct().order_by(cat_sort_field)
+    ).distinct().order_by(_cat_order_expr))
 
     # Calculate directory storage sizes recursively
     cat_parents = {cat.pk: cat.parent_id for cat in all_categories_for_tree}

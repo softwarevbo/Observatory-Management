@@ -1,0 +1,659 @@
+{% load static %}
+<!-- Inventory Chat CSS Styles -->
+<style>
+  /* Floating Trigger Button */
+  .ic-trigger {
+    position: fixed;
+    bottom: 24px;
+    right: 100px; /* offset slightly to not overlap with standard PM chat trigger */
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #06b6d4, #3b82f6); /* Unique inventory cyan/blue gradient */
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+  }
+  .ic-trigger:hover {
+    transform: scale(1.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+  
+  /* Quick Chat Container Window */
+  .ic-window {
+    position: fixed;
+    bottom: 96px;
+    right: 100px;
+    width: 380px;
+    height: 520px;
+    border-radius: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  .ic-window.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+  }
+  
+  /* Header */
+  .ic-header {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #06b6d4, #3b82f6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .ic-header-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  .ic-header-title {
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ic-header-subtitle {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  .ic-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ic-header-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.2s, background-color 0.2s;
+  }
+  .ic-header-btn:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+  
+  /* Search input inside List container */
+  .ic-search-wrap {
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+  }
+  .ic-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 6px 12px;
+  }
+  .ic-search-box i {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .ic-search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  
+  /* List Views */
+  .ic-list-container {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg-card);
+  }
+  .ic-list {
+    padding: 8px 0;
+  }
+  
+  /* Items in list */
+  .ic-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative;
+  }
+  .ic-item:hover {
+    background-color: var(--bg-card-hover, rgba(6,182,212,.06));
+  }
+  .ic-item-av {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: rgba(6, 182, 212, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ic-item-av i {
+    font-size: 16px;
+    color: #06b6d4;
+  }
+  .ic-item-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .ic-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ic-item-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  
+  /* Chat Panel */
+  .ic-chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    overflow: hidden;
+  }
+  .ic-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ic-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+  .ic-messages::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  
+  /* Message Bubble */
+  .ic-msg-row {
+    display: flex;
+    max-width: 85%;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 2px;
+  }
+  .ic-msg-row.me {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+  .ic-msg-row.them {
+    align-self: flex-start;
+  }
+  
+  .ic-msg-bubble-wrap {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+  }
+  .ic-msg-sender {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    margin-left: 4px;
+  }
+  .ic-msg-bubble {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    white-space: pre-wrap;
+  }
+  .ic-msg-row.me .ic-msg-bubble {
+    background: #06b6d4;
+    color: white;
+    border-bottom-right-radius: 3px;
+  }
+  .ic-msg-row.them .ic-msg-bubble {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-bottom-left-radius: 3px;
+  }
+  
+  .ic-msg-meta {
+    font-size: 9px;
+    opacity: 0.7;
+    margin-top: 3px;
+    text-align: right;
+  }
+  .me .ic-msg-meta {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  .them .ic-msg-meta {
+    color: var(--text-muted);
+  }
+  
+  /* Input Area */
+  .ic-input-area {
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ic-input {
+    flex: 1;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+    height: 36px;
+    line-height: 18px;
+    overflow-y: auto;
+  }
+  .ic-input:focus {
+    border-color: #06b6d4;
+  }
+  .ic-send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #06b6d4;
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+  .ic-send-btn:hover {
+    transform: scale(1.05);
+    background: #0891b2;
+  }
+  
+  /* Trigger notification badge */
+  .ic-trigger-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 2px solid var(--bg-card);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+
+  /* Item unread badge */
+  .ic-item-badge {
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+    align-self: center;
+  }
+  
+  .ic-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .ic-empty i {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+  .ic-empty-text {
+    font-size: 13px;
+  }
+</style>
+
+<!-- Floating Trigger Button -->
+<div class="ic-trigger" id="icTrigger" onclick="icToggleWindow()">
+  <i class="fas fa-boxes"></i>
+  <span class="ic-trigger-badge" id="icTriggerBadge" style="display: none;">0</span>
+</div>
+
+<!-- Chat Window -->
+<div class="ic-window" id="icWindow">
+  <!-- Contact List View (Default) -->
+  <div id="icListView" style="display: flex; flex-direction: column; height: 100%;">
+    <div class="ic-header">
+      <div class="ic-header-info">
+        <i class="fas fa-boxes" style="font-size: 18px;"></i>
+        <div>
+          <div class="ic-header-title">Inventory Chat</div>
+          <div class="ic-header-subtitle">Direct Messages</div>
+        </div>
+      </div>
+      <div class="ic-header-actions">
+        <button class="ic-header-btn" onclick="icToggleWindow()" title="Close"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    
+    <div class="ic-search-wrap">
+      <div class="ic-search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="icSearchInput" placeholder="Search contacts..." oninput="icFilterContacts()">
+      </div>
+    </div>
+    
+    <div class="ic-list-container">
+      <div class="ic-list" id="icContactsList">
+        <!-- populated dynamically -->
+      </div>
+    </div>
+  </div>
+  
+  <!-- Active Chat View (hidden initially) -->
+  <div id="icChatView" style="display: none; flex-direction: column; height: 100%;">
+    <div class="ic-header">
+      <div class="ic-header-info" onclick="icShowList()" style="cursor: pointer;">
+        <i class="fas fa-arrow-left" style="font-size: 16px; margin-right: 4px;"></i>
+        <div>
+          <div class="ic-header-title" id="icActiveUserName">User Name</div>
+          <div class="ic-header-subtitle" id="icActiveUserSubtitle">Branch Info</div>
+        </div>
+      </div>
+      <div class="ic-header-actions">
+        <button class="ic-header-btn" onclick="icToggleWindow()" title="Close"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    
+    <div class="ic-chat-panel">
+      <div class="ic-messages" id="icMessagesContainer">
+        <!-- messages populated dynamically -->
+      </div>
+      
+      <div class="ic-input-area">
+        <textarea class="ic-input" id="icMessageInput" placeholder="Type a message..." rows="1" onkeydown="icHandleKey(event)"></textarea>
+        <button class="ic-send-btn" onclick="icSendMessage()"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  let isOpen = false;
+  let activeUserId = null;
+  let allContacts = [];
+  let pollIntervalId = null;
+  let usersPollIntervalId = null;
+  let lastMessageId = 0;
+
+  window.icToggleWindow = function() {
+    const win = document.getElementById('icWindow');
+    isOpen = !isOpen;
+    if (isOpen) {
+      win.classList.add('active');
+      icFetchUsers();
+    } else {
+      win.classList.remove('active');
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+      }
+    }
+  };
+
+  window.icShowList = function() {
+    activeUserId = null;
+    lastMessageId = 0;
+    if (pollIntervalId) {
+      clearInterval(pollIntervalId);
+      pollIntervalId = null;
+    }
+    document.getElementById('icChatView').style.display = 'none';
+    document.getElementById('icListView').style.display = 'flex';
+    icFetchUsers();
+  };
+
+  window.icFilterContacts = function() {
+    const q = document.getElementById('icSearchInput').value.toLowerCase();
+    const list = document.getElementById('icContactsList');
+    list.innerHTML = '';
+    
+    const filtered = allContacts.filter(c => 
+      c.display_name.toLowerCase().includes(q) || 
+      c.username.toLowerCase().includes(q) ||
+      (c.branch && c.branch.toLowerCase().includes(q))
+    );
+    
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div class="ic-empty">
+          <i class="fas fa-user-slash"></i>
+          <div class="ic-empty-text">No contacts found</div>
+        </div>
+      `;
+      return;
+    }
+    
+    filtered.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'ic-item';
+      item.onclick = () => icOpenChat(c.id, c.display_name, `${c.role} | ${c.branch || 'Global'}`);
+      
+      let badgeHtml = '';
+      if (c.unread > 0) {
+        badgeHtml = `<span class="ic-item-badge">${c.unread}</span>`;
+      }
+      
+      item.innerHTML = `
+        <div class="ic-item-av">
+          <i class="fas fa-user"></i>
+        </div>
+        <div class="ic-item-info">
+          <div class="ic-item-name">${escapeHTML(c.display_name)}</div>
+          <div class="ic-item-sub">${escapeHTML(c.role)} &bull; ${escapeHTML(c.branch || 'Global')}</div>
+        </div>
+        ${badgeHtml}
+      `;
+      list.appendChild(item);
+    });
+  };
+
+  window.icFetchUsers = function() {
+    fetch('/inventory/main/chat/users/')
+      .then(r => r.json())
+      .then(data => {
+        allContacts = data.contacts || [];
+        
+        // Update trigger badge
+        const badge = document.getElementById('icTriggerBadge');
+        if (data.total_unread > 0) {
+          badge.textContent = data.total_unread;
+          badge.style.display = 'block';
+        } else {
+          badge.style.display = 'none';
+        }
+        
+        // Only re-render list if list view is active
+        if (!activeUserId && document.getElementById('icListView').style.display !== 'none') {
+          icFilterContacts();
+        }
+      })
+      .catch(err => console.error('Error fetching inventory contacts:', err));
+  };
+
+  window.icOpenChat = function(userId, displayName, subtitle) {
+    activeUserId = userId;
+    document.getElementById('icListView').style.display = 'none';
+    document.getElementById('icChatView').style.display = 'flex';
+    document.getElementById('icActiveUserName').textContent = displayName;
+    document.getElementById('icActiveUserSubtitle').textContent = subtitle;
+    
+    const container = document.getElementById('icMessagesContainer');
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading...</div>`;
+    
+    fetch(`/inventory/main/chat/${userId}/messages/`)
+      .then(r => r.json())
+      .then(data => {
+        container.innerHTML = '';
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(m => {
+            icRenderMessage(m);
+            if (m.id > lastMessageId) {
+              lastMessageId = m.id;
+            }
+          });
+          icScrollToBottom();
+        } else {
+          container.innerHTML = `
+            <div class="ic-empty" id="icEmptyChat">
+              <i class="fas fa-comments"></i>
+              <div class="ic-empty-text">No messages yet. Send a message to start the conversation!</div>
+            </div>
+          `;
+        }
+        
+        // Start polling for new messages from this user
+        if (pollIntervalId) clearInterval(pollIntervalId);
+        pollIntervalId = setInterval(icPollMessages, 2000);
+      })
+      .catch(err => {
+        container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Failed to load messages.</div>`;
+      });
+  };
+
+  function icRenderMessage(m) {
+    const container = document.getElementById('icMessagesContainer');
+    const empty = document.getElementById('icEmptyChat');
+    if (empty) empty.remove();
+    
+    const row = document.createElement('div');
+    row.className = `ic-msg-row ${m.is_mine ? 'me' : 'them'}`;
+    row.dataset.msgId = m.id;
+    
+    row.innerHTML = `
+      <div class="ic-msg-bubble-wrap">
+        <div class="ic-msg-bubble">
+          ${escapeHTML(m.content)}
+          <div class="ic-msg-meta">${escapeHTML(m.timestamp)}</div>
+        </div>
+      </div>
+    `;
+    container.appendChild(row);
+  }
+
+  function icScrollToBottom() {
+    const container = document.getElementById('icMessagesContainer');
+    container.scrollTop = container.scrollHeight;
+  }
+
+  window.icPollMessages = function() {
+    if (!activeUserId) return;
+    fetch(`/inventory/main/chat/${activeUserId}/poll/?after_id=${lastMessageId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(m => {
+            icRenderMessage(m);
+            if (m.id > lastMessageId) {
+              lastMessageId = m.id;
+            }
+          });
+          icScrollToBottom();
+        }
+      })
+      .catch(err => console.error('Error polling inventory messages:', err));
+  };
+
+  window.icSendMessage = function() {
+    const input = document.getElementById('icMessageInput');
+    const content = input.value.trim();
+    if (!content || !activeUserId) return;
+    
+    input.value = '';
+    
+    fetch(`/inventory/main/chat/${activeUserId}/send/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({ content: content })
+    })
+    .then(r => r.json())
+    .then(msg => {
+      if (msg.error) {
+        alert(msg.error);
+        return;
+      }
+      icRenderMessage(msg);
+      if (msg.id > lastMessageId) {
+        lastMessageId = msg.id;
+      }
+      icScrollToBottom();
+    })
+    .catch(err => {
+      console.error('Error sending message:', err);
+      alert('Failed to send message.');
+    });
+  };
+
+  window.icHandleKey = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      icSendMessage();
+    }
+  };
+
+  function escapeHTML(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // Poll contacts list every 4 seconds to update trigger badges in the background
+  usersPollIntervalId = setInterval(icFetchUsers, 4000);
+  icFetchUsers();
+})();
+</script>
