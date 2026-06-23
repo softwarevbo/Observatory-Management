@@ -68,7 +68,6 @@ class FileCategory(models.Model):
     class Meta:
         verbose_name_plural = "File Categories"
         ordering = ["name"]
-        unique_together = ("name", "parent", "project")
 
     # Soft-deletion parameters
     is_in_trash = models.BooleanField(default=False)

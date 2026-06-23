@@ -1,0 +1,338 @@
+{% extends 'inventory_base.html' %}
+
+{% block title %}User Permissions - {{ target_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumbs / Top Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    {% if user.is_super_admin %}
+                    <li class="breadcrumb-item"><a href="{% url 'inventory-users-management' %}" class="text-decoration-none">User Management</a></li>
+                    {% else %}
+                    <li class="breadcrumb-item"><a href="{% url 'branch-users' %}" class="text-decoration-none">Branch Staff</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active" aria-current="page">Manage Permissions</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0 fw-bold">Inventory Permissions: {{ target_user.username }}</h1>
+            <p class="text-muted mb-0">
+                Role: <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ target_user.get_role_display }}</span> 
+                | Branch: <span class="badge bg-primary-subtle text-primary-emphasis">{{ target_user.branch.name|default:"Global (All Branches)" }}</span>
+            </p>
+        </div>
+        <div>
+            {% if user.is_super_admin %}
+            <a href="{% url 'inventory-users-management' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to List
+            </a>
+            {% else %}
+            <a href="{% url 'branch-users' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to List
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Form for Granular Permissions -->
+    <form method="POST">
+        {% csrf_token %}
+        <div class="row">
+            <!-- Left Column: Page Access & Actions -->
+            <div class="col-lg-6">
+                <!-- Page Navigation Access -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; overflow: hidden;">
+                    <div class="card-header bg-white py-3 border-0">
+                        <div class="d-flex align-items-center">
+                            <div class="icon-shape bg-primary-subtle text-primary rounded-3 me-3 p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; border-radius: 10px;">
+                                <i class="fas fa-eye"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Page Navigation Access</h5>
+                                <small class="text-muted">Control which sections of the inventory tool this user can view.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body px-4 py-3">
+                        <div class="list-group list-group-flush">
+                            <!-- can_access_adjustments_page -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_access_adjustments_page">Access Stock Adjustments Page</label>
+                                    <span class="text-muted small d-block">Allows viewing the stock adjustments logs page.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_access_adjustments_page" id="id_can_access_adjustments_page" style="width: 2.5em; height: 1.25em;" {% if target_user.can_access_adjustments_page %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_access_serials_page -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_access_serials_page">Access Serial Numbers Tracking Page</label>
+                                    <span class="text-muted small d-block">Allows viewing the list of registered serial/lot numbers.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_access_serials_page" id="id_can_access_serials_page" style="width: 2.5em; height: 1.25em;" {% if target_user.can_access_serials_page %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_access_limits_page -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_access_limits_page">Access Stock Limits Page</label>
+                                    <span class="text-muted small d-block">Allows viewing branch-specific inventory quantity thresholds/reorder limits.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_access_limits_page" id="id_can_access_limits_page" style="width: 2.5em; height: 1.25em;" {% if target_user.can_access_limits_page %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_access_alerts_page -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_access_alerts_page">Access Active Alerts Page</label>
+                                    <span class="text-muted small d-block">Allows viewing low stock and expiry alerts logs.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_access_alerts_page" id="id_can_access_alerts_page" style="width: 2.5em; height: 1.25em;" {% if target_user.can_access_alerts_page %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_access_rentals_page -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_access_rentals_page">Access Rentals Page</label>
+                                    <span class="text-muted small d-block">Allows viewing active equipment rental transactions.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_access_rentals_page" id="id_can_access_rentals_page" style="width: 2.5em; height: 1.25em;" {% if target_user.can_access_rentals_page %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_access_shortage_page -->
+                            <div class="d-flex justify-content-between align-items-center py-3">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_access_shortage_page">Access Shortage / Out of Stock Page</label>
+                                    <span class="text-muted small d-block">Allows viewing lists of items below minimum quantities.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_access_shortage_page" id="id_can_access_shortage_page" style="width: 2.5em; height: 1.25em;" {% if target_user.can_access_shortage_page %}checked{% endif %}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Functional Actions -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; overflow: hidden;">
+                    <div class="card-header bg-white py-3 border-0">
+                        <div class="d-flex align-items-center">
+                            <div class="icon-shape bg-warning-subtle text-warning rounded-3 me-3 p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; border-radius: 10px;">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Management & Action Control</h5>
+                                <small class="text-muted">Allow or block transactional changes inside specific pages.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body px-4 py-3">
+                        <div class="list-group list-group-flush">
+                            <!-- can_manage_adjustments -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_manage_adjustments">Manage Stock Adjustments</label>
+                                    <span class="text-muted small d-block">Allows creating new manual stock adjustments (increments/decrements).</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_manage_adjustments" id="id_can_manage_adjustments" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_adjustments %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_manage_serials -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_manage_serials">Manage Serial Numbers</label>
+                                    <span class="text-muted small d-block">Allows registering or editing serial numbers for equipment.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_manage_serials" id="id_can_manage_serials" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_serials %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_manage_limits -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_manage_limits">Manage Stock Limits</label>
+                                    <span class="text-muted small d-block">Allows setting, editing, or removing reorder thresholds.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_manage_limits" id="id_can_manage_limits" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_limits %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_manage_alerts -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_manage_alerts">Manage / Acknowledge Alerts</label>
+                                    <span class="text-muted small d-block">Allows acknowledging or resolving triggered stock level alerts.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_manage_alerts" id="id_can_manage_alerts" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_alerts %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_manage_rentals -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_manage_rentals">Manage Rentals Actions</label>
+                                    <span class="text-muted small d-block">Allows creating rentals, registering returns, and managing overdue items.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_manage_rentals" id="id_can_manage_rentals" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_rentals %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_manage_shortage_exports -->
+                            <div class="d-flex justify-content-between align-items-center py-3">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_manage_shortage_exports">Export Shortage Data</label>
+                                    <span class="text-muted small d-block">Allows exporting CSV/PDF files of out-of-stock items lists.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_manage_shortage_exports" id="id_can_manage_shortage_exports" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_shortage_exports %}checked{% endif %}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Database Operations & Admins -->
+            <div class="col-lg-6">
+                <!-- Database/Catalog Core Actions -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; overflow: hidden;">
+                    <div class="card-header bg-white py-3 border-0">
+                        <div class="d-flex align-items-center">
+                            <div class="icon-shape bg-success-subtle text-success rounded-3 me-3 p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; border-radius: 10px;">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Core Catalog Operations</h5>
+                                <small class="text-muted">Restrict adding, modifying, or removing catalog items.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body px-4 py-3">
+                        <div class="list-group list-group-flush">
+                            <!-- can_add_inventory -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_add_inventory">Create Products / Add Stock Items</label>
+                                    <span class="text-muted small d-block">Allows inserting new products into the branch inventory catalog.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_add_inventory" id="id_can_add_inventory" style="width: 2.5em; height: 1.25em;" {% if target_user.can_add_inventory %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_edit_inventory -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_edit_inventory">Edit Products / Modify Stock Items</label>
+                                    <span class="text-muted small d-block">Allows editing details and location values of existing products.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_edit_inventory" id="id_can_edit_inventory" style="width: 2.5em; height: 1.25em;" {% if target_user.can_edit_inventory %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_delete_inventory -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_delete_inventory">Delete Products / Archive Stock Items</label>
+                                    <span class="text-muted small d-block">Allows permanently removing products from the inventory.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_delete_inventory" id="id_can_delete_inventory" style="width: 2.5em; height: 1.25em;" {% if target_user.can_delete_inventory %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_approve_transfer -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_approve_transfer">Approve Stock Transfers</label>
+                                    <span class="text-muted small d-block">Allows approving and receiving stock transfers between branches.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_approve_transfer" id="id_can_approve_transfer" style="width: 2.5em; height: 1.25em;" {% if target_user.can_approve_transfer %}checked{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_export_reports -->
+                            <div class="d-flex justify-content-between align-items-center py-3">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block" style="cursor: pointer;" for="id_can_export_reports">Export Inventory Reports</label>
+                                    <span class="text-muted small d-block">Allows downloading reports for stock analytics and statistics.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="can_export_reports" id="id_can_export_reports" style="width: 2.5em; height: 1.25em;" {% if target_user.can_export_reports %}checked{% endif %}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin & Global Scope Access -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; overflow: hidden;">
+                    <div class="card-header bg-white py-3 border-0">
+                        <div class="d-flex align-items-center">
+                            <div class="icon-shape bg-danger-subtle text-danger rounded-3 me-3 p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; border-radius: 10px;">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Administration & Global Access</h5>
+                                <small class="text-muted">High-privilege system-wide configurations.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body px-4 py-3">
+                        <div class="list-group list-group-flush">
+                            <!-- can_view_all_branches_inventory -->
+                            <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block text-danger fw-bold" style="cursor: pointer;" for="id_can_view_all_branches_inventory">
+                                        Global Inventory Access (Cross-Branch)
+                                        <i class="fas fa-exclamation-triangle ms-1 small" title="Sensitive Permission"></i>
+                                    </label>
+                                    <span class="text-muted small d-block">Allows viewing products and stock logs across all physical branches.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input bg-danger border-danger" type="checkbox" name="can_view_all_branches_inventory" id="id_can_view_all_branches_inventory" style="width: 2.5em; height: 1.25em;" {% if target_user.can_view_all_branches_inventory %}checked{% endif %} {% if not user.is_super_admin %}disabled{% endif %}>
+                                </div>
+                            </div>
+                            <!-- can_manage_users -->
+                            <div class="d-flex justify-content-between align-items-center py-3">
+                                <div style="max-width: 80%;">
+                                    <label class="form-label fw-bold mb-0 d-block text-danger fw-bold" style="cursor: pointer;" for="id_can_manage_users">
+                                        Administrate Inventory Users
+                                        <i class="fas fa-exclamation-triangle ms-1 small" title="Sensitive Permission"></i>
+                                    </label>
+                                    <span class="text-muted small d-block">Allows creating, updating, or deleting other inventory staff accounts.</span>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input bg-danger border-danger" type="checkbox" name="can_manage_users" id="id_can_manage_users" style="width: 2.5em; height: 1.25em;" {% if target_user.can_manage_users %}checked{% endif %} {% if not user.is_super_admin %}disabled{% endif %}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sticky Form Actions Bar -->
+        <div class="card border-0 shadow-sm sticky-bottom mb-4 bg-light" style="border-radius: 12px; z-index: 10;">
+            <div class="card-body d-flex justify-content-end align-items-center py-3 gap-3">
+                <span class="text-muted small d-none d-md-inline-block"><i class="fas fa-info-circle me-1"></i> Click save to immediately apply the toggled permission boundaries.</span>
+                {% if user.is_super_admin %}
+                <a href="{% url 'inventory-users-management' %}" class="btn btn-outline-secondary">Cancel</a>
+                {% else %}
+                <a href="{% url 'branch-users' %}" class="btn btn-outline-secondary">Cancel</a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="fas fa-save me-2"></i> Save Permissions
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

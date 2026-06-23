@@ -10,22 +10,36 @@ from ..models import Project, Task, Requirement
 from bugs.models import BugReport
 from testcases.models import TestCase
 from notes.models import KnowledgeBaseNote
-from products.models import Product
 from files.models import ProjectFile, FileCategory
-from stock.models import StockEntry
-from inventory.models import InventoryAdjustment
 
 
-def _restore_category_ancestors(category):
+def _restore_category_ancestors(category, user=None):
     """Restore parent folders needed to make a restored item visible."""
+    from files.views.manage_views import _bulk_trash_category_tree
     parent = category.parent
+    any_overridden = False
     while parent:
         if parent.is_in_trash:
+            active_cat = FileCategory.objects.filter(
+                name=parent.name,
+                parent=parent.parent,
+                project=parent.project,
+                is_in_trash=False
+            ).first()
+            if active_cat:
+                _bulk_trash_category_tree(active_cat.pk, user or parent.deleted_by)
+                active_cat.is_in_trash = True
+                active_cat.deleted_at = timezone.now()
+                active_cat.deleted_by = user or parent.deleted_by
+                active_cat.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
+                any_overridden = True
+
             parent.is_in_trash = False
             parent.deleted_at = None
             parent.deleted_by = None
             parent.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
         parent = parent.parent
+    return any_overridden
 
 
 def _restore_category_subtree(category):
@@ -47,10 +61,27 @@ def _restore_category_subtree(category):
         _restore_category_subtree(child)
 
 
-def _restore_file_with_ancestors(file_obj):
+def _restore_file_with_ancestors(file_obj, user=None):
+    """Restore parent folders needed to make a restored file visible."""
+    from files.views.manage_views import _bulk_trash_category_tree
     category = file_obj.category
+    any_overridden = False
     while category:
         if category.is_in_trash:
+            active_cat = FileCategory.objects.filter(
+                name=category.name,
+                parent=category.parent,
+                project=category.project,
+                is_in_trash=False
+            ).first()
+            if active_cat:
+                _bulk_trash_category_tree(active_cat.pk, user or category.deleted_by)
+                active_cat.is_in_trash = True
+                active_cat.deleted_at = timezone.now()
+                active_cat.deleted_by = user or category.deleted_by
+                active_cat.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
+                any_overridden = True
+
             category.is_in_trash = False
             category.deleted_at = None
             category.deleted_by = None
@@ -62,6 +93,7 @@ def _restore_file_with_ancestors(file_obj):
     file_obj.deleted_at = None
     file_obj.deleted_by = None
     file_obj.save(update_fields=["is_in_trash", "hidden_from_user_trash", "deleted_at", "deleted_by", "updated_at"])
+    return any_overridden
 
 
 @login_required
@@ -96,49 +128,6 @@ def global_search(request):
     results = {"tasks": tasks[:20], "projects": projects[:20], "files": files[:20]}
     return render(
         request, "search/search_results.html", {"query": query, "results": results}
-    )  # Updated path
-
-
-@login_required
-def inventory_list(request):
-    search_query = request.GET.get("search", "")
-    products_qs = Product.objects.select_related("category").all().order_by("name")
-
-    if search_query:
-        products_qs = products_qs.filter(
-            Q(name__icontains=search_query)
-            | Q(brand__icontains=search_query)
-            | Q(sku__icontains=search_query)
-        )
-
-    paginator = Paginator(products_qs, 50)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    for product in page_obj.object_list:
-        stock_in = (
-            StockEntry.objects.filter(product=product, entry_type="in").aggregate(
-                total=Sum("quantity")
-            )["total"]
-            or 0
-        )
-        stock_out = (
-            StockEntry.objects.filter(product=product, entry_type="out").aggregate(
-                total=Sum("quantity")
-            )["total"]
-            or 0
-        )
-        adjustments = (
-            InventoryAdjustment.objects.filter(product=product).aggregate(
-                total=Sum("quantity")
-            )["total"]
-            or 0
-        )
-        product.current_quantity = (stock_in + adjustments) - stock_out
-
-    return render(
-        request,
-        "inventory/inventory_list.html",
-        {"products": page_obj, "search_query": search_query},
     )  # Updated path
 
 @login_required
@@ -377,11 +366,38 @@ def category_restore(request, pk):
         messages.error(request, "You don't have permission to restore this folder.")
         return redirect("tasks:trash")
 
+    overridden = False
+    from files.views.manage_views import _bulk_trash_category_tree
     with transaction.atomic():
-        _restore_category_ancestors(cat)
+        # Check if an active category with the same name, parent, and project already exists
+        active_cat = FileCategory.objects.filter(
+            name=cat.name,
+            parent=cat.parent,
+            project=cat.project,
+            is_in_trash=False
+        ).first()
+        
+        if active_cat:
+            # Move the existing active folder to trash (override)
+            _bulk_trash_category_tree(active_cat.pk, request.user)
+            active_cat.is_in_trash = True
+            active_cat.deleted_at = timezone.now()
+            active_cat.deleted_by = request.user
+            active_cat.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
+            overridden = True
+
+        if _restore_category_ancestors(cat, request.user):
+            overridden = True
         _restore_category_subtree(cat)
 
-    messages.success(request, f"Folder '{cat.name}' restored with its original path.")
+    if overridden:
+        messages.success(
+            request, 
+            f"Folder '{cat.name}' restored. The existing folder with the same name in the repository was overridden."
+        )
+    else:
+        messages.success(request, f"Folder '{cat.name}' restored with its original path.")
+        
     trash_cat_id = request.GET.get("trash_cat_id") or request.POST.get("trash_cat_id")
     if trash_cat_id:
         return redirect(f"{reverse('tasks:trash')}?trash_cat_id={trash_cat_id}")
@@ -397,6 +413,8 @@ def trash_bulk_restore(request):
     file_ids = request.POST.getlist("files")
     trash_cat_id = request.GET.get("trash_cat_id") or request.POST.get("trash_cat_id")
     restored_count = 0
+    overridden_count = 0
+    from files.views.manage_views import _bulk_trash_category_tree
 
     for cat in FileCategory.objects.filter(pk__in=category_ids, is_in_trash=True).select_related("project", "created_by"):
         is_authorized = (
@@ -408,7 +426,26 @@ def trash_bulk_restore(request):
         )
         if is_authorized:
             with transaction.atomic():
-                _restore_category_ancestors(cat)
+                has_override = False
+                active_cat = FileCategory.objects.filter(
+                    name=cat.name,
+                    parent=cat.parent,
+                    project=cat.project,
+                    is_in_trash=False
+                ).first()
+                if active_cat:
+                    _bulk_trash_category_tree(active_cat.pk, request.user)
+                    active_cat.is_in_trash = True
+                    active_cat.deleted_at = timezone.now()
+                    active_cat.deleted_by = request.user
+                    active_cat.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
+                    has_override = True
+
+                if _restore_category_ancestors(cat, request.user):
+                    has_override = True
+                
+                if has_override:
+                    overridden_count += 1
                 _restore_category_subtree(cat)
             restored_count += 1
 
@@ -425,11 +462,15 @@ def trash_bulk_restore(request):
         )
         if is_authorized:
             with transaction.atomic():
-                _restore_file_with_ancestors(file_obj)
+                if _restore_file_with_ancestors(file_obj, request.user):
+                    overridden_count += 1
             restored_count += 1
 
     if restored_count:
-        messages.success(request, f"{restored_count} selected item(s) restored.")
+        msg = f"{restored_count} selected item(s) restored."
+        if overridden_count:
+            msg += f" {overridden_count} active folder(s) with conflicting names were overridden."
+        messages.success(request, msg)
     else:
         messages.warning(request, "No selected items were restored.")
     

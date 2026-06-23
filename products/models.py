@@ -80,10 +80,10 @@ class Product(models.Model):
     sku = models.CharField(max_length=100, blank=True, null=True)
     # Unique serial number (indexed for faster query lookup)
     serial_number = models.CharField(
-        max_length=100, unique=True, db_index=True, blank=True, null=True
+        max_length=100, db_index=True, blank=True, null=True
     )
-    # Selling price of the item
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    # Model number of the product
+    model_number = models.CharField(max_length=100, blank=True, null=True)
     # Standard unit of measurement (default is "Units")
     unit = models.CharField(
         max_length=50, default="Units", help_text="e.g., Pcs, Kg, Mtr"

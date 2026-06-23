@@ -55,16 +55,19 @@
                     <td>{{ u.created_at|date:"M d, Y H:i" }}</td>
                     <td class="d-flex gap-1">
                         <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#editUserModal{{ u.id }}">Edit</button>
+                        <a href="{% url 'inventory-user-permissions' u.id %}" class="btn btn-sm btn-outline-primary">Permissions</a>
                         <form method="post">{% csrf_token %}
                             <input type="hidden" name="action" value="toggle_active">
                             <input type="hidden" name="user_id" value="{{ u.id }}">
                             <button class="btn btn-sm btn-warning" type="submit">Toggle</button>
                         </form>
+                        {% if request.user.is_super_admin %}
                         <form method="post" onsubmit="return confirm('Delete this user?')">{% csrf_token %}
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="user_id" value="{{ u.id }}">
                             <button class="btn btn-sm btn-danger" type="submit">Delete</button>
                         </form>
+                        {% endif %}
                     </td>
                 </tr>
 
@@ -102,28 +105,10 @@
                                         <label class="form-check-label">Active</label>
                                     </div>
                                     <hr>
-                                    <h6 class="mb-2">Inventory User Control Restrictions</h6>
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_access_adjustments_page" {% if u.can_access_adjustments_page %}checked{% endif %}><label class="form-check-label">Access Adjustments</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_manage_adjustments" {% if u.can_manage_adjustments %}checked{% endif %}><label class="form-check-label">Manage Adjustments</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_access_serials_page" {% if u.can_access_serials_page %}checked{% endif %}><label class="form-check-label">Access Serials</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_manage_serials" {% if u.can_manage_serials %}checked{% endif %}><label class="form-check-label">Manage Serials</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_access_limits_page" {% if u.can_access_limits_page %}checked{% endif %}><label class="form-check-label">Access Limits</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_manage_limits" {% if u.can_manage_limits %}checked{% endif %}><label class="form-check-label">Manage Limits</label></div>
-                                        </div>
-                                        <div class="col-6">
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_access_alerts_page" {% if u.can_access_alerts_page %}checked{% endif %}><label class="form-check-label">Access Alerts</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_manage_alerts" {% if u.can_manage_alerts %}checked{% endif %}><label class="form-check-label">Manage Alerts</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_access_rentals_page" {% if u.can_access_rentals_page %}checked{% endif %}><label class="form-check-label">Access Rentals</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_manage_rentals" {% if u.can_manage_rentals %}checked{% endif %}><label class="form-check-label">Manage Rentals</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_access_shortage_page" {% if u.can_access_shortage_page %}checked{% endif %}><label class="form-check-label">Access Shortage</label></div>
-                                            <div class="form-check"><input class="form-check-input" type="checkbox" name="can_manage_shortage_exports" {% if u.can_manage_shortage_exports %}checked{% endif %}><label class="form-check-label">Manage Shortage Exports</label></div>
-                                            <div class="form-check mt-3 pt-2 border-top">
-                                                <input class="form-check-input bg-danger border-danger" type="checkbox" name="can_view_all_branches_inventory" {% if u.can_view_all_branches_inventory %}checked{% endif %}>
-                                                <label class="form-check-label text-danger fw-bold">Global Inventory Access</label>
-                                            </div>
-                                        </div>
+                                    <div class="d-grid mb-2">
+                                        <a href="{% url 'inventory-user-permissions' u.id %}" class="btn btn-outline-primary">
+                                            <i class="fas fa-user-shield me-2"></i> Manage Granular Permissions
+                                        </a>
                                     </div>
                                 </div>
                                 <div class="modal-footer">

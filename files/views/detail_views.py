@@ -25,19 +25,36 @@ This module processes file detail views, online text edits, PDF canvas drawings,
 folder discussions, and trash approvals operations.
 """
 
-def _restore_category_ancestors(category):
+def _restore_category_ancestors(category, user=None):
     """
     Recursively restores parent folder nodes of a category from the trash.
     Ensures that when a nested file is restored, its parent directories are restored too.
     """
+    from files.views.manage_views import _bulk_trash_category_tree
     parent = category
+    any_overridden = False
     while parent:
         if parent.is_in_trash:
+            active_cat = FileCategory.objects.filter(
+                name=parent.name,
+                parent=parent.parent,
+                project=parent.project,
+                is_in_trash=False
+            ).first()
+            if active_cat:
+                _bulk_trash_category_tree(active_cat.pk, user or parent.deleted_by)
+                active_cat.is_in_trash = True
+                active_cat.deleted_at = timezone.now()
+                active_cat.deleted_by = user or parent.deleted_by
+                active_cat.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
+                any_overridden = True
+
             parent.is_in_trash = False
             parent.deleted_at = None
             parent.deleted_by = None
             parent.save(update_fields=["is_in_trash", "deleted_at", "deleted_by"])
         parent = parent.parent
+    return any_overridden
 
 
 @login_required
@@ -219,10 +236,11 @@ def file_restore(request, pk):
         messages.error(request, "No permission to restore.")
         return redirect("tasks:trash")
 
+    overridden = False
     # Atomic restoration block
     with transaction.atomic():
         if pf.category:
-            _restore_category_ancestors(pf.category)
+            overridden = _restore_category_ancestors(pf.category, request.user)
 
         pf.is_in_trash = False
         pf.hidden_from_user_trash = False
@@ -230,7 +248,13 @@ def file_restore(request, pk):
         pf.deleted_by = None
         pf.save(update_fields=["is_in_trash", "hidden_from_user_trash", "deleted_at", "deleted_by", "updated_at"])
 
-    messages.success(request, f'"{pf.display_name}" restored with its original path.')
+    if overridden:
+        messages.success(
+            request, 
+            f'"{pf.display_name}" restored. Existing active folder(s) with conflicting names in the repository were overridden.'
+        )
+    else:
+        messages.success(request, f'"{pf.display_name}" restored with its original path.')
     trash_cat_id = request.GET.get("trash_cat_id") or request.POST.get("trash_cat_id")
     if trash_cat_id:
         return redirect(f"{reverse('tasks:trash')}?trash_cat_id={trash_cat_id}")

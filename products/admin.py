@@ -9,7 +9,7 @@ class ProductAdmin(admin.ModelAdmin):
         "name",
         "brand",
         "sku",
-        "price",
+        "model_number",
         "category",
         "branch",
         "status",

@@ -141,14 +141,14 @@
             </ul>
         </div>
 
-        {% if is_global %}
+        {% if request.user.is_super_admin %}
         <div class="card border-danger mb-4">
             <h2 class="card-title h5 text-danger">Maintenance</h2>
             <p class="small text-muted">Perform critical system maintenance tasks.</p>
             
             <div class="mb-4">
                 <h3 class="h6 mb-3">Database Backup</h3>
-                <form method="post">
+                <form method="post" action="{% url 'inventory_settings' %}">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="export">
                     <button type="submit" class="btn btn-outline-danger w-100">
@@ -159,7 +159,7 @@
 
             <div class="mb-2">
                 <h3 class="h6 mb-3">Restore Database</h3>
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" action="{% url 'inventory_settings' %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="import">
                     <div class="mb-2">

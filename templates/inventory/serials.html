@@ -8,12 +8,14 @@
         Serial Number Tracking
     </h1>
     <div class="d-flex gap-2">
+        {% if request.user.is_super_admin or request.user.is_branch_admin or request.user.can_manage_serials %}
         <form method="post" style="display: inline;">
             {% csrf_token %}
             <button type="submit" class="btn btn-primary">
                 Sync Serial Numbers
             </button>
         </form>
+        {% endif %}
         <a href="/inventory/dashboard/" class="btn btn-secondary">
             Dashboard
         </a>
@@ -66,7 +68,7 @@
                             <th>Serial Number</th>
                             <th>Brand</th>
                             <th>SKU</th>
-                            <th>Price</th>
+                            <th>Model Number</th>
                             <th class="d-none d-lg-table-cell">Category</th>
                             <th class="d-none d-md-table-cell">Created</th>
                         </tr>
@@ -78,7 +80,7 @@
                             <td><span class="badge bg-info">{{ product.serial_number }}</span></td>
                             <td>{{ product.brand|default:"-" }}</td>
                             <td><span class="badge bg-dark">{{ product.sku }}</span></td>
-                            <td><span class="badge bg-success">₹{{ product.price|floatformat:2 }}</span></td>
+                            <td><span class="badge bg-secondary">{{ product.model_number|default:"-" }}</span></td>
                             <td class="d-none d-lg-table-cell">
                                 {% if product.category %}
                                     <span class="badge bg-primary">{{ product.category.name }}</span>

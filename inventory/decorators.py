@@ -29,16 +29,16 @@ def super_admin_required(view_func):
 
 def branch_admin_required(view_func):
     """
-    Decorator requiring the user to have is_branch_admin set to True.
+    Decorator requiring the user to have is_branch_admin or is_super_admin set to True.
     Otherwise redirects to dashboard-page.
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
-        if not getattr(request.user, "is_branch_admin", False):
+        if not (getattr(request.user, "is_branch_admin", False) or getattr(request.user, "is_super_admin", False)):
             messages.error(
-                request, "You need Branch Admin privileges to access this page."
+                request, "You need Admin privileges to access this page."
             )
             return redirect("dashboard-page")
         return view_func(request, *args, **kwargs)

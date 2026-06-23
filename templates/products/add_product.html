@@ -40,6 +40,11 @@
                         {% csrf_token %}
                         <input type="hidden" name="form_type" value="single">
                         
+                        <div class="alert alert-info py-2 mb-3 small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Only <strong>Product Name</strong> is required. SKU, Serial Number, Shelf Number, and Description are optional.
+                        </div>
+                        
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold">{{ form.name.label }}</label>
@@ -70,11 +75,9 @@
 
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">{{ form.price.label }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">₹</span>
-                                    {{ form.price }}
-                                </div>
+                                <label class="form-label fw-bold">{{ form.model_number.label }}</label>
+                                {{ form.model_number }}
+                                {% if form.model_number.errors %}<div class="text-danger small">{{ form.model_number.errors }}</div>{% endif %}
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label fw-bold">{{ form.unit.label }}</label>
@@ -151,7 +154,10 @@
                         <i class="fas fa-info-circle fa-2x me-3"></i>
                         <div>
                             <strong>Bulk Upload Instructions:</strong> Download the template, fill in the details, and upload the file.
-                            <a href="{% url 'download-excel-template' %}" class="btn btn-sm btn-primary ms-3">Download Template</a>
+                            <br>
+                            <small class="text-danger d-block mt-1"><strong>Mandatory column:</strong> Name is required. SKU, Serial Number, Shelf Number, Description, etc., are optional.</small>
+                            <small class="text-warning d-block mt-1"><strong>Warning:</strong> Uploading items with existing SKUs will update/override their details in the database.</small>
+                            <a href="{% url 'download-excel-template' %}" class="btn btn-sm btn-primary mt-2">Download Template</a>
                         </div>
                     </div>
 

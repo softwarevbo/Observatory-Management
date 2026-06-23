@@ -11,7 +11,7 @@ from django.views import View
 
 from audit.models import AuditLog
 from inventory.models import Branch, BranchStock
-from inventory.decorators import staff_permission_required
+from inventory.decorators import staff_permission_required, branch_admin_required, super_admin_required
 from inventory.utils import (
     has_global_inventory_access,
     get_isolated_products,
@@ -133,7 +133,7 @@ class ProductCreateView(View):
             )
             
             # Validate required sheet columns to ensure compatibility
-            required_columns = ["Name", "SKU", "Price"]
+            required_columns = ["Name"]
             # Detect any missing columns in the sheet
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
@@ -160,44 +160,42 @@ class ProductCreateView(View):
                     messages.error(request, f"Error reading datasheet ZIP: {e}")
                     return redirect("add-product")
                     
-            # Map products database to lowercased name keys to speed up category lookups
-            products = {p.name.lower(): p for p in Product.objects.all()}
-            
             # Iterate through rows inside the uploaded Excel sheet using Pandas iterrows()
             for index, row in df.iterrows():
                 try:
-                    # Clean and extract Name, SKU, and Price parameters from current sheet row
-                    name = str(row["Name"]).strip()
-                    sku = str(row["SKU"]).strip()
-                    price = float(row["Price"])
+                    # Clean and extract parameters from current sheet row
+                    name = str(row["Name"]).strip() if not pd.isna(row.get("Name")) else ""
+                    sku = str(row["SKU"]).strip() if not pd.isna(row.get("SKU")) else None
+                    if not sku:
+                        sku = None
+
+                    serial_number = str(row["Serial Number"]).strip() if not pd.isna(row.get("Serial Number")) else None
+                    if not serial_number:
+                        serial_number = None
+
+                    shelf_number = str(row["Shelf Number"]).strip() if not pd.isna(row.get("Shelf Number")) else "-"
+                    description = str(row["Description"]).strip() if not pd.isna(row.get("Description")) else ""
                     
-                    # Validate empty constraints to verify all required fields are present
-                    if not name or not sku or pd.isna(price):
+                    # Validate empty name constraint
+                    if not name:
                         error_count += 1
-                        # Save the row number (1-indexed, adding 2 for header offset) for reporting
-                        errors.append(f"Row {index + 2}: Missing required fields")
+                        errors.append(f"Row {index + 2}: Missing required field 'Name'")
                         continue
+
                         
-                    # Check for duplicate global SKU identifiers in the database
-                    if Product.objects.filter(sku=sku).exists():
-                        # If skip_duplicates checkbox was checked, simply bypass the duplicate row
-                        if skip_duplicates:
-                            skipped_count += 1
-                            continue
-                        else:
-                            # Otherwise, treat duplicate SKU as a validation error and abort row creation
-                            error_count += 1
-                            errors.append(
-                                f'Row {index + 2}: SKU "{sku}" already exists'
-                            )
-                            continue
+                    # Check for duplicate global SKU identifiers in the database (only if SKU is provided)
+                    existing_product = Product.objects.filter(sku=sku).first() if sku else None
                             
                     # Resolve category linkage by querying the category name from Category table
                     category = None
                     if "Category" in df.columns and not pd.isna(row["Category"]):
-                        category = Category.objects.filter(
-                            name__iexact=str(row["Category"]).strip()
-                        ).first()
+                        cat_name = str(row["Category"]).strip()
+                        if cat_name:
+                            category = Category.objects.filter(
+                                name__iexact=cat_name
+                            ).first()
+                            if not category:
+                                category = Category.objects.create(name=cat_name)
                         
                     # Resolve target branch assignment by matching the branch code
                     target_branch = None
@@ -217,81 +215,76 @@ class ProductCreateView(View):
                         and not pd.isna(row.get("Datasheet Filename"))
                     ):
                         fn = str(row["Datasheet Filename"]).strip()
-                        # If the ZIP directory holds a matching file name, read it
                         if fn in zip_files:
-                            # Convert the in-memory binary block into a Django-compatible ContentFile
                             datasheet_file = ContentFile(zip_files[fn], name=fn)
-                            
-                    # Create the Product record in database with the resolved parameters
-                    product = Product.objects.create(
-                        name=name,
-                        sku=sku,
-                        price=price,
-                        category=category,
-                        branch=target_branch,
-                        created_by=request.user,
-                        datasheet=datasheet_file,
-                        brand=(
-                            str(row.get("Brand", "")).strip()
-                            if "Brand" in df.columns and not pd.isna(row.get("Brand"))
-                            else ""
-                        ),
-                        description=(
-                            str(row.get("Description", "")).strip()
-                            if "Description" in df.columns
-                            and not pd.isna(row.get("Description"))
-                            else ""
-                        ),
-                        serial_number=(
-                            str(row.get("Serial Number", "")).strip()
-                            if "Serial Number" in df.columns
-                            and not pd.isna(row.get("Serial Number"))
-                            else ""
-                        ),
-                    )
+
+                    brand = str(row.get("Brand", "")).strip() if "Brand" in df.columns and not pd.isna(row.get("Brand")) else ""
+                    model_number = str(row.get("Model Number", "")).strip() if "Model Number" in df.columns and not pd.isna(row.get("Model Number")) else ""
+                    rack_number = str(row.get("Rack Number", "-")).strip() if "Rack Number" in df.columns and not pd.isna(row.get("Rack Number")) else "-"
+                    local_sku = str(row.get("Local SKU", sku)).strip() if "Local SKU" in df.columns and not pd.isna(row.get("Local SKU")) else sku
                     
-                    # Create a BranchStock entry to track quantities in that branch location
+                    quantity = 0
+                    if "Quantity" in df.columns and not pd.isna(row.get("Quantity")):
+                        try:
+                            quantity = max(0, int(row["Quantity"]))
+                        except ValueError:
+                            pass
+                            
+                    if existing_product:
+                        # Update existing product (anything can be uploaded multiple times to update)
+                        existing_product.name = name
+                        existing_product.category = category
+                        existing_product.brand = brand
+                        existing_product.model_number = model_number
+                        existing_product.description = description
+                        existing_product.serial_number = serial_number
+                        if datasheet_file:
+                            existing_product.datasheet = datasheet_file
+                        existing_product.save()
+                        product = existing_product
+                        skipped_count += 1  # Used to track the updated duplicate products count
+                    else:
+                        # Create the Product record in database
+                        product = Product.objects.create(
+                            name=name,
+                            sku=sku,
+                            category=category,
+                            branch=target_branch,
+                            created_by=request.user,
+                            datasheet=datasheet_file,
+                            brand=brand,
+                            model_number=model_number,
+                            description=description,
+                            serial_number=serial_number,
+                        )
+                        success_count += 1
+                    
+                    # Create or update BranchStock entry to track quantities in that branch location
                     if target_branch:
-                        BranchStock.objects.get_or_create(
+                        bs, _ = BranchStock.objects.get_or_create(
                             product=product,
                             branch=target_branch,
-                            defaults={
-                                # Map optional rack/shelf and local SKU parameters
-                                "rack_number": (
-                                    str(row.get("Rack Number", "-")).strip()
-                                    if "Rack Number" in df.columns
-                                    else "-"
-                                ),
-                                "shelf_number": (
-                                    str(row.get("Shelf Number", "-")).strip()
-                                    if "Shelf Number" in df.columns
-                                    else "-"
-                                ),
-                                "local_sku": (
-                                    str(row.get("Local SKU", sku)).strip()
-                                    if "Local SKU" in df.columns
-                                    else sku
-                                ),
-                            },
                         )
+                        bs.rack_number = rack_number
+                        bs.shelf_number = shelf_number
+                        bs.local_sku = local_sku
+                        bs.current_quantity = quantity
+                        bs.save()
                         
-                    # Add record creation audit trace log to track action history
-                    AuditLog.log(request.user, "created", product)
-                    # Increment count of successfully imported records
-                    success_count += 1
+                    # Add audit trace log
+                    AuditLog.log(request.user, "updated" if existing_product else "created", product)
                 except Exception as e:
-                    # Increment failed count and capture the error message details
                     error_count += 1
                     errors.append(f"Row {index + 2}: {str(e)}")
                     
             # Provide feedback alerts based on results to update the UI message queue
             if success_count > 0:
                 messages.success(
-                    request, f"Successfully imported {success_count} products!"
+                    request, f"Successfully imported {success_count} new products!"
                 )
             if skipped_count > 0:
                 messages.warning(
-                    request, f"Skipped {skipped_count} duplicate products."
+                    request, f"Warning: {skipped_count} existing products with matching SKUs were updated/overridden with the uploaded data."
                 )
             if error_count > 0:
                 error_message = f"Failed to import {error_count} products. " + (
@@ -391,7 +384,7 @@ class ProductListPageView(View):
                 bs.rack_number,
                 bs.shelf_number,
                 bs.local_sku,
-                bs.current_quantity * (p.price or 0),
+                0,
             )
             cloned_products.append(p)
             
@@ -521,6 +514,10 @@ class ProductDetailView(View):
         
         # Handle manual inventory increment/decrement adjustments from detail page
         if request.POST.get("action") == "stock_adjustment":
+            # Check permissions: must be an admin or have can_manage_adjustments permission
+            if not getattr(request.user, "is_admin", False) and not getattr(request.user, "can_manage_adjustments", False):
+                messages.error(request, "You do not have permission to make stock adjustments.")
+                return redirect("product-detail", pk=pk)
             # Extract form variables for adjustment type (e.g. addition/subtraction), quantity, and reason
             adj_type, qty, reason = (
                 request.POST.get("adjustment_type"),
@@ -567,6 +564,7 @@ class ProductDetailView(View):
         return redirect("product-detail", pk=pk)
 
 
+@method_decorator(branch_admin_required, name="dispatch")
 class ProductEditView(View):
     """
     Renders edit product form (GET) and processes edits (POST).
@@ -644,12 +642,11 @@ class ProductEditView(View):
         )
 
 
+@method_decorator(super_admin_required, name="dispatch")
 class ProductDeleteView(View):
     """
     Handles permanent deletion of product catalog items.
-    Restricted to super administrators via @admin_required.
     """
-    @method_decorator(admin_required)
     def post(self, request, pk):
         # Validate that the request session user is authenticated
         if not request.user.is_authenticated:
@@ -664,4 +661,33 @@ class ProductDeleteView(View):
         # Show success alert message
         messages.success(request, f"Product '{product_name}' has been deleted.")
         # Redirect back to products page
+        return redirect("products")
+
+
+@method_decorator(super_admin_required, name="dispatch")
+class ProductBulkDeleteView(View):
+    """
+    Handles bulk deletion of multiple product catalog items at once.
+    Restricted to Super Admins.
+    """
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return redirect("accounts:login")
+        
+        product_ids = request.POST.getlist("product_ids")
+        if not product_ids:
+            messages.warning(request, "No products selected for deletion.")
+            return redirect("products")
+            
+        products_to_delete = get_isolated_products(request.user).filter(id__in=product_ids)
+        deleted_count = products_to_delete.count()
+        
+        if deleted_count > 0:
+            product_names = ", ".join([p.name for p in products_to_delete])
+            products_to_delete.delete()
+            AuditLog.log(request.user, "deleted", None, f"Bulk deleted {deleted_count} products: {product_names}")
+            messages.success(request, f"Successfully deleted {deleted_count} products.")
+        else:
+            messages.error(request, "No valid products found to delete.")
+            
         return redirect("products")

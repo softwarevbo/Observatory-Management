@@ -302,7 +302,6 @@ urlpatterns = [
     ),
     # Misc
     path("reports/", report_views.reports_view, name="reports"),
-    path("pm-inventory/", misc_views.inventory_list, name="inventory_list"),
     # Report Center
     path("report-center/", report_views.report_center, name="report_center"),
     path("projects/<int:pk>/report-center/", report_views.project_report_center, name="project_report_center"),

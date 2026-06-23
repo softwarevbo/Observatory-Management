@@ -64,9 +64,7 @@
                         class="tree-sub-item {% if request.resolver_match.url_name == 'kb_list' and request.resolver_match.kwargs.pk|slugify == p.id|slugify %}active{% endif %}">
                         <i class="fas fa-sticky-note"></i> Notes
                     </a>
-                    <a href="{% url 'tasks:inventory_list' %}" class="tree-sub-item">
-                        <i class="fas fa-boxes"></i> Inventory
-                    </a>
+
                     <a href="{% url 'tasks:project_bug_list' p.id %}"
                         class="tree-sub-item {% if request.resolver_match.url_name == 'project_bug_list' and request.resolver_match.kwargs.pk|slugify == p.id|slugify %}active{% endif %}">
                         <i class="fas fa-bug"></i> Bug Reports
@@ -121,10 +119,7 @@
             class="nav-item {% if request.resolver_match.url_name == 'kb_overview' and not request.GET.project %}active{% endif %}">
             <i class="fas fa-sticky-note"></i><span>Notes</span>
         </a>
-        <a href="{% url 'tasks:inventory_list' %}"
-            class="nav-item {% if 'inventory_list' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-boxes"></i><span>Inventory</span>
-        </a>
+
         <a href="{% url 'files:file_list' %}"
             class="nav-item {% if request.resolver_match.app_name == 'files' %}active{% endif %}">
             <i class="fas fa-file-archive"></i><span>Resources</span>

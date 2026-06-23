@@ -78,6 +78,10 @@
             class="nav-item {% if 'system-settings' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-cog me-2"></i><span>System Settings</span>
         </a>
+        <a href="{% url 'inventory_settings' %}"
+            class="nav-item {% if 'inventory_settings' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-database me-2"></i><span>DB Backup/Restore</span>
+        </a>
         {% endif %}
 
         {% if user.is_branch_admin %}

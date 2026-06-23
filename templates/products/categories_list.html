@@ -8,9 +8,11 @@
         Category List
     </h1>
     <div class="d-flex gap-2 flex-wrap">
+        {% if request.user.is_super_admin or request.user.is_branch_admin or request.user.can_add_inventory %}
         <a href="{% url 'add-category' %}" class="btn btn btn-primary">
             <i class="fas fa-plus me-2"></i> Add Category
         </a>
+        {% endif %}
         <a href="{% url 'products' %}" class="btn btn-secondary">
             Products
         </a>
@@ -33,8 +35,12 @@
                         <th>Image</th>
                         <th>Name</th>
                         <th>Description</th>
+                        {% if request.user.is_super_admin or request.user.is_branch_admin %}
                         <th>Edit</th>
+                        {% endif %}
+                        {% if request.user.is_super_admin %}
                         <th>Delete</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -50,12 +56,15 @@
                         </td>
                         <td><strong>{{ category.name|default:"-" }}</strong></td>
                         <td><span class="text-muted">{{ category.description|default:"-" }}</span></td>
+                        {% if request.user.is_super_admin or request.user.is_branch_admin %}
                         <td>
                             <a href="{% url 'edit-category' category.pk %}" class="btn btn btn-secondary btn-sm"
                                 title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
                         </td>
+                        {% endif %}
+                        {% if request.user.is_super_admin %}
                         <td>
                             <form method="post" action="{% url 'delete-category' category.pk %}"
                                 style="display:inline;">
@@ -66,6 +75,7 @@
                                 </button>
                             </form>
                         </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

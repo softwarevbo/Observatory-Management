@@ -6,6 +6,7 @@ from django.views import View
 
 from audit.models import AuditLog
 from tasks.decorators import admin_required
+from inventory.decorators import staff_permission_required, branch_admin_required, super_admin_required
 from ..models import Category
 
 """
@@ -36,6 +37,7 @@ class CategoryListPageView(View):
         )
 
 
+@method_decorator(staff_permission_required("can_add_inventory"), name="dispatch")
 class CategoryCreateView(View):
     """
     Handles rendering the category entry form (GET) and creating a Category (POST).
@@ -70,6 +72,7 @@ class CategoryCreateView(View):
         return redirect("categories")
 
 
+@method_decorator(branch_admin_required, name="dispatch")
 class CategoryEditView(View):
     """
     Renders edit category form (GET) and processes category updates (POST).
@@ -106,12 +109,11 @@ class CategoryEditView(View):
         return redirect("categories")
 
 
+@method_decorator(super_admin_required, name="dispatch")
 class CategoryDeleteView(View):
     """
     Handles permanent deletion of categories.
-    Restricted to super administrators via @admin_required.
     """
-    @method_decorator(admin_required)
     def post(self, request, pk):
         # Validate that the request session user is authenticated
         if not request.user.is_authenticated:

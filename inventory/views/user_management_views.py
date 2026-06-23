@@ -116,9 +116,6 @@ class InventoryUserManagementView(View):
             target_user.branch = Branch.objects.get(id=branch_id) if branch_id else None
             target_user.is_active = request.POST.get("is_active") == "on"
             update_fields = ["email", "role", "branch", "is_active"]
-            for field_name in self.PERMISSION_FIELDS:
-                setattr(target_user, field_name, request.POST.get(field_name) == "on")
-                update_fields.append(field_name)
             target_user.save(update_fields=update_fields)
             new_password = request.POST.get("password", "").strip()
             if new_password:
@@ -140,9 +137,139 @@ class InventoryUserManagementView(View):
                 messages.error(request, "You cannot delete your own account.")
                 return redirect("inventory-users-management")
             username = target_user.username
-            target_user.delete()
-            messages.success(request, f'Inventory user "{username}" deleted.')
+            target_user.is_active = False
+            target_user.save(update_fields=["is_active"])
+            messages.success(request, f'Inventory user "{username}" deactivated instead of deleted.')
             return redirect("inventory-users-management")
 
         messages.error(request, "Invalid action.")
         return redirect("inventory-users-management")
+
+
+class InventoryUserPermissionsView(View):
+    """
+    Dedicated view for managing granular inventory permissions for staff users.
+    Enforces role-based authority rules for both Branch Admins and Super Admins.
+    """
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("accounts:login")
+        if not getattr(request.user, "is_admin", False):
+            messages.error(request, "You do not have permission to access the permissions page.")
+            return redirect("dashboard-page")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, user_id):
+        target_user = get_object_or_404(InventoryUser, id=user_id)
+        
+        # Enforce restrictions
+        # 1. Branch Admin restrictions
+        if getattr(request.user, "is_branch_admin", False) and not getattr(request.user, "is_super_admin", False):
+            if target_user.role != "staff" or target_user.branch != request.user.branch:
+                messages.error(request, "Access Denied: You can only edit permissions for staff in your own branch.")
+                return redirect("branch-users")
+        
+        # 2. Prevent editing self
+        if request.user.id == target_user.id:
+            messages.error(request, "Access Denied: You cannot modify your own permissions.")
+            if getattr(request.user, "is_super_admin", False):
+                return redirect("inventory-users-management")
+            else:
+                return redirect("branch-users")
+
+        permission_groups = {
+            "page_access": [
+                {"name": "can_access_adjustments_page", "label": "Access Stock Adjustments Page", "desc": "Allows viewing the stock adjustments logs page."},
+                {"name": "can_access_serials_page", "label": "Access Serial Numbers Tracking Page", "desc": "Allows viewing the list of registered serial/lot numbers."},
+                {"name": "can_access_limits_page", "label": "Access Stock Limits / Reorder Limits Page", "desc": "Allows viewing branch-specific inventory quantity thresholds."},
+                {"name": "can_access_alerts_page", "label": "Access Active Alerts Page", "desc": "Allows viewing low stock and expiry alerts logs."},
+                {"name": "can_access_rentals_page", "label": "Access Rentals Page", "desc": "Allows viewing active equipment rental transactions."},
+                {"name": "can_access_shortage_page", "label": "Access Shortage / Out of Stock Page", "desc": "Allows viewing lists of items below minimum quantities."},
+            ],
+            "actions": [
+                {"name": "can_manage_adjustments", "label": "Manage Stock Adjustments", "desc": "Allows creating new manual stock adjustments (increments/decrements)."},
+                {"name": "can_manage_serials", "label": "Manage Serial Numbers", "desc": "Allows registering or editing serial numbers for equipment."},
+                {"name": "can_manage_limits", "label": "Manage Stock Limits", "desc": "Allows setting, editing, or removing reorder thresholds."},
+                {"name": "can_manage_alerts", "label": "Manage / Acknowledge Alerts", "desc": "Allows acknowledging or resolving triggered stock level alerts."},
+                {"name": "can_manage_rentals", "label": "Manage Rentals Actions", "desc": "Allows creating rentals, registering returns, and managing overdue items."},
+                {"name": "can_manage_shortage_exports", "label": "Export Shortage Data", "desc": "Allows exporting CSV/PDF files of out-of-stock items lists."},
+            ],
+            "core": [
+                {"name": "can_add_inventory", "label": "Create Products / Add Stock Items", "desc": "Allows inserting new products into the branch inventory catalog."},
+                {"name": "can_edit_inventory", "label": "Edit Products / Modify Stock Items", "desc": "Allows editing details and location values of existing products."},
+                {"name": "can_delete_inventory", "label": "Delete Products / Archive Stock Items", "desc": "Allows permanently removing products from the inventory."},
+                {"name": "can_approve_transfer", "label": "Approve Stock Transfers", "desc": "Allows approving and receiving stock transfers between branches."},
+                {"name": "can_export_reports", "label": "Export Inventory Reports", "desc": "Allows downloading reports for stock analytics and statistics."},
+            ],
+            "admin_global": [
+                {"name": "can_view_all_branches_inventory", "label": "Global Inventory Access (Cross-Branch)", "desc": "Allows viewing products and stock logs across all physical branches."},
+                {"name": "can_manage_users", "label": "Administrate Inventory Users", "desc": "Allows creating, updating, or deleting other inventory staff accounts."},
+            ]
+        }
+
+        # Build flat list of all checked state variables
+        user_perms = {}
+        for group_name, group_list in permission_groups.items():
+            for p in group_list:
+                user_perms[p["name"]] = getattr(target_user, p["name"], False)
+
+        context = {
+            "target_user": target_user,
+            "permission_groups": permission_groups,
+            "user_perms": user_perms,
+        }
+        return render(request, "inventory/user_permissions.html", context)
+
+    def post(self, request, user_id):
+        target_user = get_object_or_404(InventoryUser, id=user_id)
+        
+        # Enforce restrictions
+        # 1. Branch Admin restrictions
+        if getattr(request.user, "is_branch_admin", False) and not getattr(request.user, "is_super_admin", False):
+            if target_user.role != "staff" or target_user.branch != request.user.branch:
+                messages.error(request, "Access Denied: You can only edit permissions for staff in your own branch.")
+                return redirect("branch-users")
+        
+        # 2. Prevent editing self
+        if request.user.id == target_user.id:
+            messages.error(request, "Access Denied: You cannot modify your own permissions.")
+            if getattr(request.user, "is_super_admin", False):
+                return redirect("inventory-users-management")
+            else:
+                return redirect("branch-users")
+
+        permission_fields = [
+            "can_access_adjustments_page",
+            "can_manage_adjustments",
+            "can_access_serials_page",
+            "can_manage_serials",
+            "can_access_limits_page",
+            "can_manage_limits",
+            "can_access_alerts_page",
+            "can_manage_alerts",
+            "can_access_rentals_page",
+            "can_manage_rentals",
+            "can_access_shortage_page",
+            "can_manage_shortage_exports",
+            "can_view_all_branches_inventory",
+            "can_add_inventory",
+            "can_edit_inventory",
+            "can_delete_inventory",
+            "can_approve_transfer",
+            "can_export_reports",
+            "can_manage_users",
+        ]
+
+        update_fields = []
+        for field in permission_fields:
+            val = request.POST.get(field) == "on"
+            setattr(target_user, field, val)
+            update_fields.append(field)
+            
+        target_user.save(update_fields=update_fields)
+        messages.success(request, f"Granular permissions updated for '{target_user.username}'.")
+        
+        if getattr(request.user, "is_super_admin", False):
+            return redirect("inventory-users-management")
+        else:
+            return redirect("branch-users")

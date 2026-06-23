@@ -140,8 +140,9 @@ class TelescopeUserManagementTest(TestCase):
         response = self.client.get(url)
         self.assertRedirects(response, reverse("accounts:user_list") + "?tab=telescope")
         
-        # Check that the user no longer exists in the database
-        self.assertFalse(User.objects.filter(pk=self.tele_user.pk).exists())
+        # Check that the user still exists in the database but is deactivated
+        self.tele_user.refresh_from_db()
+        self.assertFalse(self.tele_user.is_active)
 
 
 class UserFormPermissionsTest(TestCase):

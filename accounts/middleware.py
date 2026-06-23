@@ -207,12 +207,14 @@ class InventoryAccessMiddleware:
         # redirect them to the telescope dashboard if they attempt to access PM urls.
         if (
             is_pm_user
-            and not request.user.is_superuser
+            and not getattr(request.user, "is_superuser", False)
             and not getattr(request.user, "is_admin", False)
             and not getattr(request.user, "can_access_pm", False)
         ):
             allowed = [
                 "/telescope/",
+                "/inventory/",
+                "/api/inventory/",
                 "/accounts/",
                 "/media/",
                 "/static/",

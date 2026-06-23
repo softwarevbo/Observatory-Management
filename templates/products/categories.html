@@ -68,7 +68,7 @@
                         <th>Brand</th>
                         <th>Description</th>
                         <th>SKU</th>
-                        <th>Price</th>
+                        <th>Model Number</th>
                         <th>Category</th>
                         <th>Created</th>
                     </tr>
@@ -80,7 +80,7 @@
                         <td>{{ product.brand|default:"-" }}</td>
                         <td>{{ product.description|truncatechars:50|default:"-" }}</td>
                         <td><code>{{ product.sku }}</code></td>
-                        <td><span class="badge bg-success">₹{{ product.price }}</span></td>
+                        <td><span class="badge bg-secondary">{{ product.model_number|default:"-" }}</span></td>
                         <td><span class="badge bg-info">{{ product.category.name }}</span></td>
                         <td>{{ product.created_at|date:'M d, Y' }}</td>
                     </tr>

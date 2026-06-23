@@ -105,12 +105,19 @@ def file_upload(request):
                         if cache_key in category_cache:
                             current_parent = category_cache[cache_key]
                         else:
-                            cat_obj, _ = FileCategory.objects.get_or_create(
+                            cat_obj = FileCategory.objects.filter(
                                 name=part,
                                 project=project,
                                 parent=current_parent,
-                                defaults={"created_by": request.user},
-                            )
+                                is_in_trash=False
+                            ).first()
+                            if not cat_obj:
+                                cat_obj = FileCategory.objects.create(
+                                    name=part,
+                                    project=project,
+                                    parent=current_parent,
+                                    created_by=request.user
+                                )
                             category_cache[cache_key] = cat_obj
                             current_parent = cat_obj
                     file_cat = current_parent

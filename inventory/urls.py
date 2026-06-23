@@ -39,6 +39,11 @@ urlpatterns = [
         name="inventory-users-management",
     ),
     path(
+        "users/<int:user_id>/permissions/",
+        views.InventoryUserPermissionsView.as_view(),
+        name="inventory-user-permissions",
+    ),
+    path(
         "adjustments/",
         views.InventoryAdjustmentPageView.as_view(),
         name="inventory-adjustments-page",

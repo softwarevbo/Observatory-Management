@@ -47,7 +47,9 @@ class ProductsAPITest(APITestCase):
             "name": "New Product",
             "category": self.category.id,
             "sku": "NP001",
-            "price": "9.99",
+            "serial_number": "SN-NEW-123",
+            "model_number": "MN-880",
+            "description": "Product description",
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -55,9 +57,97 @@ class ProductsAPITest(APITestCase):
 
     def test_list_products(self):
         Product.objects.create(
-            name="Existing Product", category=self.category, sku="EP001", price=5.00
+            name="Existing Product", 
+            category=self.category, 
+            sku="EP001", 
+            serial_number="SN-EXIST-456", 
+            model_number="MN-500",
+            description="Another product description",
         )
         url = reverse("products-api")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
+
+    def test_bulk_delete_products_as_super_admin(self):
+        """Verifies that a Super Admin can bulk delete multiple selected products."""
+        p1 = Product.objects.create(name="Product 1", sku="P001", category=self.category)
+        p2 = Product.objects.create(name="Product 2", sku="P002", category=self.category)
+        p3 = Product.objects.create(name="Product 3", sku="P003", category=self.category)
+        
+        url = reverse("bulk-delete-products")
+        data = {
+            "product_ids": [p1.id, p2.id]
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        
+        self.assertEqual(Product.objects.count(), 1)
+        self.assertFalse(Product.objects.filter(id=p1.id).exists())
+        self.assertFalse(Product.objects.filter(id=p2.id).exists())
+        self.assertTrue(Product.objects.filter(id=p3.id).exists())
+
+    def test_bulk_delete_products_as_branch_admin_is_blocked(self):
+        """Verifies that a Branch Admin is blocked from bulk deleting products."""
+        branch_admin = InventoryUser.objects.create(
+            username="branchadmin", is_active=True, role="branch_admin"
+        )
+        branch_admin.set_password("testpass")
+        
+        session = self.client.session
+        session["inv_user_id"] = branch_admin.id
+        session.save()
+        
+        p1 = Product.objects.create(name="Product 1", sku="P001", category=self.category)
+        
+        url = reverse("bulk-delete-products")
+        data = {
+            "product_ids": [p1.id]
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Product.objects.filter(id=p1.id).exists())
+
+    def test_bulk_upload_auto_creates_categories_case_insensitively(self):
+        """Verifies that bulk upload resolves categories case-insensitively and auto-creates missing ones."""
+        import io
+        import pandas as pd
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        self.assertEqual(Category.objects.count(), 1)
+        
+        df = pd.DataFrame([
+            {"Name": "Bulk Product A", "Category": "new category", "SKU": "BPA001", "Serial Number": "SN-BPA-1"},
+            {"Name": "Bulk Product B", "Category": "test category", "SKU": "BPB002", "Serial Number": "SN-BPB-2"}
+        ])
+        
+        excel_buffer = io.BytesIO()
+        df.to_excel(excel_buffer, index=False)
+        excel_buffer.seek(0)
+        
+        excel_file = SimpleUploadedFile(
+            name="bulk_products.xlsx",
+            content=excel_buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        url = reverse("add-product")
+        data = {
+            "form_type": "bulk",
+            "excel_file": excel_file
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        
+        self.assertEqual(Category.objects.count(), 2)
+        self.assertTrue(Category.objects.filter(name="new category").exists())
+        self.assertTrue(Category.objects.filter(name="Test Category").exists())
+        
+        prod_a = Product.objects.get(sku="BPA001")
+        prod_b = Product.objects.get(sku="BPB002")
+        
+        self.assertEqual(prod_a.category.name, "new category")
+        self.assertEqual(prod_b.category, self.category)

@@ -30,10 +30,10 @@ class ProductForm(forms.ModelForm):
             "category",
             "branch",
             "brand",
+            "model_number",
             "description",
             "sku",
             "serial_number",
-            "price",
             "unit",
             "status",
             "supplier",
@@ -42,13 +42,14 @@ class ProductForm(forms.ModelForm):
             "datasheet",
         ]
         widgets = {
-            "description": forms.Textarea(attrs={"rows": 3}),
+            "description": forms.Textarea(attrs={"rows": 3, "placeholder": "Enter product description"}),
             "purchase_details": forms.Textarea(attrs={"rows": 3}),
-            "name": forms.TextInput(attrs={"placeholder": "Enter product name"}),
+            "name": forms.TextInput(attrs={"placeholder": "Enter product name (Mandatory Field)"}),
+            "model_number": forms.TextInput(attrs={"placeholder": "Enter model number"}),
             "sku": forms.TextInput(
                 attrs={"placeholder": "Global SKU (Read-only for staff)"}
             ),
-            "price": forms.NumberInput(attrs={"step": "0.01"}),
+            "serial_number": forms.TextInput(attrs={"placeholder": "Enter serial number"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -56,6 +57,9 @@ class ProductForm(forms.ModelForm):
         user = kwargs.pop("user", None)
         # Call base constructor
         super().__init__(*args, **kwargs)
+        
+        # Modify label to indicate they are mandatory
+        self.fields["name"].label = "Product Name *"
 
         # Iterate over all fields to dynamically add Bootstrap class "form-control"
         for field in self.fields.values():
@@ -117,3 +121,15 @@ class ProductForm(forms.ModelForm):
                     self.initial["rack_number"] = bs.rack_number
                     self.initial["shelf_number"] = bs.shelf_number
                     self.initial["local_sku"] = bs.local_sku
+
+    def clean_serial_number(self):
+        data = self.cleaned_data.get("serial_number")
+        if not data or not data.strip():
+            return None
+        return data.strip()
+
+    def clean_sku(self):
+        data = self.cleaned_data.get("sku")
+        if not data or not data.strip():
+            return None
+        return data.strip()

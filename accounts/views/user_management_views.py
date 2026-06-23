@@ -299,9 +299,10 @@ def user_delete(request, pk):
         
     if request.method == "POST":
         username = del_user.username
-        # Delete user record from database
-        del_user.delete()
-        messages.success(request, f'User "{username}" permanently deleted.')
+        # Deactivate user instead of delete
+        del_user.is_active = False
+        del_user.save(update_fields=["is_active"])
+        messages.success(request, f'User "{username}" deactivated instead of deleted.')
         return redirect("accounts:user_list")
         
     return render(request, "accounts/user_confirm_delete.html", {"user_obj": del_user})
@@ -484,14 +485,15 @@ def inventory_user_edit(request, pk):
 @admin_required
 def inventory_user_delete(request, pk):
     """
-    Permanently deletes an InventoryUser account.
+    Deactivates an InventoryUser account instead of deleting.
     """
     from inventory.models import InventoryUser
     
     user = get_object_or_404(InventoryUser, pk=pk)
     username = user.username
-    user.delete()
-    messages.success(request, f'Inventory user "{username}" deleted successfully.')
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    messages.success(request, f'Inventory user "{username}" deactivated instead of deleted.')
     return redirect("/accounts/users/?tab=inventory")
 
 
@@ -602,12 +604,13 @@ def telescope_user_edit(request, pk):
 @admin_required
 def telescope_user_delete(request, pk):
     """
-    Permanently deletes a Telescope Operator.
+    Deactivates a Telescope Operator instead of deleting.
     """
     user = get_object_or_404(User, pk=pk)
     username = user.username
-    user.delete()
-    messages.success(request, f'Telescope user "{username}" deleted successfully.')
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    messages.success(request, f'Telescope user "{username}" deactivated instead of deleted.')
     return redirect("/accounts/users/?tab=telescope")
 
 

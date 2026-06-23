@@ -80,3 +80,24 @@ class InventoryAPITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
+
+    def test_super_admin_can_access_db_backup(self):
+        """Verifies that a Super Admin can successfully access the DB Backup/Restore page."""
+        url = reverse("inventory_settings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_branch_admin_cannot_access_db_backup(self):
+        """Verifies that a Branch Admin is blocked from accessing the DB Backup/Restore page."""
+        branch_admin = InventoryUser.objects.create(
+            username="branchadmin", is_active=True, role="branch_admin"
+        )
+        branch_admin.set_password("testpass")
+        
+        session = self.client.session
+        session["inv_user_id"] = branch_admin.id
+        session.save()
+        
+        url = reverse("inventory_settings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)

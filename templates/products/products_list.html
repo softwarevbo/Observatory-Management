@@ -6,12 +6,22 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
     <h1 class="page-title mb-0">Product Inventory</h1>
     <div class="d-flex gap-2 flex-wrap">
+        {% if request.user.is_super_admin %}
+        <button type="button" id="btn-bulk-delete" class="btn btn-danger" style="display: none;">
+            <i class="fas fa-trash-alt me-2"></i> Bulk Delete (<span id="selected-count">0</span>)
+        </button>
+        <form id="bulk-delete-form" method="post" action="{% url 'bulk-delete-products' %}" style="display: none;">
+            {% csrf_token %}
+        </form>
+        {% endif %}
+        {% if request.user.is_super_admin or request.user.is_branch_admin or request.user.can_add_inventory %}
         <a href="{% url 'add-product' %}{% if current_branch %}?branch={{ current_branch }}{% endif %}" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i> Add Product
         </a>
         <a href="{% url 'add-product' %}#bulk" class="btn btn-success">
             Bulk Upload
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -31,10 +41,10 @@
     <!-- Search and Filters -->
     <form method="get" class="row g-3">
         <div class="col-md-3">
-            <input type="text" class="form-control" name="search" placeholder="Search products..." value="{{ search_query }}">
+            <input type="text" class="form-control" name="search" id="search-input" placeholder="Search products..." value="{{ search_query }}">
         </div>
         <div class="col-md-3">
-            <select name="category" class="form-select">
+            <select name="category" id="category-filter" class="form-select">
                 <option value="">All Categories</option>
                 {% for cat in categories %}
                 <option value="{{ cat.id }}" {% if current_category == cat.id|stringformat:"i" %}selected{% endif %}>{{ cat.name }}</option>
@@ -43,7 +53,7 @@
         </div>
         {% if branches %}
         <div class="col-md-2">
-            <select name="branch" class="form-select">
+            <select name="branch" id="branch-filter" class="form-select">
                 <option value="">All Branches</option>
                 {% for b in branches %}
                 <option value="{{ b.id }}" {% if current_branch == b.id|stringformat:"i" %}selected{% endif %}>{{ b.name }}</option>
@@ -52,7 +62,7 @@
         </div>
         {% endif %}
         <div class="col-md-2">
-            <select name="status" class="form-select">
+            <select name="status" id="status-filter" class="form-select">
                 <option value="">All Status</option>
                 <option value="in_stock" {% if current_status == 'in_stock' %}selected{% endif %}>In Stock</option>
                 <option value="low_stock" {% if current_status == 'low_stock' %}selected{% endif %}>Low Stock</option>
@@ -74,21 +84,30 @@
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
+                    {% if request.user.is_super_admin %}
+                    <th style="width: 40px;"><input type="checkbox" id="select-all-products" class="form-check-input"></th>
+                    {% endif %}
                     <th style="width: 60px;">Image</th>
-                    <th>Product Details</th>
-                    <th class="d-none d-xl-table-cell">SKU/Serial</th>
+                    <th>Name</th>
+                    <th class="d-none d-md-table-cell">Brand</th>
+                    <th class="d-none d-sm-table-cell">SKU</th>
+                    <th class="d-none d-lg-table-cell">Serial Number</th>
                     <th>Category</th>
                     <th>Status</th>
                     <th>Quantity</th>
-                    <th>Value</th>
-                    <th class="d-none d-lg-table-cell">Branch Info</th>
-                    <th>Rack/Shelf</th>
+                    <th>Model Number</th>
+                    <th class="d-none d-lg-table-cell">Branch</th>
+                    <th class="d-none d-xl-table-cell">Rack</th>
+                    <th class="d-none d-xl-table-cell">Shelf</th>
                     <th style="width: 100px;">Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="product-table-body">
                 {% for product in products %}
                 <tr>
+                    {% if request.user.is_super_admin %}
+                    <td><input type="checkbox" name="selected_product_ids" value="{{ product.pk }}" class="product-select-checkbox form-check-input"></td>
+                    {% endif %}
                     <td>
                         {% if product.image %}
                         <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-thumbnail" style="width: 48px; height: 48px; object-fit: cover;">
@@ -99,14 +118,18 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'product-detail' product.pk %}?branch={{ product.branch_id }}" class="text-decoration-none">
-                            <div class="fw-bold">{{ product.name }}</div>
-                            <div class="small text-muted">{{ product.brand|default:"" }}</div>
+                        <a href="{% url 'product-detail' product.pk %}?branch={{ product.branch_id }}" class="text-decoration-none fw-bold">
+                            {{ product.name }}
                         </a>
                     </td>
-                    <td class="d-none d-xl-table-cell">
-                        <div class="small">SKU: {{ product.local_sku|default:product.sku|default:"-" }}</div>
-                        <div class="small text-muted">SN: {{ product.serial_number|default:"-" }}</div>
+                    <td class="d-none d-md-table-cell">
+                        <span class="text-muted">{{ product.brand|default:"-" }}</span>
+                    </td>
+                    <td class="d-none d-sm-table-cell">
+                        <code>{{ product.local_sku|default:product.sku|default:"-" }}</code>
+                    </td>
+                    <td class="d-none d-lg-table-cell">
+                        <span class="text-muted">{{ product.serial_number|default:"-" }}</span>
                     </td>
                     <td><div class="small">{{ product.category.name|default:"-" }}</div></td>
                     <td>
@@ -126,24 +149,29 @@
                         </span>
                     </td>
                     <td>
-                        <div class="fw-bold">₹{{ product.inventory_value|floatformat:2 }}</div>
-                        <div class="small text-muted">@₹{{ product.price|floatformat:2 }}</div>
+                        <div class="fw-bold">{{ product.model_number|default:"-" }}</div>
                     </td>
                     <td class="d-none d-lg-table-cell">
                         <div class="small fw-bold">{{ product.display_branch }}</div>
                         <div class="small text-muted">By: {{ product.created_by.username|default:"System" }}</div>
                     </td>
-                    <td>
-                        <div class="small">R: {{ product.rack_number|default:"-" }}</div>
-                        <div class="small">S: {{ product.shelf_number|default:"-" }}</div>
+                    <td class="d-none d-xl-table-cell">
+                        <div class="small">{{ product.rack_number|default:"-" }}</div>
+                    </td>
+                    <td class="d-none d-xl-table-cell">
+                        <div class="small">{{ product.shelf_number|default:"-" }}</div>
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
+                            {% if request.user.is_super_admin or request.user.is_branch_admin %}
                             <a href="{% url 'edit-product' product.pk %}" class="btn btn-outline-primary"><i class="fas fa-edit"></i></a>
+                            {% endif %}
+                            {% if request.user.is_super_admin %}
                             <form method="post" action="{% url 'delete-product' product.pk %}" onsubmit="return confirm('Delete this product?');" style="display:inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-outline-danger"><i class="fas fa-trash"></i></button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -151,7 +179,7 @@
             </tbody>
         </table>
     </div>
-    <div class="card-footer bg-white">
+    <div class="card-footer bg-white" id="pagination-container">
         {% include 'pagination.html' %}
     </div>
     {% else %}
@@ -163,4 +191,192 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const searchInput = document.getElementById("search-input");
+    const categoryFilter = document.getElementById("category-filter");
+    const branchFilter = document.getElementById("branch-filter");
+    const statusFilter = document.getElementById("status-filter");
+    const tableBody = document.getElementById("product-table-body");
+    const paginationContainer = document.getElementById("pagination-container");
+
+    let debounceTimeout = null;
+
+    function fetchFilteredProducts() {
+        const queryParams = new URLSearchParams();
+        if (searchInput && searchInput.value.trim()) {
+            queryParams.set("search", searchInput.value.trim());
+        }
+        if (categoryFilter && categoryFilter.value) {
+            queryParams.set("category", categoryFilter.value);
+        }
+        if (branchFilter && branchFilter.value) {
+            queryParams.set("branch", branchFilter.value);
+        }
+        if (statusFilter && statusFilter.value) {
+            queryParams.set("status", statusFilter.value);
+        }
+
+        // Add subtle loading opacity
+        if (tableBody) tableBody.style.opacity = "0.5";
+
+        const fetchUrl = `${window.location.pathname}?${queryParams.toString()}`;
+
+        fetch(fetchUrl)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                
+                const newTableBody = doc.getElementById("product-table-body");
+                const newPagination = doc.getElementById("pagination-container");
+
+                if (newTableBody && tableBody) {
+                    tableBody.innerHTML = newTableBody.innerHTML;
+                }
+                if (newPagination && paginationContainer) {
+                    paginationContainer.innerHTML = newPagination.innerHTML;
+                }
+                
+                if (tableBody) tableBody.style.opacity = "1";
+                
+                // Update URL in browser bar without reloading the page
+                history.pushState(null, "", fetchUrl);
+                
+                // Reset checkbox selections after table update
+                resetSelection();
+            })
+            .catch(err => {
+                console.error("Failed to fetch filtered products:", err);
+                if (tableBody) tableBody.style.opacity = "1";
+            });
+    }
+
+    // Debounced search input typing
+    if (searchInput) {
+        searchInput.addEventListener("input", function() {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(fetchFilteredProducts, 250);
+        });
+    }
+
+    // Instant filter changes
+    [categoryFilter, branchFilter, statusFilter].forEach(filter => {
+        if (filter) {
+            filter.addEventListener("change", fetchFilteredProducts);
+        }
+    });
+
+    // Asynchronous pagination navigation interception
+    document.addEventListener("click", function(e) {
+        const pageLink = e.target.closest("#pagination-container a");
+        if (pageLink) {
+            e.preventDefault();
+            const href = pageLink.getAttribute("href");
+            if (href) {
+                if (tableBody) tableBody.style.opacity = "0.5";
+                fetch(href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, "text/html");
+                        
+                        const newTableBody = doc.getElementById("product-table-body");
+                        const newPagination = doc.getElementById("pagination-container");
+
+                        if (newTableBody && tableBody) {
+                            tableBody.innerHTML = newTableBody.innerHTML;
+                        }
+                        if (newPagination && paginationContainer) {
+                            paginationContainer.innerHTML = newPagination.innerHTML;
+                        }
+                        
+                        if (tableBody) tableBody.style.opacity = "1";
+                        history.pushState(null, "", href);
+                        
+                        // Reset checkbox selections after page navigation
+                        resetSelection();
+                    })
+                    .catch(err => {
+                        console.error("Failed to navigate page:", err);
+                        if (tableBody) tableBody.style.opacity = "1";
+                    });
+            }
+        }
+    });
+
+    // --- Bulk Selection & Deletion Logic ---
+    function updateBulkDeleteButton() {
+        const checkedBoxes = document.querySelectorAll(".product-select-checkbox:checked");
+        const btnBulkDelete = document.getElementById("btn-bulk-delete");
+        const selectedCount = document.getElementById("selected-count");
+        
+        if (btnBulkDelete && selectedCount) {
+            if (checkedBoxes.length > 0) {
+                selectedCount.textContent = checkedBoxes.length;
+                btnBulkDelete.style.display = "inline-block";
+            } else {
+                btnBulkDelete.style.display = "none";
+            }
+        }
+    }
+
+    function resetSelection() {
+        const selectAll = document.getElementById("select-all-products");
+        if (selectAll) {
+            selectAll.checked = false;
+        }
+        updateBulkDeleteButton();
+    }
+
+    // Event delegation for checkbox changes
+    document.addEventListener("change", function(e) {
+        if (e.target.id === "select-all-products") {
+            const checkboxes = document.querySelectorAll(".product-select-checkbox");
+            checkboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+            });
+            updateBulkDeleteButton();
+        } else if (e.target.classList.contains("product-select-checkbox")) {
+            const selectAll = document.getElementById("select-all-products");
+            if (selectAll) {
+                const total = document.querySelectorAll(".product-select-checkbox").length;
+                const checked = document.querySelectorAll(".product-select-checkbox:checked").length;
+                selectAll.checked = (total === checked && total > 0);
+            }
+            updateBulkDeleteButton();
+        }
+    });
+
+    // Bulk delete button click handler
+    const btnBulkDelete = document.getElementById("btn-bulk-delete");
+    if (btnBulkDelete) {
+        btnBulkDelete.addEventListener("click", function() {
+            const checkedBoxes = document.querySelectorAll(".product-select-checkbox:checked");
+            if (checkedBoxes.length === 0) return;
+            
+            if (confirm(`Are you sure you want to permanently delete the ${checkedBoxes.length} selected products? This will also delete all their stock entries, transfers, and related history records.`)) {
+                const bulkForm = document.getElementById("bulk-delete-form");
+                if (bulkForm) {
+                    // Clear previous inputs
+                    bulkForm.querySelectorAll('input[name="product_ids"]').forEach(el => el.remove());
+                    // Append new hidden inputs for each selected product
+                    checkedBoxes.forEach(cb => {
+                        const input = document.createElement("input");
+                        input.type = "hidden";
+                        input.name = "product_ids";
+                        input.value = cb.value;
+                        bulkForm.appendChild(input);
+                    });
+                    bulkForm.submit();
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

@@ -241,6 +241,24 @@ class FileCategoryForm(forms.ModelForm):
             "project": forms.Select(attrs={"class": "form-control"}),
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        name = cleaned_data.get("name")
+        project = cleaned_data.get("project")
+        
+        # parent is not in form fields, but passed in initial or is already on the instance
+        parent = self.initial.get("parent") or (self.instance.parent if self.instance else None)
+        
+        # Check if an ACTIVE category with this name, parent and project already exists
+        qs = FileCategory.objects.filter(name=name, project=project, parent=parent, is_in_trash=False)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+            
+        if qs.exists():
+            self.add_error("name", "A folder with this name already exists in this directory.")
+            
+        return cleaned_data
+
 
 class FileEditForm(forms.ModelForm):
     """

@@ -9,8 +9,11 @@ from django.core.management import call_command
 from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
 from ..models import InventoryUser, SystemSettings, Branch
-from tasks.decorators import admin_required
+from inventory.decorators import branch_admin_required, super_admin_required
 
 """
 This module processes system configurations settings, database backup triggers, and permission matrices.
@@ -32,20 +35,32 @@ PERMISSION_FIELDS = [
 ]
 
 
-@method_decorator(admin_required, name="dispatch")
+@method_decorator(super_admin_required, name="dispatch")
 class DatabaseBackupView(LoginRequiredMixin, View):
     """
     View class handling JSON imports / exports of the inventory databases
     and processing permission checkboxes updates.
     """
     def get(self, request):
+        is_global = getattr(request.user, "is_super_admin", False)
         inventory_users = InventoryUser.objects.all().order_by("role", "username")
+        
+        if is_global:
+            settings = SystemSettings.get_settings()
+        elif getattr(request.user, "branch", None):
+            settings = SystemSettings.get_settings(branch=request.user.branch)
+        else:
+            settings = SystemSettings.get_settings()
+
         return render(
             request,
             "inventory/settings.html",
             {
                 "inventory_users": inventory_users,
                 "permission_fields": PERMISSION_FIELDS,
+                "is_global": is_global,
+                "settings": settings,
+                "branches": Branch.objects.all() if is_global else [],
             },
         )
 
@@ -74,10 +89,21 @@ class DatabaseBackupView(LoginRequiredMixin, View):
             out = io.StringIO()
             call_command(
                 "dumpdata",
+                "inventory",
+                "accounts",
                 "products",
                 "stock",
                 "procurement",
-                "inventory",
+                "audit",
+                "finance",
+                "events",
+                "tasks",
+                "files",
+                "notes",
+                "bugs",
+                "chat",
+                "telescope",
+                "resource_hub",
                 stdout=out,
                 indent=2,
             )
@@ -107,6 +133,7 @@ class DatabaseBackupView(LoginRequiredMixin, View):
         return redirect("inventory_settings")
 
 
+@method_decorator(branch_admin_required, name="dispatch")
 class SystemSettingsView(View):
     """
     View class handling system settings configuration changes (site name, logo, notifications).

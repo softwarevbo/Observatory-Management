@@ -16,6 +16,10 @@
             <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 
+                <div class="alert alert-info py-2 mb-3 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Only <strong>Product Name</strong> is required. SKU, Serial Number, Shelf Number, and Description are optional.
+                </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold">{{ form.name.label }}</label>
@@ -46,11 +50,9 @@
 
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label class="form-label fw-bold">{{ form.price.label }}</label>
-                        <div class="input-group">
-                            <span class="input-group-text">₹</span>
-                            {{ form.price }}
-                        </div>
+                         <label class="form-label fw-bold">{{ form.model_number.label }}</label>
+                         {{ form.model_number }}
+                         {% if form.model_number.errors %}<div class="text-danger small">{{ form.model_number.errors }}</div>{% endif %}
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label fw-bold">{{ form.unit.label }}</label>
