@@ -36,7 +36,7 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 *.log
-media/
+
 media_root/
 staticfiles/
 
@@ -147,3 +147,16 @@ backups/backup_20260604_162435.tar.gz
 db.sqlite3-shm
 db.sqlite3-wal
 backups/db_backup_20260604_162210.sqlite3
+/media/avatars
+/media/category_images
+/media/chat_attachments
+/media/comments
+/media/product_datasheets
+/media/product_images
+/media/project_images
+/media/projects
+/media/releases
+/media/resources
+/media/settings
+media/test_cases/attachments/2026/05/m_Vainu_Bappu_Observatory-1_p_795_530
+/media/uploads

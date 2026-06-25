@@ -170,6 +170,15 @@
                     {% endif %}
                 </div>
                 <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Uploaded</span><span>{{ file.created_at|date:"d M Y H:i" }}</span></div>
+                {% if file.last_modified_by %}
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Modified By</span>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                        {% include 'partials/user_avatar.html' with avatar_user=file.last_modified_by size="22" radius="50%" font_size="9" %}
+                        <span>{{ file.last_modified_by.display_name }}</span>
+                    </div>
+                </div>
+                {% endif %}
+                <div><span style="color:var(--text-muted);display:block;font-size:11px;margin-bottom:2px;">Last Modified</span><span>{{ file.updated_at|date:"d M Y H:i" }}</span></div>
             </div>
         </div>
 

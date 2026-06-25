@@ -151,3 +151,78 @@ class ProductsAPITest(APITestCase):
         
         self.assertEqual(prod_a.category.name, "new category")
         self.assertEqual(prod_b.category, self.category)
+
+    def test_online_bulk_product_creation(self):
+        """Verifies that online formset creates multiple products and BranchStock records correctly."""
+        from inventory.models import Branch, BranchStock
+        branch = Branch.objects.create(code="TEST", name="Test Branch")
+        
+        url = reverse("add-product")
+        data = {
+            "form_type": "online_bulk",
+            "form-TOTAL_FORMS": "2",
+            "form-INITIAL_FORMS": "0",
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
+            
+            "form-0-name": "Formset Product 1",
+            "form-0-category": self.category.id,
+            "form-0-branch": branch.id,
+            "form-0-brand": "Brand 1",
+            "form-0-model_number": "MN1",
+            "form-0-sku": "FS-001",
+            "form-0-serial_number": "SN-FS-1",
+            "form-0-unit": "Pcs",
+            "form-0-status": "in_stock",
+            "form-0-supplier": "Supplier A",
+            "form-0-initial_quantity": "15",
+            "form-0-rack_number": "R1",
+            "form-0-shelf_number": "S2",
+            "form-0-local_sku": "L-FS-001",
+            
+            "form-1-name": "Formset Product 2",
+            "form-1-category": self.category.id,
+            "form-1-branch": branch.id,
+            "form-1-initial_quantity": "5",
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302) # Redirects to products list on success
+        
+        self.assertEqual(Product.objects.count(), 2)
+        prod1 = Product.objects.get(sku="FS-001")
+        prod2 = Product.objects.get(name="Formset Product 2")
+        
+        self.assertEqual(prod1.brand, "Brand 1")
+        self.assertEqual(prod1.category, self.category)
+        
+        # Verify BranchStock is created
+        bs1 = BranchStock.objects.get(product=prod1, branch=branch)
+        self.assertEqual(bs1.current_quantity, 15)
+        self.assertEqual(bs1.rack_number, "R1")
+        self.assertEqual(bs1.shelf_number, "S2")
+        self.assertEqual(bs1.local_sku, "L-FS-001")
+        
+        bs2 = BranchStock.objects.get(product=prod2, branch=branch)
+        self.assertEqual(bs2.current_quantity, 5)
+        self.assertEqual(bs2.rack_number, "-")  # Defaults
+
+    def test_online_bulk_product_validation(self):
+        """Verifies that validation errors are caught and shown to the user without saving records."""
+        url = reverse("add-product")
+        data = {
+            "form_type": "online_bulk",
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "0",
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
+            
+            # Missing category (which is a required field in BulkProductForm)
+            "form-0-name": "Invalid Formset Product",
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200) # Renders form page again on error
+        self.assertEqual(Product.objects.count(), 0) # No products created
+        self.assertIn("active_tab", response.context)
+        self.assertEqual(response.context["active_tab"], "online_bulk")

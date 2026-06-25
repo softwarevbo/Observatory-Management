@@ -2,6 +2,128 @@
 
 {% block title %}Add Product - Inventory Management{% endblock %}
 
+{% block extra_head %}
+{{ block.super }}
+<style>
+    .grid-viewport {
+        overflow-x: auto;
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .modern-grid {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .modern-grid th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #f8fafc;
+        padding: 12px 14px;
+        text-align: left;
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid #cbd5e1;
+        border-right: 1px solid #cbd5e1;
+    }
+
+    .modern-grid td {
+        padding: 6px;
+        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        vertical-align: middle;
+        position: relative;
+        background: white;
+    }
+
+    .modern-grid tr:hover td {
+        background: #f1f5f9;
+    }
+
+    .cell-input {
+        width: 100%;
+        height: 36px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #f8fafc;
+        padding: 0 10px;
+        font-size: 13px;
+        color: #1e293b;
+        outline: none;
+        transition: all 0.2s;
+        display: block;
+    }
+
+    .cell-input:hover {
+        border-color: #94a3b8;
+        background: white;
+    }
+
+    .cell-input:focus {
+        background: white;
+        border-color: var(--accent, #4f8ef7);
+        box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.15);
+    }
+
+    .col-num { width: 45px; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 600; }
+    .col-name { width: 250px; }
+    .col-category { width: 180px; }
+    .col-branch { width: 160px; }
+    .col-brand { width: 120px; }
+    .col-model_number { width: 120px; }
+    .col-sku { width: 120px; }
+    .col-serial_number { width: 130px; }
+    .col-unit { width: 90px; }
+    .col-status { width: 130px; }
+    .col-supplier { width: 140px; }
+    .col-initial_quantity { width: 85px; }
+    .col-rack_number { width: 85px; }
+    .col-shelf_number { width: 85px; }
+    .col-local_sku { width: 130px; }
+    .col-del { width: 50px; text-align: center; }
+
+    .error-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ef4444;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        white-space: nowrap;
+        z-index: 100;
+        pointer-events: none;
+        margin-bottom: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .error-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #ef4444;
+    }
+
+    .error-row td {
+        background: #fff1f2 !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="page-title mb-0">Add New Product</h1>
@@ -16,13 +138,18 @@
         <div class="card shadow-sm">
             <ul class="nav nav-tabs nav-fill" id="productTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+                    <button class="nav-link {% if active_tab == 'single' or not active_tab %}active{% endif %}" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
                         <i class="fas fa-box me-2"></i> Single Product
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab">
-                        <i class="fas fa-file-excel me-2"></i> Bulk Upload
+                    <button class="nav-link {% if active_tab == 'bulk' %}active{% endif %}" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab">
+                        <i class="fas fa-file-excel me-2"></i> Bulk Upload (Excel)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'online_bulk' %}active{% endif %}" id="online-bulk-tab" data-bs-toggle="tab" data-bs-target="#online-bulk" type="button" role="tab">
+                        <i class="fas fa-table me-2"></i> Online Bulk Form
                     </button>
                 </li>
             </ul>
@@ -32,7 +159,7 @@
 
 <div class="tab-content" id="productTabsContent">
     <!-- Single Product Tab -->
-    <div class="tab-pane fade show active" id="single" role="tabpanel">
+    <div class="tab-pane fade {% if active_tab == 'single' or not active_tab %}show active{% endif %}" id="single" role="tabpanel">
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="card shadow-sm p-4">
@@ -146,7 +273,7 @@
     </div>
 
     <!-- Bulk Upload Tab -->
-    <div class="tab-pane fade" id="bulk" role="tabpanel">
+    <div class="tab-pane fade {% if active_tab == 'bulk' %}show active{% endif %}" id="bulk" role="tabpanel">
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="card shadow-sm p-4">
@@ -184,5 +311,206 @@
             </div>
         </div>
     </div>
+
+    <!-- Online Bulk Form Tab -->
+    <div class="tab-pane fade {% if active_tab == 'online_bulk' %}show active{% endif %}" id="online-bulk" role="tabpanel">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="card shadow-sm p-4">
+                    <div class="alert alert-info py-2 mb-3 small d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-info-circle me-1"></i>
+                            Enter product details directly in the grid. <strong>Product Name</strong> and <strong>Category</strong> are required fields.
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" id="add-form-row">
+                            <i class="fas fa-plus me-1"></i> Add Row
+                        </button>
+                    </div>
+
+                    <form method="post" id="online-bulk-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="online_bulk">
+                        {{ formset.management_form }}
+
+                        <div class="grid-viewport">
+                            <table class="modern-grid" style="min-width: {% if is_global %}1800px{% else %}1650px{% endif %};">
+                                <thead>
+                                    <tr>
+                                        <th class="col-num">#</th>
+                                        <th class="col-name">Product Name *</th>
+                                        <th class="col-category">Category *</th>
+                                        {% if is_global %}
+                                        <th class="col-branch">Branch</th>
+                                        {% endif %}
+                                        <th class="col-brand">Brand</th>
+                                        <th class="col-model_number">Model No</th>
+                                        <th class="col-sku">Global SKU</th>
+                                        <th class="col-serial_number">Serial No</th>
+                                        <th class="col-unit">Unit</th>
+                                        <th class="col-status">Status</th>
+                                        <th class="col-supplier">Supplier</th>
+                                        <th class="col-initial_quantity">Qty</th>
+                                        <th class="col-rack_number">Rack</th>
+                                        <th class="col-shelf_number">Shelf</th>
+                                        <th class="col-local_sku">Local SKU</th>
+                                        <th class="col-del"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grid-body">
+                                    {% for f in formset %}
+                                    <tr class="grid-row {% if f.errors %}error-row{% endif %}">
+                                        {{ f.id }}
+                                        {% if not is_global %}
+                                            {{ f.branch }}
+                                        {% endif %}
+                                        <td class="col-num">{{ forloop.counter }}</td>
+                                        <td class="col-name">
+                                            {{ f.name }}
+                                            {% if f.name.errors %}<div class="error-tooltip">{{ f.name.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-category">
+                                            {{ f.category }}
+                                            {% if f.category.errors %}<div class="error-tooltip">{{ f.category.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        {% if is_global %}
+                                        <td class="col-branch">
+                                            {{ f.branch }}
+                                            {% if f.branch.errors %}<div class="error-tooltip">{{ f.branch.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        {% endif %}
+                                        <td class="col-brand">
+                                            {{ f.brand }}
+                                            {% if f.brand.errors %}<div class="error-tooltip">{{ f.brand.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-model_number">
+                                            {{ f.model_number }}
+                                            {% if f.model_number.errors %}<div class="error-tooltip">{{ f.model_number.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-sku">
+                                            {{ f.sku }}
+                                            {% if f.sku.errors %}<div class="error-tooltip">{{ f.sku.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-serial_number">
+                                            {{ f.serial_number }}
+                                            {% if f.serial_number.errors %}<div class="error-tooltip">{{ f.serial_number.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-unit">
+                                            {{ f.unit }}
+                                            {% if f.unit.errors %}<div class="error-tooltip">{{ f.unit.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-status">
+                                            {{ f.status }}
+                                            {% if f.status.errors %}<div class="error-tooltip">{{ f.status.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-supplier">
+                                            {{ f.supplier }}
+                                            {% if f.supplier.errors %}<div class="error-tooltip">{{ f.supplier.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-initial_quantity">
+                                            {{ f.initial_quantity }}
+                                            {% if f.initial_quantity.errors %}<div class="error-tooltip">{{ f.initial_quantity.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-rack_number">
+                                            {{ f.rack_number }}
+                                            {% if f.rack_number.errors %}<div class="error-tooltip">{{ f.rack_number.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-shelf_number">
+                                            {{ f.shelf_number }}
+                                            {% if f.shelf_number.errors %}<div class="error-tooltip">{{ f.shelf_number.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-local_sku">
+                                            {{ f.local_sku }}
+                                            {% if f.local_sku.errors %}<div class="error-tooltip">{{ f.local_sku.errors.0 }}</div>{% endif %}
+                                        </td>
+                                        <td class="col-del">
+                                            <button type="button" class="btn btn-link text-danger p-0" onclick="removeGridRow(this)">
+                                                <i class="far fa-trash-alt"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="text-muted small">
+                                <i class="fas fa-info-circle me-1"></i> Tip: Rows with an empty Product Name will be ignored automatically.
+                            </span>
+                            <button type="submit" class="btn btn-primary px-5 btn-lg">
+                                <i class="fas fa-save me-2"></i> Save Products
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const gridBody = document.getElementById('grid-body');
+        const addBtn = document.getElementById('add-form-row');
+        if (addBtn && gridBody) {
+            addBtn.addEventListener('click', () => {
+                const total = document.getElementById('id_form-TOTAL_FORMS');
+                const count = parseInt(total.value);
+                const template = document.querySelector('.grid-row');
+                if (!template) return;
+                
+                const newRow = template.cloneNode(true);
+                
+                // Clean up new row error states and tooltips
+                newRow.classList.remove('error-row');
+                newRow.querySelectorAll('.error-tooltip').forEach(e => e.remove());
+                
+                const regex = /form-\d+-/g;
+                const prefix = `form-${count}-`;
+                
+                newRow.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name) el.name = el.name.replace(regex, prefix);
+                    if (el.id) el.id = el.id.replace(regex, prefix);
+                    
+                    if (el.type !== 'hidden') {
+                        if (el.tagName === 'SELECT') {
+                            el.selectedIndex = 0;
+                        } else {
+                            if (el.name.includes('-initial_quantity')) {
+                                el.value = '0';
+                            } else if (el.name.includes('-rack_number') || el.name.includes('-shelf_number')) {
+                                el.value = '-';
+                            } else {
+                                el.value = '';
+                            }
+                        }
+                    }
+                });
+                
+                newRow.querySelector('.col-num').innerText = count + 1;
+                gridBody.appendChild(newRow);
+                total.value = count + 1;
+            });
+        }
+    });
+
+    function removeGridRow(btn) {
+        const row = btn.closest('.grid-row');
+        const rows = document.querySelectorAll('.grid-row');
+        if (rows.length > 1) {
+            row.remove();
+            document.querySelectorAll('.grid-row').forEach((r, i) => {
+                r.querySelector('.col-num').innerText = i + 1;
+                const prefix = `form-${i}-`;
+                r.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name) el.name = el.name.replace(/form-(\d+)-/, prefix);
+                    if (el.id) el.id = el.id.replace(/form-(\d+)-/, prefix);
+                });
+            });
+            document.getElementById('id_form-TOTAL_FORMS').value = document.querySelectorAll('.grid-row').length;
+        } else {
+            alert("At least one row must be filled.");
+        }
+    }
+</script>
 {% endblock %}

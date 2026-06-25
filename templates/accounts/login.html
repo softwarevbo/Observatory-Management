@@ -394,6 +394,18 @@
         </div>
         {% endfor %}
     </div>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                var audio = new Audio('/media/music/notification.mp3');
+                audio.play().catch(function(e) {
+                    console.log("Audio playback blocked/failed:", e);
+                });
+            } catch(e) {
+                console.log("Audio play error:", e);
+            }
+        });
+    </script>
     {% endif %}
 
     <div class="login-container">

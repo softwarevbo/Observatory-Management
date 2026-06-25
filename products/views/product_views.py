@@ -17,9 +17,10 @@ from inventory.utils import (
     get_isolated_products,
     filter_by_branch,
 )
+from django.forms import modelformset_factory
 from tasks.decorators import admin_required
 from ..models import Category, Product
-from ..forms import ProductForm
+from ..forms import ProductForm, BulkProductForm
 
 """
 This module processes view controllers for product catalog creation, updates, deletion,
@@ -32,6 +33,13 @@ class ProductCreateView(View):
     """
     Handles rendering the product entry form (GET) and processing single/bulk product uploads (POST).
     """
+    ProductFormSet = modelformset_factory(
+        Product,
+        form=BulkProductForm,
+        extra=1,
+        can_delete=True,
+    )
+
     def get(self, request):
         # Ensure user is logged in
         if not request.user.is_authenticated:
@@ -43,8 +51,25 @@ class ProductCreateView(View):
         initial_data = {"branch": initial_branch_id} if initial_branch_id else {}
         # Instantiate form scoping it to the user's branch permissions
         form = ProductForm(user=request.user, initial=initial_data)
-        # Render the add_product template and pass the scoped form context
-        return render(request, "products/add_product.html", {"form": form})
+        
+        # Instantiate the bulk formset
+        is_global = has_global_inventory_access(request.user)
+        formset = self.ProductFormSet(
+            queryset=Product.objects.none(),
+            form_kwargs={"user": request.user},
+        )
+
+        # Render the add_product template and pass the scoped context
+        return render(
+            request,
+            "products/add_product.html",
+            {
+                "form": form,
+                "formset": formset,
+                "is_global": is_global,
+                "active_tab": "single",
+            },
+        )
 
     def post(self, request):
         # Validate that the request session user is authenticated
@@ -54,9 +79,12 @@ class ProductCreateView(View):
         
         # Check if user clicked bulk import submit button instead of single manual entry
         form_type = request.POST.get("form_type")
-        # If form type is bulk, delegate the request to handle_bulk_upload helper method
+        
+        # Delegate request according to the form type
         if form_type == "bulk":
             return self.handle_bulk_upload(request)
+        elif form_type == "online_bulk":
+            return self.handle_online_bulk_upload(request)
             
         # Standard manual single product creation
         # Instantiate the form using POST body data and uploaded files (for images/datasheets)
@@ -100,7 +128,98 @@ class ProductCreateView(View):
             return redirect("products")
             
         # If form is invalid, re-render the form with validation errors displayed next to fields
-        return render(request, "products/add_product.html", {"form": form})
+        is_global = has_global_inventory_access(request.user)
+        formset = self.ProductFormSet(
+            queryset=Product.objects.none(),
+            form_kwargs={"user": request.user},
+        )
+        return render(
+            request,
+            "products/add_product.html",
+            {
+                "form": form,
+                "formset": formset,
+                "is_global": is_global,
+                "active_tab": "single",
+            },
+        )
+
+    def handle_online_bulk_upload(self, request):
+        is_global = has_global_inventory_access(request.user)
+        formset = self.ProductFormSet(
+            request.POST,
+            queryset=Product.objects.none(),
+            form_kwargs={"user": request.user},
+        )
+        if formset.is_valid():
+            saved_count = 0
+            for form in formset:
+                # Skip blank rows or rows marked for deletion
+                if form.cleaned_data.get("name") and not form.cleaned_data.get("DELETE"):
+                    product = form.save(commit=False)
+                    product.created_by = request.user
+                    
+                    if not is_global:
+                        product.branch = request.user.branch
+                    else:
+                        if form.cleaned_data.get("branch"):
+                            product.branch = form.cleaned_data.get("branch")
+                            
+                    product.save()
+                    
+                    # Manage virtual fields mapping to BranchStock
+                    initial_quantity = form.cleaned_data.get("initial_quantity") or 0
+                    rack_number = form.cleaned_data.get("rack_number") or "-"
+                    shelf_number = form.cleaned_data.get("shelf_number") or "-"
+                    local_sku = form.cleaned_data.get("local_sku") or product.sku
+                    
+                    target_branch = product.branch or request.user.branch
+                    if target_branch:
+                        bs, _ = BranchStock.objects.get_or_create(
+                            product=product,
+                            branch=target_branch,
+                        )
+                        bs.rack_number = rack_number
+                        bs.shelf_number = shelf_number
+                        bs.local_sku = local_sku
+                        bs.current_quantity = initial_quantity
+                        bs.save()
+                        
+                    AuditLog.log(request.user, "created", product)
+                    saved_count += 1
+            
+            messages.success(request, f"Successfully created {saved_count} products!")
+            return redirect("products")
+        else:
+            # Gather errors to alert the user
+            error_msgs = []
+            for i, form_errors in enumerate(formset.errors):
+                if form_errors:
+                    err_details = []
+                    for k, v in form_errors.items():
+                        # Resolve human-readable field names if possible
+                        field = formset.forms[i].fields.get(k)
+                        field_label = field.label if field and field.label else k.replace("_", " ").title()
+                        err_details.append(f"{field_label}: {v[0]}")
+                    error_msgs.append(f"Row {i+1}: {', '.join(err_details)}")
+            
+            messages.warning(request, "Please correct the errors in the grid below.")
+            if error_msgs:
+                for err in error_msgs[:5]:
+                    messages.error(request, err)
+                    
+            # Re-render with validation errors and set active tab to online_bulk
+            form = ProductForm(user=request.user)
+            return render(
+                request,
+                "products/add_product.html",
+                {
+                    "form": form,
+                    "formset": formset,
+                    "is_global": is_global,
+                    "active_tab": "online_bulk",
+                },
+            )
 
     def handle_bulk_upload(self, request):
         """

@@ -2473,6 +2473,9 @@
     qcNotificationWS.onmessage = function(e) {
       const data = JSON.parse(e.data);
       if (data.type === 'chat_notification') {
+        if (typeof playNotificationSound === 'function') {
+          playNotificationSound();
+        }
         // Automatically update quick chat badges and lists!
         const msgData = {
           room_id: data.room_id,
@@ -2498,6 +2501,9 @@
           }
         }
       } else if (data.type === 'new_notification') {
+        if (typeof playNotificationSound === 'function') {
+          playNotificationSound();
+        }
         // Automatically update the topbar notification bell count badge!
         const badge = document.querySelector('.nav-badge');
         if (badge) {

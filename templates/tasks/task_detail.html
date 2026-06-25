@@ -165,14 +165,6 @@
                 {% endif %}
             </div>
             <div class="meta-box">
-                <span class="meta-box-label">Sprint</span>
-                <span class="meta-box-value">{{ task.sprint.name|default:"No Sprint" }}</span>
-            </div>
-            <div class="meta-box">
-                <span class="meta-box-label">Points</span>
-                <span class="meta-box-value">{{ task.story_points }} pts</span>
-            </div>
-            <div class="meta-box">
                 <span class="meta-box-label">Estimation</span>
                 <span class="meta-box-value">{{ task.estimated_hours|default:"0" }}h / {{ task.actual_hours|default:"0" }}h</span>
             </div>
@@ -554,8 +546,54 @@
     function renderMarkdown() {
         if (typeof marked === 'undefined') return;
         document.querySelectorAll('.render-markdown').forEach(el => {
-            const rawContent = el.getAttribute('data-content') || el.textContent;
-            el.innerHTML = marked.parse(rawContent);
+            var rawContent = el.getAttribute('data-content') || el.textContent;
+            if (!rawContent || rawContent === 'No description provided.') return;
+
+            // Unescape math delimiters (e.g. from Google Docs export)
+            rawContent = rawContent.replace(/\\\$\$/g, () => '$$');
+            rawContent = rawContent.replace(/\\\\\(/g, () => '\\(');
+            rawContent = rawContent.replace(/\\\\\)/g, () => '\\)');
+            rawContent = rawContent.replace(/\\\\\[/g, () => '\\[');
+            rawContent = rawContent.replace(/\\\\\]/g, () => '\\]');
+            rawContent = rawContent.replace(/\\\$(?!\d)/g, () => '$');
+
+            // Strip angle brackets from base64 image definitions
+            rawContent = rawContent.replace(/^\[image(\d+)\]:\s*<(data:image\/[^>]+)>/gm, '[image$1]: $2');
+
+            // Code-block extraction (to prevent math block splitting within code)
+            var codeBlocks = [];
+            var codePlaceholderPrefix = "CODEPH";
+            var codeRegex = /(\`\`\`[\s\S]*?\`\`\`|\`[^\`\n]*?\`)/g;
+
+            var contentWithCodePlaceholders = rawContent.replace(codeRegex, function (match) {
+                var placeholder = codePlaceholderPrefix + codeBlocks.length + "X";
+                codeBlocks.push(match);
+                return placeholder;
+            });
+
+            var mathBlocks = [];
+            var placeholderPrefix = "KTXPH";
+            var mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
+
+            var preservedContent = contentWithCodePlaceholders.replace(mathRegex, function (match) {
+                var placeholder = placeholderPrefix + mathBlocks.length + "X";
+                mathBlocks.push(match);
+                return placeholder;
+            });
+
+            for (var i = 0; i < codeBlocks.length; i++) {
+                var placeholder = codePlaceholderPrefix + i + "X";
+                preservedContent = preservedContent.split(placeholder).join(codeBlocks[i]);
+            }
+
+            var renderedHtml = marked.parse(preservedContent);
+
+            for (var i = 0; i < mathBlocks.length; i++) {
+                var placeholder = placeholderPrefix + i + "X";
+                renderedHtml = renderedHtml.split(placeholder).join(mathBlocks[i]);
+            }
+
+            el.innerHTML = renderedHtml;
         });
     }
 

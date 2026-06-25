@@ -161,7 +161,7 @@
                     <i class="fas fa-project-diagram" style="margin-right: 6px; opacity: 0.5;"></i> {{ project.name|default:"Global" }}
                     <br>
                     <i class="fas fa-folder-open" style="margin-right: 6px; opacity: 0.5; margin-left: 14px;"></i> 
-                    {% if item_type == 'folder' %}{{ item.parent.name|default:"Root" }}{% else %}{{ item.category.name|default:"Root" }}{% endif %}
+                    {% if item_type == 'folder' %}{{ item.parent.project_relative_path|default:"Root" }}{% else %}{{ item.category.project_relative_path|default:"Root" }}{% endif %}
                 </div>
             </div>
 
@@ -209,9 +209,9 @@
 
                 {% for cat in categories %}
                     {% if item_type == 'file' or cat.pk != item.pk %}
-                        <div class="picker-item" onclick="selectDir('{{ cat.pk }}', '{{ cat.name|escapejs }}', this)">
+                        <div class="picker-item" onclick="selectDir('{{ cat.pk }}', '{{ cat.project_relative_path|escapejs }}', this)">
                             <i class="fas fa-folder" style="color: var(--accent); opacity: 0.8;"></i>
-                            <span>{{ cat.name }}</span>
+                            <span>{{ cat.project_relative_path }}</span>
                             <i class="fas fa-check-circle ms-auto check-mark" style="display:none;"></i>
                         </div>
                     {% endif %}

@@ -165,77 +165,65 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var src = rawEl.value;
 
-    // ── 1. Build a combined regex for every math notation we want to support ──
-    //
-    //   $$...$$          – display math (GFM / standard)
-    //   \[...\]          – display math (LaTeX)
-    //   \begin{}...\end{}– LaTeX environments (align, equation, etc.)
-    //   $...$            – inline math  (single-line)
-    //   \(...\)          – inline math  (LaTeX paren form)
-    //
-    // IMPORTANT: $$ must come before $ in the alternation, otherwise the $
-    // in $$ would match the inline-math rule first.
-    var MATH_RE = new RegExp(
-        /\$\$[\s\S]+?\$\$/.source                              + '|' +  // $$...$$
-        /\\\[[\s\S]*?\\\]/.source                              + '|' +  // \[...\]
-        /\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\}/.source       + '|' +  // \begin..\end
-        /\$[^\$\n]+?\$/.source                                 + '|' +  // $...$
-        /\\\([\s\S]*?\\\)/.source,                                       // \(...\)
-        'g'
-    );
+    // Unescape math delimiters (e.g. from Google Docs export)
+    src = src.replace(/\\\$\$/g, () => '$$');
+    src = src.replace(/\\\\\(/g, () => '\\(');
+    src = src.replace(/\\\\\)/g, () => '\\)');
+    src = src.replace(/\\\\\[/g, () => '\\[');
+    src = src.replace(/\\\\\]/g, () => '\\]');
+    src = src.replace(/\\\$(?!\d)/g, () => '$');
 
-    // ── 2. Split into alternating text / math segments ─────────────────────────
-    var segments = [];
-    var last = 0;
-    var m;
-    MATH_RE.lastIndex = 0;
+    // Strip angle brackets from base64 image definitions
+    src = src.replace(/^\[image(\d+)\]:\s*<(data:image\/[^>]+)>/gm, '[image$1]: $2');
 
-    while ((m = MATH_RE.exec(src)) !== null) {
-        if (m.index > last) {
-            segments.push({ isMath: false, text: src.slice(last, m.index) });
-        }
-        segments.push({ isMath: true, text: m[0] });
-        last = m.index + m[0].length;
-    }
-    if (last < src.length) {
-        segments.push({ isMath: false, text: src.slice(last) });
-    }
-
-    // ── 3. Render each segment ─────────────────────────────────────────────────
     if (typeof marked === 'undefined') {
         outEl.innerHTML = '<p style="color:var(--red)"><b>Error:</b> Markdown renderer (marked.js) not loaded.</p>';
         return;
     }
 
-    // GFM mode: intra-word underscores like a_2 are NOT treated as italic.
-    // This is the correct CommonMark / GitHub behavior.
     try {
         marked.setOptions({ gfm: true, pedantic: false, breaks: false });
     } catch(e) { /* older marked versions may not have all options */ }
 
-    var html = '';
-    for (var i = 0; i < segments.length; i++) {
-        var seg = segments[i];
-        if (seg.isMath) {
-            // Math content goes straight into the output — untouched.
-            // Wrap display math in a block div so it centres properly.
-            var isDisplay = (
-                seg.text.slice(0, 2) === '$$'      ||
-                seg.text.slice(0, 2) === '\\['     ||
-                seg.text.slice(0, 6) === '\\begin'
-            );
-            if (isDisplay) {
-                html += '<div class="math-display-wrapper">' + seg.text + '</div>';
-            } else {
-                html += seg.text;
-            }
-        } else {
-            // Only non-math text goes through marked.
-            html += marked.parse(seg.text);
-        }
+    var codeBlocks = [];
+    var codePlaceholderPrefix = "CODEPH";
+    var codeRegex = /(\`\`\`[\s\S]*?\`\`\`|\`[^\`\n]*?\`)/g;
+
+    var contentWithCodePlaceholders = src.replace(codeRegex, function (match) {
+        var placeholder = codePlaceholderPrefix + codeBlocks.length + "X";
+        codeBlocks.push(match);
+        return placeholder;
+    });
+
+    var mathBlocks = [];
+    var placeholderPrefix = "KTXPH";
+    var mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
+
+    var preservedContent = contentWithCodePlaceholders.replace(mathRegex, function (match) {
+        var placeholder = placeholderPrefix + mathBlocks.length + "X";
+        mathBlocks.push(match);
+        return placeholder;
+    });
+
+    for (var i = 0; i < codeBlocks.length; i++) {
+        var placeholder = codePlaceholderPrefix + i + "X";
+        preservedContent = preservedContent.split(placeholder).join(codeBlocks[i]);
     }
 
-    outEl.innerHTML = html;
+    var renderedHtml = marked.parse(preservedContent);
+
+    for (var i = 0; i < mathBlocks.length; i++) {
+        var placeholder = placeholderPrefix + i + "X";
+        var isDisplay = (
+            mathBlocks[i].slice(0, 2) === '$$'      ||
+            mathBlocks[i].slice(0, 2) === '\\['     ||
+            mathBlocks[i].slice(0, 6) === '\\begin'
+        );
+        var mathHtml = isDisplay ? '<div class="math-display-wrapper">' + mathBlocks[i] + '</div>' : mathBlocks[i];
+        renderedHtml = renderedHtml.split(placeholder).join(mathHtml);
+    }
+
+    outEl.innerHTML = renderedHtml;
 
     // ── 4. Run KaTeX AFTER the HTML is in the DOM ──────────────────────────────
     // core_base.html loads katex.min.js and auto-render.min.js with `defer`,

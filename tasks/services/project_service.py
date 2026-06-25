@@ -125,22 +125,16 @@ class ProjectService:
             )
 
         elif action == "cancel_deletion":
-            if user.is_admin and project.deletion_requested_by_admin:
-                project.deletion_requested_by_admin = False
-                project.deletion_requested_at = None
-                project.save()
-                message = f'Deletion request for "{name}" cancelled.'
-            elif (
-                user.is_project_manager
-                and project.managers.filter(pk=user.pk).exists()
-                and project.deletion_requested_by_pm
+            if user.is_admin or (
+                user.is_project_manager and project.managers.filter(pk=user.pk).exists()
             ):
+                project.deletion_requested_by_admin = False
                 project.deletion_requested_by_pm = False
                 project.deletion_requested_at = None
                 project.save()
                 message = f'Deletion request for "{name}" cancelled.'
                 
-            # Delete pending requests for this project by this user
-            ProjectDeletionRequest.objects.filter(project=project, requested_by=user, status='pending').delete()
+            # Delete pending requests for this project
+            ProjectDeletionRequest.objects.filter(project=project, status='pending').delete()
 
         return message

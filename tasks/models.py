@@ -825,6 +825,28 @@ class ReleaseDeletionRequest(models.Model):
         ordering = ['-created_at']
 
 
+class ProjectDeletionRequest(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="deletion_requests")
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="resolved_project_requests")
+    admin_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Deletion request for {self.project.name} by {self.requested_by}"
+
+
 class ReleaseLog(models.Model):
     ACTION_CHOICES = (
         ('created', 'Created'),

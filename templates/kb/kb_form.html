@@ -172,7 +172,7 @@ const contentField = document.getElementById('id_content');
 const previewArea = document.getElementById('previewArea');
 
 function updatePreview() {
-    const rawValue = contentField.value;
+    var rawValue = contentField.value;
     if (!rawValue.trim()) {
         previewArea.innerHTML = `
             <div style="color:var(--text-muted); display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
@@ -181,8 +181,59 @@ function updatePreview() {
             </div>`;
         return;
     }
-    // Use marked to render markdown
-    previewArea.innerHTML = marked.parse(rawValue);
+
+    // Unescape math delimiters (e.g. from Google Docs export)
+    rawValue = rawValue.replace(/\\\$\$/g, () => '$$');
+    rawValue = rawValue.replace(/\\\\\(/g, () => '\\(');
+    rawValue = rawValue.replace(/\\\\\)/g, () => '\\)');
+    rawValue = rawValue.replace(/\\\\\[/g, () => '\\[');
+    rawValue = rawValue.replace(/\\\\\]/g, () => '\\]');
+    rawValue = rawValue.replace(/\\\$(?!\d)/g, () => '$');
+
+    // Strip angle brackets from base64 image definitions
+    rawValue = rawValue.replace(/^\[image(\d+)\]:\s*<(data:image\/[^>]+)>/gm, '[image$1]: $2');
+
+    // Code-block extraction (to prevent math block splitting within code)
+    var codeBlocks = [];
+    var codePlaceholderPrefix = "CODEPH";
+    var codeRegex = /(\`\`\`[\s\S]*?\`\`\`|\`[^\`\n]*?\`)/g;
+
+    var contentWithCodePlaceholders = rawValue.replace(codeRegex, function (match) {
+        var placeholder = codePlaceholderPrefix + codeBlocks.length + "X";
+        codeBlocks.push(match);
+        return placeholder;
+    });
+
+    // Math-aware Markdown rendering (Placeholder approach)
+    var mathBlocks = [];
+    var placeholderPrefix = "KTXPH";
+    var mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
+
+    var preservedContent = contentWithCodePlaceholders.replace(mathRegex, function (match) {
+        var placeholder = placeholderPrefix + mathBlocks.length + "X";
+        mathBlocks.push(match);
+        return placeholder;
+    });
+
+    for (var i = 0; i < codeBlocks.length; i++) {
+        var placeholder = codePlaceholderPrefix + i + "X";
+        preservedContent = preservedContent.split(placeholder).join(codeBlocks[i]);
+    }
+
+    var renderedHtml = marked.parse(preservedContent);
+
+    for (var i = 0; i < mathBlocks.length; i++) {
+        var placeholder = placeholderPrefix + i + "X";
+        var isDisplay = (
+            mathBlocks[i].slice(0, 2) === '$$'      ||
+            mathBlocks[i].slice(0, 2) === '\\['     ||
+            mathBlocks[i].slice(0, 6) === '\\begin'
+        );
+        var mathHtml = isDisplay ? '<div class="math-display-wrapper">' + mathBlocks[i] + '</div>' : mathBlocks[i];
+        renderedHtml = renderedHtml.split(placeholder).join(mathHtml);
+    }
+
+    previewArea.innerHTML = renderedHtml;
 
     // Trigger KaTeX rendering for the preview area
     if (typeof renderMathInElement === 'function') {

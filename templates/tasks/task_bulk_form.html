@@ -12,32 +12,24 @@
         --error-color: #ef4444;
     }
 
-    body {
-        overflow: hidden;
-    }
-
     .bulk-container {
-        position: fixed;
-        top: 60px;
-        left: var(--sidebar-width);
-        right: 0;
-        bottom: 0;
-        background: var(--bg-primary);
-        display: flex;
-        flex-direction: column;
-        z-index: 10;
+        background: var(--bg-card, #ffffff);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin: 20px auto;
+        max-width: 100%;
     }
 
     .bulk-toolbar {
-        padding: 16px 32px;
-        background: linear-gradient(to right, #ffffff, #f8fafc);
+        padding: 0 0 16px 0;
+        background: transparent;
         border-bottom: 1px solid var(--border);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        position: relative;
-        z-index: 30;
+        margin-bottom: 20px;
     }
 
     .project-info {
@@ -54,10 +46,11 @@
     }
 
     .grid-viewport {
-        flex: 1;
-        overflow: auto;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 20px;
         background: white;
-        padding: 0;
     }
 
     .modern-grid {
@@ -200,9 +193,9 @@
     }
 
     .bulk-footer {
-        padding: 16px 32px;
-        background: white;
+        padding-top: 16px;
         border-top: 1px solid var(--border);
+        background: transparent;
         display: flex;
         justify-content: space-between;
         align-items: center;

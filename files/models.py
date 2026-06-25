@@ -246,6 +246,13 @@ class ProjectFile(models.Model):
     requirement = models.ForeignKey("tasks.Requirement", on_delete=models.SET_NULL, related_name="files", null=True, blank=True)
     category = models.ForeignKey(FileCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="files")
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="uploaded_files")
+    last_modified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="modified_files",
+    )
 
     # Metadata & Version control parameters
     title = models.CharField(max_length=300, blank=True)

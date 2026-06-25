@@ -143,6 +143,7 @@ def file_upload(request):
                     category=file_cat,
                     task=task,
                     uploaded_by=request.user,
+                    last_modified_by=request.user,
                     description=description,
                     is_public=is_public,
                     version=version,

@@ -111,7 +111,9 @@ def file_edit(request, pk):
         
     form = FileEditForm(request.POST or None, instance=pf)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        pf = form.save(commit=False)
+        pf.last_modified_by = request.user
+        pf.save()
         
         # Log metadata modification
         AuditLog.objects.create(
@@ -183,20 +185,20 @@ def file_content_edit(request, pk):
         content = request.POST.get("content")
         if content is not None:
             from django.core.files.base import ContentFile
-
+            pf.last_modified_by = request.user
             try:
                 # Try direct local filesystem overwrite to prevent Django name suffixing
                 file_path = pf.file.path
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 pf.file_size = os.path.getsize(file_path)
-                pf.save(update_fields=["file_size", "updated_at"])
+                pf.save(update_fields=["file_size", "updated_at", "last_modified_by"])
             except (AttributeError, NotImplementedError, IOError):
                 # Fallback for cloud/custom storage backends
                 filename = pf.original_name
-                pf.file.save(filename, ContentFile(content), save=True)
+                pf.file.save(filename, ContentFile(content), save=False)
                 pf.file_size = pf.file.size
-                pf.save(update_fields=["file_size", "updated_at"])
+                pf.save(update_fields=["file_size", "updated_at", "last_modified_by"])
 
             messages.success(request, f'Content of "{pf.display_name}" updated.')
             

@@ -510,10 +510,17 @@ def project_delete(request, pk):
         if timezone.now() > project.deletion_requested_at + timedelta(days=30):
             can_force_delete = True
 
+    pending_request = project.deletion_requests.filter(status='pending').first()
+
     return render(
         request,
         "projects/confirm_delete.html",
-        {"obj": project, "obj_type": "Project", "can_force_delete": can_force_delete},
+        {
+            "obj": project,
+            "obj_type": "Project",
+            "can_force_delete": can_force_delete,
+            "pending_request": pending_request,
+        },
     )
 
 

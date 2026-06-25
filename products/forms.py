@@ -133,3 +133,62 @@ class ProductForm(forms.ModelForm):
         if not data or not data.strip():
             return None
         return data.strip()
+
+
+class BulkProductForm(forms.ModelForm):
+    rack_number = forms.CharField(max_length=50, required=False, initial="-")
+    shelf_number = forms.CharField(max_length=50, required=False, initial="-")
+    local_sku = forms.CharField(max_length=100, required=False)
+    initial_quantity = forms.IntegerField(min_value=0, required=False, initial=0)
+
+    class Meta:
+        model = Product
+        fields = [
+            "name",
+            "category",
+            "branch",
+            "brand",
+            "model_number",
+            "sku",
+            "serial_number",
+            "unit",
+            "status",
+            "supplier",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({"class": "cell-input"})
+            
+        self.fields["name"].required = True
+        self.fields["category"].required = True
+        self.fields["unit"].required = False
+        self.fields["status"].required = False
+        self.fields["unit"].initial = "Units"
+        self.fields["status"].initial = "in_stock"
+
+        if user:
+            from inventory.utils import has_global_inventory_access
+            is_global = has_global_inventory_access(user)
+            if not is_global:
+                self.fields["branch"].widget = forms.HiddenInput()
+                self.fields["branch"].required = False
+                if not self.instance.pk and hasattr(user, "branch"):
+                    self.fields["branch"].initial = user.branch
+            else:
+                self.fields["branch"].queryset = Branch.objects.all()
+                self.fields["branch"].required = False
+
+    def clean_unit(self):
+        val = self.cleaned_data.get("unit")
+        if not val or not val.strip():
+            return "Units"
+        return val.strip()
+
+    def clean_status(self):
+        val = self.cleaned_data.get("status")
+        if not val or not val.strip():
+            return "in_stock"
+        return val.strip()

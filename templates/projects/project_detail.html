@@ -212,6 +212,34 @@
 
 {% block content %}
 
+{% if project.deletion_requested_by_admin or project.deletion_requested_by_pm %}
+<div class="card" style="border-left: 4px solid var(--red); background: rgba(239, 68, 68, 0.05); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-radius: var(--radius); flex-wrap: wrap; gap: 14px; width: 100%;">
+    <div style="display: flex; align-items: center; gap: 14px; min-width: 280px; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); color: var(--red); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div>
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 0 0 2px 0;">Project Deletion Pending Approval</h4>
+            <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">
+                {% if project.deletion_requested_by_admin %}
+                    A Super Admin has requested to permanently delete this project.
+                {% else %}
+                    A Project Manager has requested to permanently delete this project.
+                {% endif %}
+                Cross-role approval is required to proceed.
+            </p>
+        </div>
+    </div>
+    {% if user.is_admin or user in project.managers.all %}
+    <div>
+        <a href="{% url 'tasks:project_delete' project.pk %}" class="btn btn-danger btn-sm" style="font-weight: 600;">
+            <i class="fas fa-trash"></i> Review Deletion Request
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- PROJECT HEADER CARD -->
 <div class="card" style="margin-bottom:12px; border-radius: var(--radius);">
     <div style="display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap;">
@@ -1704,18 +1732,45 @@
         if (typeof marked === 'undefined') return;
 
         document.querySelectorAll('.render-markdown').forEach(el => {
-            const rawContent = el.getAttribute('data-content') || el.textContent;
+            var rawContent = el.getAttribute('data-content') || el.textContent;
             if (!rawContent || rawContent === 'No description provided.') return;
+
+            // Unescape math delimiters (e.g. from Google Docs export)
+            rawContent = rawContent.replace(/\\\$\$/g, () => '$$');
+            rawContent = rawContent.replace(/\\\\\(/g, () => '\\(');
+            rawContent = rawContent.replace(/\\\\\)/g, () => '\\)');
+            rawContent = rawContent.replace(/\\\\\[/g, () => '\\[');
+            rawContent = rawContent.replace(/\\\\\]/g, () => '\\]');
+            rawContent = rawContent.replace(/\\\$(?!\d)/g, () => '$');
+
+            // Strip angle brackets from base64 image definitions
+            rawContent = rawContent.replace(/^\[image(\d+)\]:\s*<(data:image\/[^>]+)>/gm, '[image$1]: $2');
+
+            // Code-block extraction (to prevent math block splitting within code)
+            var codeBlocks = [];
+            var codePlaceholderPrefix = "CODEPH";
+            var codeRegex = /(\`\`\`[\s\S]*?\`\`\`|\`[^\`\n]*?\`)/g;
+
+            var contentWithCodePlaceholders = rawContent.replace(codeRegex, function (match) {
+                var placeholder = codePlaceholderPrefix + codeBlocks.length + "X";
+                codeBlocks.push(match);
+                return placeholder;
+            });
 
             var mathBlocks = [];
             var placeholderPrefix = "KTXPH";
-            var mathRegex = /(\$\$[\s\S]+?\$\$|\$[\s\S]+?\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
+            var mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
 
-            var preservedContent = rawContent.replace(mathRegex, function (match) {
+            var preservedContent = contentWithCodePlaceholders.replace(mathRegex, function (match) {
                 var placeholder = placeholderPrefix + mathBlocks.length + "X";
                 mathBlocks.push(match);
                 return placeholder;
             });
+
+            for (var i = 0; i < codeBlocks.length; i++) {
+                var placeholder = codePlaceholderPrefix + i + "X";
+                preservedContent = preservedContent.split(placeholder).join(codeBlocks[i]);
+            }
 
             var renderedHtml = marked.parse(preservedContent);
 

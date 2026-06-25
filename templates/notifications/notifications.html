@@ -141,3 +141,17 @@
 </div>
 {% endif %}
 {% endblock %}
+
+{% block extra_js %}
+{% if unread_count > 0 %}
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            if (typeof playNotificationSound === 'function') {
+                playNotificationSound();
+            }
+        }, 150);
+    });
+</script>
+{% endif %}
+{% endblock %}
