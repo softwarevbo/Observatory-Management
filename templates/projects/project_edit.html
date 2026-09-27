@@ -117,6 +117,19 @@
 
                     <div class="grid-2">
                         <div class="form-group">
+                            <label class="form-label">Module</label>
+                            {{ form.module }}
+                            {% if form.module.errors %}<div class="form-error">{{ form.module.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Visibility</label>
+                            {{ form.visibility }}
+                            {% if form.visibility.errors %}<div class="form-error">{{ form.visibility.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
                             <label class="form-label">Status</label>
                             {{ form.status }}
                             {% if form.status.errors %}<div class="form-error">{{ form.status.errors.0 }}</div>{% endif %}
@@ -141,10 +154,44 @@
                         </div>
                     </div>
 
+                    <div class="grid-2" style="margin-top: 15px;">
+                        <div class="form-group">
+                            <label class="form-label">Theme Background</label>
+                            {{ form.background_color }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Accent Color</label>
+                            {{ form.button_color }}
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label class="form-label">Cover Artwork</label>
+                        {{ form.image }}
+                    </div>
+
                     <div class="form-group" style="margin-top: 15px;">
-                        <label class="form-label">Project Incharge</label>
-                        {{ form.project_incharge }}
-                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Assign a specific person in-charge of this project.</p>
+                        <label class="form-label">Project Incharge(s)</label>
+                        <div style="position: relative; margin-bottom: 8px;">
+                            <i class="fas fa-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 11px;"></i>
+                            <input type="text" id="inchargeEditSearch" placeholder="Search incharges..." class="form-control" style="padding-left: 30px !important; font-size: 12px !important;">
+                        </div>
+                        <div id="inchargeEditGrid" style="max-height: 160px; overflow-y: auto; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            {{ form.incharges }}
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Assign multiple incharges for this project.</p>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label class="form-label">Project Managers</label>
+                        <div style="position: relative; margin-bottom: 8px;">
+                            <i class="fas fa-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 11px;"></i>
+                            <input type="text" id="managerEditSearch" placeholder="Search managers..." class="form-control" style="padding-left: 30px !important; font-size: 12px !important;">
+                        </div>
+                        <div id="managerEditGrid" style="max-height: 160px; overflow-y: auto; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            {{ form.managers }}
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Assign multiple project managers.</p>
                     </div>
                 </div>
             </div>
@@ -225,15 +272,20 @@
                 const role = item.getAttribute('data-role');
                 if (name.includes(q) || role.includes(q)) {
                     item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
+    function setupCheckboxSearch(inputId, containerId) {
+        const input = document.getElementById(inputId);
+        const container = document.getElementById(containerId);
+        if (input && container) {
+            input.addEventListener('input', function() {
+                const q = this.value.toLowerCase().trim();
+                container.querySelectorAll('label').forEach(lbl => {
+                    const text = lbl.textContent.toLowerCase();
+                    lbl.style.display = text.includes(q) ? '' : 'none';
+                });
             });
-            document.querySelectorAll('.team-section').forEach(section => {
-                const visibleItems = section.querySelectorAll('.member-checkbox-item[style=""]');
-                section.style.display = visibleItems.length > 0 ? '' : 'none';
-            });
-        });
+        }
     }
+    setupCheckboxSearch('inchargeEditSearch', 'inchargeEditGrid');
+    setupCheckboxSearch('managerEditSearch', 'managerEditGrid');
 </script>
 {% endblock %}

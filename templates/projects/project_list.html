@@ -181,9 +181,7 @@
             <a href="{% url 'tasks:project_list' %}?deletion_requested=1" class="btn {% if request.GET.deletion_requested == '1' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm" style="border: none;">Deletion Pending</a>
             {% endif %}
         </div>
-        {% if user.is_project_manager %}
         <a href="{% url 'tasks:project_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Project</a>
-        {% endif %}
     </div>
 </div>
 
@@ -292,9 +290,7 @@
         <i class="fas fa-folder-open fa-3x" style="opacity: 0.1; margin-bottom: 20px; display: block;"></i>
         <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin-bottom: 10px;">No projects found</h3>
         <p style="color: var(--text-muted); margin-bottom: 25px;">Adjust your search or create a new project to populate the workspace.</p>
-        {% if user.is_project_manager %}
         <a href="{% url 'tasks:project_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Create New Project</a>
-        {% endif %}
     </div>
 </div>
 {% endif %}

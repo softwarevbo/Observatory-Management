@@ -13,7 +13,7 @@
     RTM Matrix</a>
 <a href="{% url 'finance:project_expenses' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-wallet"></i>
     Finance</a>
-{% if user.is_admin or user in project.managers.all or user == project.project_incharge %}
+{% if is_pm %}
 <a href="{% url 'tasks:project_settings' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i>
     Settings</a>
 <a href="{% url 'files:file_audit_logs' %}" class="btn btn-secondary btn-sm"><i class="fas fa-history"></i> Logs</a>

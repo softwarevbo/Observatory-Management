@@ -204,9 +204,28 @@ def settings_view(request):
 
     # Fetch configuration for file uploading
     from files.models import SystemSettings as FileSystemSettings
+    from accounts.models import UserLoginHistory, get_client_ip
     files_settings = FileSystemSettings.objects.first()
     if not files_settings:
         files_settings = FileSystemSettings.objects.create()
+
+    if request.user.is_admin:
+        login_history = UserLoginHistory.objects.all().select_related("user")[:100]
+    else:
+        login_history = UserLoginHistory.objects.filter(user=request.user)[:50]
+
+    if not login_history.exists():
+        ip = get_client_ip(request)
+        ua = request.META.get('HTTP_USER_AGENT', '')[:255]
+        UserLoginHistory.objects.create(
+            user=request.user,
+            ip_address=ip,
+            user_agent=ua
+        )
+        if request.user.is_admin:
+            login_history = UserLoginHistory.objects.all().select_related("user")[:100]
+        else:
+            login_history = UserLoginHistory.objects.filter(user=request.user)[:50]
 
     # Renders the settings view context
     return render(
@@ -216,6 +235,7 @@ def settings_view(request):
             "base_template": _resolve_base_template(request.user),
             "sys_settings": sys_settings,
             "files_settings": files_settings,
+            "login_history": login_history,
             "reported_issues": (
                 SystemIssue.objects.all().order_by("-created_at")
                 if request.user.is_admin

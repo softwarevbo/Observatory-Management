@@ -80,26 +80,33 @@ def chat_home(request):
     
     last_msgs = {m.room_id: m for m in Message.objects.filter(id__in=last_msg_ids).select_related('sender')}
     
-    # Pre-fetch snippets and map unread counts
+    # Pre-fetch snippets and deduplicate DM rooms
+    filtered_rooms = []
+    seen_dm_users = set()
+
     for room in rooms:
         room.last_msg = last_msgs.get(room.room_id)
+        if room.room_type == 'direct':
+            if room.name == f"DM-{request.user.id}-{request.user.id}":
+                if 'self' not in seen_dm_users:
+                    seen_dm_users.add('self')
+                    room.display_is_self = True
+                    filtered_rooms.append(room)
+            else:
+                other_user = room.participants.exclude(id=request.user.id).first()
+                if other_user and other_user.id not in seen_dm_users:
+                    seen_dm_users.add(other_user.id)
+                    room.other_user = other_user
+                    filtered_rooms.append(room)
+        else:
+            filtered_rooms.append(room)
 
-    
-    # Identify user IDs who already have active DM rooms with this user to avoid duplicates in sidebar lists
-    dm_rooms = ChatRoom.objects.filter(participants=request.user, room_type='direct').annotate(
-        msg_count=models.Count('messages')
-    ).filter(msg_count__gt=0)
-    has_self_dm = ChatRoom.objects.filter(name=f"DM-{request.user.id}-{request.user.id}").exists()
-    dm_user_ids = list(User.objects.filter(chat_rooms__in=dm_rooms).exclude(id=request.user.id).values_list('id', flat=True))
-    
-    # Fetch users list for initiating new DM conversations (excluding current contacts)
-    if has_self_dm:
-        users = User.objects.exclude(id=request.user.id).exclude(id__in=dm_user_ids).select_related('presence')
-    else:
-        users = User.objects.exclude(id__in=dm_user_ids).select_related('presence')
+    # Fetch users list for initiating new DM conversations (excluding current DM contacts and self)
+    active_contact_ids = [u for u in seen_dm_users if u != 'self']
+    users = User.objects.exclude(id=request.user.id).exclude(id__in=active_contact_ids).select_related('presence').order_by('username')
     
     return render(request, 'chat/main_chat.html', {
-        'rooms': rooms,
+        'rooms': filtered_rooms,
         'users': users
     })
 

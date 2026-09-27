@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os
 import secrets
+import socket
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
@@ -18,7 +19,26 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]
+for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(","):
+    host = host.strip()
+    if host:
+        ALLOWED_HOSTS.append(host)
+
+try:
+    for family, _, _, _, sockaddr in socket.getaddrinfo(socket.gethostname(), None, type=socket.SOCK_STREAM):
+        ip = sockaddr[0]
+        if ip and ip not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(ip)
+    for family, _, _, _, sockaddr in socket.getaddrinfo("localhost", None, type=socket.SOCK_STREAM):
+        ip = sockaddr[0]
+        if ip and ip not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(ip)
+except Exception:
+    pass
+
+# Allow local development access from other devices on the same network.
+ALLOWED_HOSTS.append("*")
 
 INSTALLED_APPS = [
     "daphne",
@@ -68,9 +88,10 @@ MIDDLEWARE = [
     "accounts.middleware.InventoryAccessMiddleware",
 ]
 
-if DEBUG:
-    INSTALLED_APPS.append("debug_toolbar")
-    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
+# Debug toolbar disabled as requested
+# if DEBUG:
+#     INSTALLED_APPS.append("debug_toolbar")
+#     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
 
 ROOT_URLCONF = "core.urls"
 
@@ -156,20 +177,23 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10GB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10GB
 
 # Dynamic CSRF Trusted Origins for local network and development
-import socket
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
-    "http://192.168.100.175:8000",
-    "http://192.168.100.175",
+    "http://0.0.0.0:8000",
+    "http://localhost",
+    "http://127.0.0.1",
 ]
+
 try:
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-    CSRF_TRUSTED_ORIGINS.extend([
-        f"http://{local_ip}:8000",
-        f"http://{local_ip}",
-    ])
+    seen = set(CSRF_TRUSTED_ORIGINS)
+    for family, _, _, _, sockaddr in socket.getaddrinfo(socket.gethostname(), None, type=socket.SOCK_STREAM):
+        ip = sockaddr[0]
+        if ip:
+            for origin in [f"http://{ip}:8000", f"http://{ip}"]:
+                if origin not in seen:
+                    CSRF_TRUSTED_ORIGINS.append(origin)
+                    seen.add(origin)
 except Exception:
     pass
 

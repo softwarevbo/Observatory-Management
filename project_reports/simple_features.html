@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIAP PM | Clear Feature Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --accent: #2563eb;
+            --border: #f3f4f6;
+            --section-bg: #f9fafb;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            opacity: 1; /* Ensure body is visible */
+        }
+
+        /* ── HEADER ── */
+        header {
+            width: 100%;
+            padding: 100px 5%;
+            text-align: center;
+            background: linear-gradient(to bottom, #eff6ff, #ffffff);
+            border-bottom: 1px solid var(--border);
+        }
+
+        header h1 {
+            font-size: 50px;
+            color: var(--accent);
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 22px;
+            color: var(--muted);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* ── SECTION STYLING ── */
+        .section-wrapper {
+            width: 100%;
+            padding: 100px 5%;
+            border-bottom: 1px solid var(--border);
+            opacity: 1;
+        }
+
+        .section-wrapper:nth-child(even) {
+            background-color: var(--section-bg);
+        }
+
+        .container {
+            width: 100%;
+            display: flex;
+            align-items: flex-start;
+            gap: 80px;
+        }
+
+        .content { flex: 1; }
+        
+        .icon-side {
+            flex: 0 0 150px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 120px;
+            color: var(--accent);
+            opacity: 0.1;
+        }
+
+        h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* ── BULLET POINTS ── */
+        .bullet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        li {
+            margin-bottom: 20px;
+            padding-left: 40px;
+            position: relative;
+            font-size: 18px;
+            color: #374151;
+        }
+
+        li::before {
+            content: "\f058";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            color: #10b981;
+            position: absolute;
+            left: 0;
+            top: 2px;
+        }
+
+        .feature-name {
+            font-weight: 700;
+            color: var(--text);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        /* ── ANIMATIONS (RELIABLE) ── */
+        .reveal {
+            transition: all 1s ease;
+        }
+        
+        /* Small entrance animation */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        @media (max-width: 900px) {
+            .container { flex-direction: column; gap: 40px; }
+            .icon-side { display: none; }
+            .bullet-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="animate-in">
+            <h1>Project Management Tool Guide</h1>
+            <p>Every feature explained simply with clear bullet points. Built for speed and ease of use.</p>
+        </div>
+    </header>
+
+    <main>
+        <!-- 1. HOME PAGE -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-home"></i> 1. Home Page Summary</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Daily Greeting:</span> A personal welcome message to start your workday.</li>
+                            <li><span class="feature-name">Task Circles:</span> Easy-to-read progress rings for your active tasks.</li>
+                            <li><span class="feature-name">Team activity:</span> A live list of what everyone is working on right now.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Quick Access:</span> Big buttons to jump into your favorite projects.</li>
+                            <li><span class="feature-name">Alert Center:</span> One place to see all your new messages and task news.</li>
+                            <li><span class="feature-name">Instant Search:</span> Find anything—files, tasks, or people—in seconds.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-desktop"></i></div>
+            </div>
+        </div>
+
+        <!-- 2. REPORTS -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-file-export"></i> 2. Reports & Downloads</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Excel Export:</span> Download all your data into a spreadsheet with one click.</li>
+                            <li><span class="feature-name">PDF Export:</span> Create professional-looking project documents instantly.</li>
+                            <li><span class="feature-name">Workload Charts:</span> See who is busy and who has time for more work.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Custom Dates:</span> Choose any time period to see exactly what happened.</li>
+                            <li><span class="feature-name">Project Speed:</span> Compare which projects are finishing tasks the fastest.</li>
+                            <li><span class="feature-name">Auto-Reports:</span> Every project gets its own summary report automatically.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-chart-line"></i></div>
+            </div>
+        </div>
+
+        <!-- 3. PROJECT TOOLS -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-tasks"></i> 3. Project Management</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Feature Requirements:</span> List all the big goals for your project first.</li>
+                            <li><span class="feature-name">Task Mapping:</span> Link small jobs to big goals so nothing is missed.</li>
+                            <li><span class="feature-name">Status Board:</span> Drag-and-drop tasks between "To Do" and "Done".</li>
+                            <li><span class="feature-name">Quality Checks:</span> Verify every task works before marking it finished.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Resource Files:</span> Store all your project documents and images safely.</li>
+                            <li><span class="feature-name">Team Management:</span> Admins can easily add or manage project members.</li>
+                            <li><span class="feature-name">Release Versions:</span> Group finished work into versions like "v1.0".</li>
+                            <li><span class="feature-name">Release Notes:</span> Write a simple summary of what's new in every version.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-project-diagram"></i></div>
+            </div>
+        </div>
+
+        <!-- 4. NOTES -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-book"></i> 4. Project Note Book</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Team Wiki:</span> A shared space for team guides and instructions.</li>
+                            <li><span class="feature-name">Personal Notes:</span> Private reminders that only you can see.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Note Folders:</span> Keep your notes organized by project or topic.</li>
+                            <li><span class="feature-name">Smart Search:</span> Find any old note instantly by typing a few letters.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-pen-nib"></i></div>
+            </div>
+        </div>
+
+        <!-- 5. DATES -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-calendar-alt"></i> 5. Important Dates</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Deadline View:</span> See all your project finish dates on one calendar.</li>
+                            <li><span class="feature-name">Personal Sync:</span> Connect your phone to see project dates anywhere.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Meeting Dates:</span> Schedule team calls and see them on the calendar.</li>
+                            <li><span class="feature-name">Smart Reminders:</span> Get a nudge before an important deadline arrives.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-calendar-check"></i></div>
+            </div>
+        </div>
+
+        <!-- 6. OFFICE ITEMS -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-boxes-stacked"></i> 6. Office Items & Access</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Item Listing:</span> See all equipment and tools available in the office.</li>
+                            <li><span class="feature-name">Permission Requests:</span> Ask for access to special items or folders.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Manager Approval:</span> Get notified the moment your request is approved.</li>
+                            <li><span class="feature-name">Usage History:</span> See who is currently using an item you need.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-box-open"></i></div>
+            </div>
+        </div>
+
+        <!-- 7. ERRORS -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-bug"></i> 7. Error Tracking</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Quick Report:</span> Tell the team immediately when you find an error.</li>
+                            <li><span class="feature-name">Attach Images:</span> Add screenshots to show exactly what is wrong.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Importance Level:</span> Mark errors as "Urgent" to get them fixed fast.</li>
+                            <li><span class="feature-name">Fix Updates:</span> Track errors from "Found" to "Fixed and Ready".</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-bug-slash"></i></div>
+            </div>
+        </div>
+
+        <!-- 8. FILES -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-folder-tree"></i> 8. File Storage</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Easy Browsing:</span> Look through folders just like on your computer.</li>
+                            <li><span class="feature-name">Grid Layout:</span> See large icons for pictures and documents.</li>
+                            <li><span class="feature-name">File Search:</span> Find any file in any folder in just a second.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Safe Team Sharing:</span> Share files with everyone in the team securely.</li>
+                            <li><span class="feature-name">Bulk Downloads:</span> Select multiple files and download them as one ZIP.</li>
+                            <li><span class="feature-name">Ownership Info:</span> See who uploaded each file and when it changed.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-file-archive"></i></div>
+            </div>
+        </div>
+
+        <!-- 9. SECURITY -->
+        <div class="section-wrapper">
+            <div class="container reveal">
+                <div class="content">
+                    <h2><i class="fas fa-shield-halved"></i> 9. Safe & Secure System</h2>
+                    <div class="bullet-grid">
+                        <ul>
+                            <li><span class="feature-name">Private Logins:</span> Everyone has their own secure account with a private password.</li>
+                            <li><span class="feature-name">Member Roles:</span> You decide exactly who can "Edit" or only "View" your work.</li>
+                            <li><span class="feature-name">Activity History:</span> The system keeps a clear log of who made which changes and when.</li>
+                        </ul>
+                        <ul>
+                            <li><span class="feature-name">Access Guard:</span> Sensitive items and folders are locked until a manager says "Yes."</li>
+                            <li><span class="feature-name">Safe File Sharing:</span> Your project files are protected and never shared outside your team.</li>
+                            <li><span class="feature-name">Checked Updates:</span> Every new project version is checked and verified before it is released.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="icon-side"><i class="fas fa-user-lock"></i></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Reliable scroll animation
+        function reveal() {
+            var reveals = document.querySelectorAll(".reveal");
+            for (var i = 0; i < reveals.length; i++) {
+                var windowHeight = window.innerHeight;
+                var elementTop = reveals[i].getBoundingClientRect().top;
+                var elementVisible = 100;
+                if (elementTop < windowHeight - elementVisible) {
+                    reveals[i].classList.add("animate-in");
+                }
+            }
+        }
+        window.addEventListener("scroll", reveal);
+        // Run once on load
+        document.addEventListener("DOMContentLoaded", reveal);
+    </script>
+</body>
+</html>

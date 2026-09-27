@@ -28,7 +28,8 @@ def requirement_bulk_create(request, pk):
     if not (
         request.user.is_admin 
         or request.user.is_project_manager
-        or request.user == project.project_incharge
+        or project.is_manager(request.user)
+        or project.is_incharge(request.user)
     ):
         messages.error(request, "Only the project in-charge and admins can manage requirements.")
         return redirect("tasks:project_detail", pk=project.pk)
@@ -310,7 +311,8 @@ def requirement_create(request, pk):
     if not (
         request.user.is_admin 
         or request.user.is_project_manager
-        or request.user == project.project_incharge
+        or project.is_manager(request.user)
+        or project.is_incharge(request.user)
     ):
         messages.error(request, "Only the project in-charge and admins can manage requirements.")
         return redirect("tasks:project_detail", pk=project.pk)
@@ -452,8 +454,9 @@ def requirement_edit(request, pk):
     project = req.project
     if not (
         request.user.is_admin 
-        or request.user in project.managers.all()
-        or request.user == project.project_incharge
+        or request.user.is_project_manager
+        or project.is_manager(request.user)
+        or project.is_incharge(request.user)
     ):
         messages.error(request, "Only project managers, in-charge and admins can manage requirements.")
         return redirect("tasks:project_detail", pk=project.pk)
@@ -487,7 +490,8 @@ def requirement_delete(request, pk):
     if not (
         request.user.is_admin 
         or request.user.is_project_manager
-        or request.user == project.project_incharge
+        or project.is_manager(request.user)
+        or project.is_incharge(request.user)
     ):
         messages.error(request, "Only the project in-charge and admins can delete requirements.")
         return redirect("tasks:project_detail", pk=project.pk)

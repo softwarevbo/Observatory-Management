@@ -28,8 +28,39 @@
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label-premium">Discipline Module</label>
-                        {{ form.module }}
+                        <label class="form-label-premium">Project Name <span style="color:var(--red);">*</span></label>
+                        {{ form.name }}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label-premium">Project Description</label>
+                        {{ form.description }}
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label class="form-label-premium">Discipline Module</label>
+                            {{ form.module }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Current Status</label>
+                            {{ form.status }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Priority Level</label>
+                            {{ form.priority }}
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label class="form-label-premium">Start Date</label>
+                            {{ form.start_date }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-premium">Target End Date</label>
+                            {{ form.end_date }}
+                        </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-top: 20px;">
@@ -130,14 +161,16 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 20px;">
-                        <label class="form-label-premium">Project Incharge</label>
-                        {{ form.project_incharge }}
-                        <p style="font-size: 10px; color: var(--text-muted); margin-top: 5px;">Primary person responsible for project execution.</p>
+                        <label class="form-label-premium">Project Incharge(s)</label>
+                        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px;">Select users responsible for project execution.</p>
+                        <div style="max-height: 180px; overflow-y: auto; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            {{ form.incharges }}
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label-premium">Authorized Managers</label>
-                        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px;">Select users with administrative rights for this project.</p>
+                        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px;">Select users with management and editing rights for this project.</p>
                         <div style="max-height: 200px; overflow-y: auto; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
                             {{ form.managers }}
                         </div>

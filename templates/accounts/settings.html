@@ -286,6 +286,9 @@
         <div class="settings-nav-item" onclick="switchTab('security')">
             <i class="fas fa-shield-alt"></i> Security
         </div>
+        <div class="settings-nav-item" onclick="switchTab('login_history')">
+            <i class="fas fa-history"></i> My Login History
+        </div>
         <div class="settings-nav-item" onclick="switchTab('notifications')">
             <i class="fas fa-bell"></i> Notifications
         </div>
@@ -542,6 +545,73 @@
                     <h4 style="color:var(--red); font-size:14px; font-weight:700; margin-bottom:8px;">Danger Zone</h4>
                     <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Deleting your account will permanently remove all your database allocations and files.</p>
                     <button class="btn btn-danger btn-sm">Delete Account</button>
+                </div>
+            </div>
+
+            <!-- LOGIN HISTORY PANEL -->
+            <div id="panel-login_history" class="settings-panel">
+                <h2 class="settings-section-title">My Login History</h2>
+                <p class="settings-section-desc">Track account sign-in history, login timestamps, IP addresses, and system device logs for security auditing.</p>
+                
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <i class="fas fa-history" style="color: var(--accent);"></i>
+                        <div class="settings-card-title">Account Login Activity Log</div>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border); text-align: left; color: var(--text-muted); font-size: 12px; background: var(--bg-card);">
+                                    {% if user.is_admin %}
+                                    <th style="padding: 12px 14px;">User</th>
+                                    {% endif %}
+                                    <th style="padding: 12px 14px;">Date & Time</th>
+                                    <th style="padding: 12px 14px;">IP Address</th>
+                                    <th style="padding: 12px 14px;">Browser / System Details</th>
+                                    <th style="padding: 12px 14px;">Session Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in login_history %}
+                                <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s;">
+                                    {% if user.is_admin %}
+                                    <td style="padding: 12px 14px; font-weight: 600; color: var(--text-primary);">
+                                        {{ item.user.get_full_name|default:item.user.username }}
+                                        <div style="font-size: 11px; color: var(--text-muted);">@{{ item.user.username }}</div>
+                                    </td>
+                                    {% endif %}
+                                    <td style="padding: 12px 14px; white-space: nowrap;">
+                                        <i class="fas fa-clock" style="color:var(--text-muted); margin-right:6px;"></i>
+                                        {{ item.login_datetime|date:"Y-m-d H:i:s" }}
+                                    </td>
+                                    <td style="padding: 12px 14px; white-space: nowrap;">
+                                        <code style="background:var(--bg-card); padding:4px 8px; border-radius:6px; border:1px solid var(--border); font-family: monospace; color: var(--accent); font-weight: 600;">
+                                            {{ item.ip_address|default:"127.0.0.1" }}
+                                        </code>
+                                    </td>
+                                    <td style="padding: 12px 14px; color: var(--text-secondary); max-width: 320px; font-size: 12px; line-height: 1.4; word-break: break-all;">
+                                        {{ item.user_agent|default:"Standard Web Session" }}
+                                    </td>
+                                    <td style="padding: 12px 14px; white-space: nowrap;">
+                                        {% if forloop.first %}
+                                        <span class="badge badge-green" style="background:var(--accent-glow); color:var(--accent); border: 1px solid var(--accent); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">Active Session</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary" style="color:var(--text-muted); padding: 4px 8px; border-radius: 12px; font-size: 11px;">Authenticated</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="{% if user.is_admin %}5{% else %}4{% endif %}" style="padding: 30px; text-align: center; color: var(--text-muted);">
+                                        <i class="fas fa-shield-alt" style="font-size: 24px; opacity: 0.4; margin-bottom: 8px; display: block;"></i>
+                                        No security login records logged yet.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

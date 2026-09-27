@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Git Settings — {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.git-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+.section-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 24px; }
+.section-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px; }
+.form-group { margin-bottom: 18px; }
+.form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.form-label .required { color: var(--red); }
+.form-control { width: 100%; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.2s; }
+.form-control:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.form-control-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; }
+textarea.form-control { resize: vertical; min-height: 160px; }
+.form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 20px; padding: 4px; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); }
+.auth-tab { flex: 1; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; text-align: center; cursor: pointer; transition: all 0.2s; border: none; background: transparent; color: var(--text-muted); }
+.auth-tab.active { background: var(--accent); color: #fff; }
+.auth-panel { display: none; }
+.auth-panel.active { display: block; }
+.conn-status { padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+.conn-status.ok { background: rgba(16,185,129,0.1); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+.conn-status.fail { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+.conn-status.testing { background: rgba(79,142,247,0.1); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
+.key-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.key-status.set { background: rgba(16,185,129,0.12); color: var(--green); }
+.key-status.unset { background: rgba(239,68,68,0.1); color: var(--red); }
+.log-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.log-row:last-child { border-bottom: none; }
+.log-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.log-badge.success { background: rgba(16,185,129,0.12); color: var(--green); }
+.log-badge.failed { background: rgba(239,68,68,0.1); color: var(--red); }
+.toggle-switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); border-radius: 24px; transition: 0.3s; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+input:checked + .slider { background: var(--accent); }
+input:checked + .slider:before { transform: translateX(22px); }
+</style>
+{% endblock %}
+
+{% block page_title %}Git Integration Settings{% endblock %}
+
+{% block topbar_actions %}
+<div style="display:flex;gap:10px;">
+  <a href="{% url 'tasks:git_push_log' project.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-history"></i> Push Log</a>
+  <a href="{% url 'tasks:project_detail' project.pk %}" class="btn btn-secondary btn-sm">← Back to Project</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="git-layout">
+
+  <!-- LEFT: Config Form -->
+  <div>
+    <form method="post" id="gitForm">
+      {% csrf_token %}
+
+      <!-- Remote & Branch -->
+      <div class="section-card">
+        <h2 class="section-title"><i class="fab fa-git-alt" style="color:#f05032;"></i> Repository Configuration</h2>
+
+        <div class="form-group">
+          <label class="form-label">Remote URL <span class="required">*</span></label>
+          <input type="text" name="remote_url" class="form-control form-control-mono"
+                 value="{{ git_config.remote_url }}"
+                 placeholder="git@github.com:org/repo.git  or  https://github.com/org/repo.git"
+                 required>
+          <p class="form-hint">Supports both SSH (<code>git@…</code>) and HTTPS (<code>https://…</code>) URLs.</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Branch <span class="required">*</span></label>
+            <input type="text" name="branch" class="form-control"
+                   value="{{ git_config.branch|default:'main' }}" placeholder="main">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Release Sub-Directory</label>
+            <input type="text" name="release_dir" class="form-control"
+                   value="{{ git_config.release_dir }}" placeholder="releases/  (leave blank for root)">
+            <p class="form-hint">Path inside the repo where release files are pushed.</p>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Git Author Name</label>
+            <input type="text" name="git_username" class="form-control"
+                   value="{{ git_config.git_username }}" placeholder="IIAP-PM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Git Author Email</label>
+            <input type="email" name="git_email" class="form-control"
+                   value="{{ git_config.git_email }}" placeholder="pm@iiap.local">
+          </div>
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:center;gap:12px;margin-bottom:0;">
+          <label class="toggle-switch">
+            <input type="checkbox" name="is_active" id="isActiveToggle"
+                   {% if git_config.is_active %}checked{% endif %}>
+            <span class="slider"></span>
+          </label>
+          <label for="isActiveToggle" style="font-size:13px;font-weight:600;cursor:pointer;">
+            Git integration enabled
+          </label>
+        </div>
+      </div>
+
+      <!-- Authentication -->
+      <div class="section-card">
+        <h2 class="section-title"><i class="fas fa-key" style="color:var(--yellow);"></i> Authentication</h2>
+
+        <input type="hidden" name="auth_method" id="authMethodInput" value="{{ git_config.auth_method }}">
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab {% if git_config.auth_method != 'https_token' %}active{% endif %}"
+                  onclick="switchAuth('ssh_key')">
+            <i class="fas fa-terminal"></i> SSH Private Key
+          </button>
+          <button type="button" class="auth-tab {% if git_config.auth_method == 'https_token' %}active{% endif %}"
+                  onclick="switchAuth('https_token')">
+            <i class="fas fa-lock"></i> HTTPS / Token
+          </button>
+        </div>
+
+        <!-- SSH Panel -->
+        <div class="auth-panel {% if git_config.auth_method != 'https_token' %}active{% endif %}" id="panel-ssh_key">
+          <div class="form-group">
+            <label class="form-label">SSH Private Key (PEM)</label>
+            {% if has_ssh_key %}
+              <div style="margin-bottom:10px;">
+                <span class="key-status set"><i class="fas fa-check-circle"></i> Key configured</span>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">Paste a new key below to replace it.</span>
+              </div>
+            {% else %}
+              <div style="margin-bottom:10px;">
+                <span class="key-status unset"><i class="fas fa-exclamation-circle"></i> Not configured</span>
+              </div>
+            {% endif %}
+
+            <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnGenSshKey" onclick="generateSshKeyPair()" style="font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; background: rgba(79, 142, 247, 0.1); border: 1px solid rgba(79, 142, 247, 0.25); color: var(--accent);">
+                <i class="fas fa-magic"></i> Auto-Generate Unique SSH Key Pair
+              </button>
+              <span id="genSshSpinner" style="display: none; font-size: 12px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin" style="margin-right: 6px;"></i>Generating keys...</span>
+            </div>
+
+            <!-- Public key display container (hidden by default) -->
+            <div id="pubKeyContainer" style="display: none; margin-bottom: 16px; padding: 16px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="font-size: 12px; color: var(--green); display: flex; align-items: center; gap: 6px;">
+                  <i class="fas fa-check-circle"></i> SSH Key Pair Generated!
+                </strong>
+                <button type="button" class="btn btn-primary btn-sm" style="font-size: 11px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px;" onclick="copyPublicKeyToClipboard(event)">
+                  <i class="fas fa-copy"></i> Copy Public Key
+                </button>
+              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0; line-height: 1.4;">
+                Copy the public key below and add it as a <strong>Deploy Key</strong> in your repository settings (e.g., GitHub Settings &rarr; Deploy Keys). Make sure to check <strong>"Allow write access"</strong>.
+              </p>
+              <textarea id="pubKeyDisplay" class="form-control form-control-mono" readonly style="min-height: 70px; height: 70px; background: var(--bg-primary); padding: 8px; border: 1px solid var(--border); font-size: 11px; color: var(--text-muted); resize: none;"></textarea>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 6px 0 0 0; line-height: 1.4;">
+                <em>Note: The private key has been filled below. Be sure to click <strong>"Save Git Configuration"</strong> below to persist it.</em>
+              </p>
+            </div>
+
+            <textarea name="ssh_private_key" class="form-control form-control-mono"
+                      placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;…&#10;-----END RSA PRIVATE KEY-----"></textarea>
+            <p class="form-hint">⚠️ Key is encrypted at rest using AES-256 (Fernet). Never expose it in browser DevTools.</p>
+          </div>
+        </div>
+
+        <!-- HTTPS Panel -->
+        <div class="auth-panel {% if git_config.auth_method == 'https_token' %}active{% endif %}" id="panel-https_token">
+          <div class="form-group">
+            <label class="form-label">HTTPS Username</label>
+            <input type="text" name="https_username" class="form-control"
+                   value="{{ git_config.https_username }}" placeholder="github-username">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Personal Access Token</label>
+            {% if has_https_token %}
+              <div style="margin-bottom:10px;">
+                <span class="key-status set"><i class="fas fa-check-circle"></i> Token configured</span>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">Paste a new token to replace it.</span>
+              </div>
+            {% else %}
+              <div style="margin-bottom:10px;">
+                <span class="key-status unset"><i class="fas fa-exclamation-circle"></i> Not configured</span>
+              </div>
+            {% endif %}
+            <input type="password" name="https_token" class="form-control"
+                   placeholder="ghp_… (GitHub PAT, GitLab token, etc.)">
+            <p class="form-hint">Token is encrypted at rest. Leave blank to keep existing token.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button type="submit" class="btn btn-primary" style="padding:10px 24px;">
+          <i class="fas fa-save"></i> Save Git Configuration
+        </button>
+        <button type="button" class="btn btn-secondary" id="testConnBtn" onclick="testConnection()">
+          <i class="fas fa-plug"></i> Test Connection
+        </button>
+      </div>
+      <div id="connResult" style="margin-top:14px;"></div>
+    </form>
+  </div>
+
+  <!-- RIGHT: Sidebar -->
+  <div>
+    <!-- Status Card -->
+    <div class="section-card" style="padding:20px;">
+      <h3 style="font-size:14px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin:0 0 16px;">
+        Git Status
+      </h3>
+      {% if git_config.remote_url %}
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Remote</div>
+            <code style="font-size:11px;word-break:break-all;">{{ git_config.remote_url }}</code>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Branch</div>
+            <span class="key-status set"><i class="fas fa-code-branch"></i> {{ git_config.branch }}</span>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Auth Method</div>
+            <span>{{ git_config.get_auth_method_display }}</span>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Credentials</div>
+            {% if git_config.auth_method == 'ssh_key' %}
+              {% if has_ssh_key %}<span class="key-status set"><i class="fas fa-key"></i> SSH Key Set</span>
+              {% else %}<span class="key-status unset"><i class="fas fa-exclamation"></i> No Key</span>{% endif %}
+            {% else %}
+              {% if has_https_token %}<span class="key-status set"><i class="fas fa-lock"></i> Token Set</span>
+              {% else %}<span class="key-status unset"><i class="fas fa-exclamation"></i> No Token</span>{% endif %}
+            {% endif %}
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="testConnection()" style="margin-top:16px;width:100%;justify-content:center;">
+          <i class="fas fa-satellite-dish"></i> Test Connection
+        </button>
+        <div id="sidebarConnResult" style="margin-top:10px;"></div>
+      {% else %}
+        <div style="text-align:center;padding:20px 0;color:var(--text-muted);">
+          <i class="fab fa-git-alt" style="font-size:32px;margin-bottom:12px;display:block;opacity:0.4;"></i>
+          <p style="font-size:13px;">No remote configured yet.<br>Fill in the form to get started.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Push Log -->
+    {% if push_logs %}
+    <div class="section-card" style="padding:20px;">
+      <h3 style="font-size:14px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin:0 0 16px;">
+        Recent Pushes
+      </h3>
+      {% for log in push_logs %}
+      <div class="log-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span class="log-badge {{ log.status }}">{{ log.status }}</span>
+          <span style="font-size:11px;color:var(--text-muted);">{{ log.timestamp|date:"M d, H:i" }}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);">
+          {{ log.commit_message|truncatechars:60 }}
+        </div>
+        {% if log.commit_hash %}
+        <code style="font-size:10px;color:var(--text-muted);">{{ log.commit_hash|slice:":8" }}</code>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <a href="{% url 'tasks:git_push_log' project.pk %}" class="btn btn-secondary btn-sm" style="margin-top:12px;width:100%;justify-content:center;">
+        View Full History
+      </a>
+    </div>
+    {% endif %}
+
+    <!-- Help Card -->
+    <div class="section-card" style="padding:20px;border-left:3px solid var(--accent); background: rgba(79, 142, 247, 0.03);">
+      <h3 style="font-size:14px;font-weight:700;margin:0 0 12px;font-family:'Space Grotesk',sans-serif;color:var(--text-primary);">
+        <i class="fas fa-info-circle" style="color:var(--accent);"></i> SSH Key Setup Guide
+      </h3>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <strong>1. Generate the SSH Key Pair</strong>
+          <div style="color:var(--text-muted);margin:4px 0;">Run this command in your terminal:</div>
+          <code style="display:block;background:var(--bg-primary);padding:8px;border-radius:6px;border:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--accent);word-break:break-all;">
+            ssh-keygen -t ed25519 -C "software.vbo@gmail.com.local" -f ./id_ed25519 -N ""
+          </code>
+        </div>
+        
+        <div>
+          <strong>2. Copy the Public Key</strong>
+          <div style="color:var(--text-muted);margin:4px 0;">Run this command to view it, copy it, and add it to your Git host (e.g. GitHub Repository Settings &rarr; Deploy Keys &rarr; Check "Allow Write Access"):</div>
+          <code style="display:block;background:var(--bg-primary);padding:8px;border-radius:6px;border:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text-primary);">
+            cat ./id_ed25519.pub
+          </code>
+        </div>
+
+        <div>
+          <strong>3. Copy the Private Key</strong>
+          <div style="color:var(--text-muted);margin:4px 0;">Run this command to view it, copy the entire output (including the BEGIN/END lines), and paste it into the PEM key input on this page:</div>
+          <code style="display:block;background:var(--bg-primary);padding:8px;border-radius:6px;border:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text-primary);">
+            cat ./id_ed25519
+          </code>
+        </div>
+
+        <div>
+          <strong>4. Save &amp; Test Connection</strong>
+          <p style="margin:4px 0 0 0;font-size:11px;color:var(--text-muted);">Ensure the Remote URL is in SSH format (e.g. <code style="font-size:10px;">git@github.com:username/repo.git</code>) and click Test Connection below.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROJECT_PK = {{ project.pk }};
+const CSRF = '{{ csrf_token }}';
+
+function switchAuth(method) {
+  document.getElementById('authMethodInput').value = method;
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  event.target.closest('.auth-tab').classList.add('active');
+  document.getElementById('panel-' + method).classList.add('active');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+       .replace(/&/g, "&amp;")
+       .replace(/</g, "&lt;")
+       .replace(/>/g, "&gt;")
+       .replace(/"/g, "&quot;")
+       .replace(/'/g, "&#039;");
+}
+
+function setConnResult(el, data) {
+  if (!el) return;
+  
+  let consoleBlock = '';
+  if (data.console_output) {
+    consoleBlock = `
+    <div style="margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+        <button type="button" onclick="const c = this.nextElementSibling; c.style.display = c.style.display === 'none' ? 'block' : 'none';" 
+                style="background: transparent; border: 1px solid var(--border); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: sans-serif;">
+            <i class="fas fa-terminal"></i> Show Terminal Output
+        </button>
+        <div style="display: none; margin-top: 8px;">
+            <pre style="background: #121824; color: #a9b2c3; padding: 12px; border-radius: 6px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); margin: 0; white-space: pre-wrap; word-break: break-all; line-height: 1.5; text-align: left;">${escapeHtml(data.console_output)}</pre>
+        </div>
+    </div>`;
+  }
+
+  el.innerHTML = `<div class="conn-status ${data.ok ? 'ok' : 'fail'}" style="display:block;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <i class="fas fa-${data.ok ? 'check-circle' : 'times-circle'}"></i>
+      <span>${data.message}</span>
+    </div>
+    ${consoleBlock}
+  </div>`;
+}
+
+function testConnection() {
+  const r1 = document.getElementById('connResult');
+  const r2 = document.getElementById('sidebarConnResult');
+  const msg = '<div class="conn-status testing"><i class="fas fa-spinner fa-spin"></i> Testing connection…</div>';
+  if (r1) r1.innerHTML = msg;
+  if (r2) r2.innerHTML = msg;
+
+  fetch(`/projects/${PROJECT_PK}/git/test-connection/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+  })
+  .then(r => r.json())
+  .then(data => { setConnResult(r1, data); setConnResult(r2, data); })
+  .catch(err => {
+    const d = {ok: false, message: 'Network error: ' + err};
+    setConnResult(r1, d); setConnResult(r2, d);
+  });
+}
+
+function generateSshKeyPair() {
+  const btn = document.getElementById('btnGenSshKey');
+  const spinner = document.getElementById('genSshSpinner');
+  const pubContainer = document.getElementById('pubKeyContainer');
+  const pubDisplay = document.getElementById('pubKeyDisplay');
+  const privateTextarea = document.querySelector('textarea[name="ssh_private_key"]');
+  
+  btn.disabled = true;
+  spinner.style.display = 'inline-block';
+  pubContainer.style.display = 'none';
+  
+  fetch(`/projects/${PROJECT_PK}/git/generate-ssh-key/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': CSRF,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    if (data.ok) {
+      privateTextarea.value = data.private_key;
+      pubDisplay.value = data.public_key;
+      pubContainer.style.display = 'block';
+    } else {
+      alert('Error generating SSH Key: ' + data.message);
+    }
+  })
+  .catch(err => {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    alert('Network error generating SSH key: ' + err);
+  });
+}
+
+function copyPublicKeyToClipboard(event) {
+  const pubDisplay = document.getElementById('pubKeyDisplay');
+  pubDisplay.select();
+  pubDisplay.setSelectionRange(0, 99999);
+  
+  navigator.clipboard.writeText(pubDisplay.value).then(() => {
+    const btn = event.currentTarget || event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    btn.style.background = 'var(--green)';
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.style.background = '';
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

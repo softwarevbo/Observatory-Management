@@ -68,6 +68,9 @@ class Project(models.Model):
         blank=True,
         related_name="incharge_projects",
     )
+    incharges = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="incharge_projects_set"
+    )
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL, blank=True, related_name="projects"
     )
@@ -141,12 +144,32 @@ class Project(models.Model):
     def is_manager(self, user):
         if not user or not user.is_authenticated:
             return False
-        return user.is_admin or user.is_project_manager or self.managers.filter(pk=user.pk).exists()
+        return (
+            user.is_admin
+            or self.created_by == user
+            or self.managers.filter(pk=user.pk).exists()
+        )
 
     def is_incharge(self, user):
         if not user or not user.is_authenticated:
             return False
-        return user.is_admin or user.is_project_manager or self.project_incharge == user
+        return (
+            user.is_admin
+            or self.is_manager(user)
+            or (self.project_incharge and self.project_incharge == user)
+            or self.incharges.filter(pk=user.pk).exists()
+        )
+
+    def is_member(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return (
+            user.is_admin
+            or self.is_manager(user)
+            or self.is_incharge(user)
+            or self.members.filter(pk=user.pk).exists()
+            or self.visibility == "public"
+        )
 
     def save(self, *args, **kwargs):
         if not self.project_id:

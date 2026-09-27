@@ -22,13 +22,10 @@ class User(AbstractUser):
     Inventory management, and Telescope operations).
     """
 
-    # Role choices defining the type of user in the Project Management space.
-    # The first value in the tuple is what's saved in the DB, and the second is the human-readable label.
+    # Role choices defining system level admin vs normal user.
     ROLE_CHOICES = [
         ("admin", "Admin"),
-        ("project_manager", "Project Manager"),
-        ("member", "Member"),
-        ("student", "Student"),
+        ("member", "User"),
     ]
 
     # Module choices representing the scientific/engineering teams under IIA.
@@ -42,12 +39,12 @@ class User(AbstractUser):
     ]
 
     # User Profile Fields
-    # role: Controls high-level capabilities in Project Management.
+    # role: Controls high-level permissions.
     role = models.CharField(
         max_length=20, 
         choices=ROLE_CHOICES, 
         default="member",
-        help_text="Defines user level permissions within Project Management."
+        help_text="Defines user level permissions."
     )
     
     # team: Identifies the technical/scientific group the user belongs to.
@@ -287,8 +284,8 @@ class User(AbstractUser):
 
     @property
     def is_project_manager(self):
-        """Checks if the user role is 'project_manager'."""
-        return self.role == "project_manager"
+        """Checks if the user is an admin or manages/created any project."""
+        return self.is_admin or self.managed_projects.exists() or self.created_projects.exists()
 
     @property
     def is_student(self):
@@ -331,3 +328,47 @@ class User(AbstractUser):
             parts = name.split()
             return "".join(p[0].upper() for p in parts[:2])
         return self.username[:2].upper()
+
+
+class UserLoginHistory(models.Model):
+    """
+    Tracks account authentication history (login timestamp, IP address, User-Agent)
+    for security auditing.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_histories")
+    login_datetime = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-login_datetime']
+        verbose_name_plural = "User Login Histories"
+
+    def __str__(self):
+        return f"{self.user.username} logged in at {self.login_datetime} ({self.ip_address})"
+
+
+from django.contrib.auth.signals import user_logged_in
+from django.dispatch import receiver
+
+def get_client_ip(request):
+    if not request:
+        return "127.0.0.1"
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip or "127.0.0.1"
+
+@receiver(user_logged_in)
+def log_user_login(sender, request, user, **kwargs):
+    if request and user and user.is_authenticated:
+        ip = get_client_ip(request)
+        ua = request.META.get('HTTP_USER_AGENT', '')[:255]
+        UserLoginHistory.objects.create(
+            user=user,
+            ip_address=ip,
+            user_agent=ua
+        )
+

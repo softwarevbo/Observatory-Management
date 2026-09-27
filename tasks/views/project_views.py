@@ -30,9 +30,9 @@ def project_list(request):
     if user.is_admin:
         projects = Project.objects.all()
     else:
-        # Non-admins can only see projects where they are assigned as manager, member, or incharge
+        # Non-admins can see projects where they are creator, manager, member, or incharge, or public projects
         projects = Project.objects.filter(
-            Q(managers=user) | Q(members=user) | Q(project_incharge=user)
+            Q(created_by=user) | Q(managers=user) | Q(members=user) | Q(project_incharge=user) | Q(visibility="public")
         ).distinct()
 
     # Filter by archive status. Default to showing non-archived projects
@@ -86,56 +86,47 @@ def project_list(request):
 
 
 @login_required
-@manager_or_admin_required
 def project_create(request):
-    # Instantiate project form passing user for manager validation
+    # Any authenticated normal user can create a project
     form = ProjectForm(request.POST or None, request.FILES or None, user=request.user)
-    # Validate form submission parameters
     if request.method == "POST" and form.is_valid():
-        # Build project record but do not commit yet
         project = form.save(commit=False)
-        # Record currently logged-in user as the creator
         project.created_by = request.user
-        # Write to database
         project.save()
-        # Save many-to-many relationships (members, managers)
         form.save_m2m()
+        # The project creator automatically becomes a Project Manager for this project
+        project.managers.add(request.user)
 
-        # If a budget amount is provided, automatically instantiate budget records
         budget_amt = form.cleaned_data.get("budget")
         if budget_amt is not None:
             from finance.models import Budget
-
-            # Create corresponding Budget tracker entry for the project
             Budget.objects.create(project=project, total_amount=budget_amt)
 
-        # Call service layer to initialize folder architecture on disk/media
         ProjectService.initialize_project_folders(project, request.user)
-        # Notify added managers and members via the notifications hub
         ProjectService.notify_project_assignment(project, request.user)
 
-        # Display success banner and redirect to details page
         messages.success(request, f'Project "{project.name}" created successfully.')
         return redirect("tasks:project_detail", pk=project.pk)
 
     return render(
         request,
-        "projects/project_form.html",  # Updated path
+        "projects/project_form.html",
         {"form": form, "title": "New Project", "action": "Create Project"},
     )
 
 
 @login_required
 def project_detail(request, pk):
-    # Retrieve project or raise 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Secure detail view: restrict access to admins, assigned members, managers, or project incharge
+    # Access control: members, managers, incharge, creator, or public
     if not (
         request.user.is_admin
+        or project.created_by == request.user
         or project.members.filter(pk=request.user.pk).exists()
         or project.managers.filter(pk=request.user.pk).exists()
         or project.project_incharge == request.user
+        or project.visibility == "public"
     ):
         messages.error(request, "You do not have access to this project.")
         return redirect("tasks:project_list")
@@ -276,8 +267,8 @@ def project_detail(request, pk):
                 "percentage": tc_percentage,
             },
             # Permissions context flags
-            "is_pm": project.managers.filter(pk=request.user.pk).exists() or request.user.is_admin or request.user.is_project_manager,
-            "is_incharge": project.project_incharge == request.user,
+            "is_pm": project.is_manager(request.user),
+            "is_incharge": project.is_incharge(request.user),
             "resource_comments": resource_comments,
             "resource_comment_form": resource_comment_form,
             "active_resource_cat": active_resource_cat,
@@ -286,10 +277,15 @@ def project_detail(request, pk):
 
 
 @login_required
-@manager_or_admin_required
+@login_required
 def project_edit(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
+
+    # Permission check: ONLY Project Managers and System Admins can edit project information/description
+    if not (request.user.is_admin or project.is_manager(request.user)):
+        messages.error(request, "Only Project Managers and System Administrators can edit main project information.")
+        return redirect("tasks:project_detail", pk=project.pk)
 
     # Cache old members list to compare changes and send notifications afterwards
     old_members = set(project.members.values_list("pk", flat=True))
@@ -337,17 +333,9 @@ def project_settings(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Check settings permissions: Admins, PMs, Project Managers or the Project Incharge can access settings
-    is_manager = project.managers.filter(pk=request.user.pk).exists()
-    is_incharge = project.project_incharge == request.user
-
-    if not (
-        request.user.is_admin
-        or request.user.is_project_manager
-        or is_manager
-        or is_incharge
-    ):
-        messages.error(request, "You do not have permission to access project settings.")
+    # Permission check: ONLY Project Managers and System Admins can access project settings
+    if not (request.user.is_admin or project.is_manager(request.user)):
+        messages.error(request, "Only Project Managers and System Administrators can access project settings.")
         return redirect("tasks:project_detail", pk=pk)
 
     # Handle settings configuration form submission
@@ -396,8 +384,8 @@ def project_settings(request, pk):
 def project_members(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
-    # Fetch active system users ordered alphabetically to choose from
-    all_users = User.objects.filter(is_active=True).order_by("first_name", "username")
+    # Fetch active system users ordered by team and name for template regrouping
+    all_users = User.objects.filter(is_active=True).order_by("team", "first_name", "username")
     current_member_ids = set(project.members.values_list("pk", flat=True))
 
     # Process member operations (Add / Remove)
@@ -671,11 +659,7 @@ def project_requirement_list(request, pk):
     page_obj = paginator.get_page(request.GET.get("page"))
 
     # Determine manager role status for template action controls
-    is_pm = (
-        project.managers.filter(pk=request.user.pk).exists()
-        or request.user.is_admin
-        or request.user.is_project_manager
-    )
+    is_pm = project.is_manager(request.user)
 
     return render(
         request,
@@ -718,11 +702,7 @@ def project_bug_list(request, pk):
     search = request.GET.get("q", "")
 
     # Check manager role status to apply appropriate visibility boundaries
-    is_pm = (
-        project.managers.filter(pk=request.user.pk).exists()
-        or request.user.is_admin
-        or request.user.is_project_manager
-    )
+    is_pm = project.is_manager(request.user)
 
     # Scope queryset: PMs see all active bugs; normal members see only reported/assigned bugs
     if is_pm:

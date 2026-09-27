@@ -42,8 +42,8 @@
             {% for p in sidebar_projects %}
             <div class="tree-item" style="{% if p.button_color %}--project-accent: {{ p.button_color }}; --project-accent-glow: {{ p.button_color }}26;{% endif %}">
                 <div class="tree-header" id="tree-header-{{ p.id }}"
-                    onclick="toggleProjectTree('{{ p.id }}'); window.location='{% url 'tasks:project_detail' p.id %}';">
-                    <i class="fas fa-chevron-right toggle-icon"></i>
+                    onclick="window.location='{% url 'tasks:project_detail' p.id %}';">
+                    <i class="fas fa-chevron-right toggle-icon" onclick="event.stopPropagation(); toggleProjectTree('{{ p.id }}');"></i>
                     <i class="fas fa-folder folder-icon"></i>
                     <span>{{ p.name }}</span>
                 </div>

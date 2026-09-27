@@ -450,7 +450,7 @@ body, .sidebar, .sidebar *, .btn-logout {
       <div id="recentRooms">
       {% for room in rooms %}
         {% if room.room_type == 'direct' %}
-          {% if room.participants.all|length == 1 %}
+          {% if room.display_is_self or room.participants.all|length == 1 %}
             <!-- Self-chat room -->
             {% with p=user %}
             <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ p.username }} (You)" data-type="direct" onclick="Chat.open('{{ room.room_id }}','{{ p.username }} (You)','direct')">
@@ -468,8 +468,8 @@ body, .sidebar, .sidebar *, .btn-logout {
             </div>
             {% endwith %}
           {% else %}
-            {% for p in room.participants.all %}
-              {% if p != user %}
+            {% with p=room.other_user %}
+            {% if p %}
                 <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ p.username }}" data-type="direct" onclick="Chat.open('{{ room.room_id }}','{{ p.username }}','direct')">
                   <div class="cht-room-av" style="background:none;">
                     {% include 'partials/user_avatar.html' with avatar_user=p size="40" radius="10px" font_size="14" %}
@@ -483,8 +483,8 @@ body, .sidebar, .sidebar *, .btn-logout {
                     <div class="cht-room-sub">{{ room.last_msg.decrypted_content|default:"No messages yet"|truncatechars:30 }}</div>
                   </div>
                 </div>
-              {% endif %}
-            {% endfor %}
+            {% endif %}
+            {% endwith %}
           {% endif %}
         {% else %}
           <div class="cht-room" data-id="{{ room.room_id }}" data-name="{{ room.name }}" data-type="group" onclick="Chat.open('{{ room.room_id }}','{{ room.name }}','group')">

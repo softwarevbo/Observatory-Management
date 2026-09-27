@@ -152,7 +152,7 @@
     background: var(--bg-card);
 }
 
-.repo-row {
+div.repo-row {
     display: grid;
     grid-template-columns: 1fr 1fr 120px 120px;
     padding: 8px 16px;
@@ -162,7 +162,7 @@
     transition: background 0.1s;
 }
 
-.repo-row:hover {
+div.repo-row:hover {
     background: var(--bg-card-hover);
 }
 
