@@ -1,239 +1,680 @@
-{% extends 'core_base.html' %}
+<!DOCTYPE html>
+<html lang="en" data-theme="{% if user.is_authenticated %}{{ user.theme_preference|default:'dark' }}{% else %}dark{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Telescope Control System{% endblock %} — TCS Observatory</title>
+    {% load static %}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    {% block extra_head %}{% endblock %}
+    <style>
+        /* ═══════════════════════════════════════
+           TELESCOPE CONTROL SYSTEM (TCS) DESIGN v2.0
+        ═══════════════════════════════════════ */
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b27;
+            --bg-card: #1e2535;
+            --bg-card-hover: #242d40;
+            --bg-sidebar: #161b27;
+            --border: #2a3347;
+            --border-light: #3a4a66;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.12);
+            --red: #ef4444;
+            --red-dim: rgba(239, 68, 68, 0.12);
+            --yellow: #f59e0b;
+            --yellow-dim: rgba(245, 158, 11, 0.12);
+            --orange: #f97316;
+            --orange-dim: rgba(249, 115, 22, 0.12);
+            --purple: #8b5cf6;
+            --purple-dim: rgba(139, 92, 246, 0.12);
+            --cyan: #06b6d4;
+            --cyan-dim: rgba(6, 182, 212, 0.12);
+            --teal: #14b8a6;
+            --teal-dim: rgba(20, 184, 166, 0.12);
+            --text-primary: #f0f4ff;
+            --text-secondary: #c2cee8;
+            --text-muted: #6b7fa3;
+            --sidebar-width: 268px;
+            --radius: 10px;
+            --radius-sm: 6px;
+            --radius-lg: 16px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.4);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --transition: all 0.2s ease;
+        }
 
-{% block title %}VBO Telescope Control Console{% endblock %}
+        [data-theme="light"] {
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --border: #e2e8f0;
+            --border-light: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --shadow: 0 4px 12px rgba(0,0,0,0.06);
+            --shadow-sm: 0 2px 6px rgba(0,0,0,0.04);
+        }
 
-{% block extra_head %}
-<script>
-  (function() {
-    const nightTheme = localStorage.getItem('iiap_om_pref_night_theme');
-    if (nightTheme === 'true') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      document.documentElement.setAttribute('data-bs-theme', 'dark');
-    } else if (nightTheme === 'false') {
-      document.documentElement.setAttribute('data-theme', 'light');
-      document.documentElement.setAttribute('data-bs-theme', 'light');
-    }
-  })();
-</script>
-{% endblock %}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-{% block extra_css %}
-<style>
-:root {
-  /* Map telescope styling to core theme variables */
-  --space-bg: var(--bg-primary);
-  --space-sidebar: var(--bg-sidebar);
-  --space-card: var(--bg-card);
-  --space-card-hover: var(--bg-card-hover);
-  --space-border: var(--border);
-  --space-accent: var(--accent);
-  --space-accent-glow: var(--accent-glow);
-  --space-success: var(--green);
-  --space-warning: var(--yellow);
-  --space-info: var(--cyan);
-  --space-text-primary: var(--text-primary);
-  --space-text-secondary: var(--text-secondary);
-  --space-text-muted: var(--text-muted);
-}
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+        }
 
-body {
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-}
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 100;
+            overflow: hidden;
+        }
 
-.main-content {
-  margin-left: var(--sidebar-width) !important;
-  background: var(--bg-primary) !important;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
+        .sidebar-logo {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
 
-/* Sidereal Clock Widget in Sidebar */
-.tele-sidebar-widget {
-  margin: auto 16px 16px 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-}
-.widget-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  display: flex;
-  justify-content: space-between;
-}
-.widget-val {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent);
-  text-align: center;
-}
+        .logo-mark {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(0,0,0,0.05);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-}
-</style>
-{% block tele_css %}{% endblock %}
-{% endblock %}
+        .logo-icon {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px; color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+        }
 
-{% block sidebar %}
+        .logo-text-block .logo-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px; font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.3px;
+            line-height: 1.2;
+        }
+
+        .logo-text-block .logo-title span { color: var(--accent); }
+
+        .logo-text-block .logo-sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 12px 0;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .sidebar-nav::-webkit-scrollbar { display: none; }
+
+        .nav-section-label {
+            font-size: 10px; font-weight: 700;
+            letter-spacing: 1.4px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            padding: 14px 20px 6px;
+        }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px; font-weight: 500;
+            transition: var(--transition);
+            position: relative;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-card);
+            border-left-color: var(--border-light);
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+            background: var(--accent-glow);
+            border-left-color: var(--accent);
+        }
+
+        .nav-item i {
+            width: 18px; text-align: center;
+            font-size: 14px;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: var(--red);
+            color: #fff;
+            font-size: 9px; font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        .nav-badge.yellow { background: var(--yellow); color: #000; }
+        .nav-badge.green { background: var(--green); }
+        .nav-badge.blue { background: var(--accent); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .sidebar-user {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .user-card {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--radius);
+            background: var(--bg-card);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .user-card:hover { background: var(--bg-card-hover); }
+
+        .user-avatar {
+            width: 34px; height: 34px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; color: #fff;
+            flex-shrink: 0;
+        }
+
+        .user-name {
+            font-size: 13px; font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .user-role-badge {
+            font-size: 10px; color: var(--text-muted);
+            text-transform: capitalize;
+        }
+
+        .sidebar-actions {
+            padding: 0 16px 14px;
+            display: flex; gap: 8px;
+        }
+
+        .btn-sidebar-action {
+            flex: 1;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 7px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 11px; font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+            border: 1px solid;
+        }
+
+        .btn-theme {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+        .btn-theme:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+        .btn-logout {
+            background: transparent;
+            color: var(--red);
+            border-color: rgba(239,68,68,0.3);
+        }
+        .btn-logout:hover { background: var(--red-dim); border-color: var(--red); }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            display: flex; flex-direction: column;
+            min-height: 100vh; min-width: 0;
+        }
+
+        .topbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 28px;
+            height: 58px;
+            display: flex; align-items: center; gap: 16px;
+            position: sticky; top: 0; z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .topbar-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px; font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .topbar-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px; font-weight: 600;
+        }
+
+        .status-pill.online { background: var(--green-dim); color: var(--green); }
+        .status-pill.warning { background: var(--yellow-dim); color: var(--yellow); }
+        .status-pill.fault { background: var(--red-dim); color: var(--red); }
+        .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+        .messages-container {
+            padding: 12px 28px 0;
+        }
+
+        .alert {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 500;
+            margin-bottom: 8px;
+            border: 1px solid;
+        }
+
+        .alert-success { background: var(--green-dim); color: var(--green); border-color: rgba(16,185,129,0.3); }
+        .alert-error, .alert-danger { background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.3); }
+        .alert-warning { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+        .alert-info { background: var(--accent-glow); color: var(--accent); border-color: rgba(59,130,246,0.3); }
+
+        .page-body {
+            padding: 24px 28px;
+            flex: 1;
+        }
+
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px;
+            gap: 12px;
+        }
+
+        .page-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px; font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .page-title i { color: var(--accent); margin-right: 8px; }
+
+        .page-subtitle {
+            font-size: 13px; color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        .page-actions { display: flex; align-items: center; gap: 8px; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
+
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px; font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .card-title i { color: var(--accent); margin-right: 6px; }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex; align-items: flex-start; gap: 14px;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 46px; height: 46px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+
+        .stat-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px; font-weight: 800;
+            color: var(--text-primary); line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 4px; text-transform: uppercase;
+            letter-spacing: 0.5px; font-weight: 600;
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer; text-decoration: none;
+            border: 1px solid transparent;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+        .btn-secondary {
+            background: var(--bg-card); color: var(--text-secondary);
+            border-color: var(--border);
+        }
+        .btn-secondary:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+        .btn-danger { background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.3); }
+        .btn-danger:hover { background: var(--red); color: #fff; }
+
+        .btn-success { background: var(--green-dim); color: var(--green); border-color: rgba(16,185,129,0.3); }
+        .btn-success:hover { background: var(--green); color: #fff; }
+
+        .btn-warning { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+        .btn-warning:hover { background: var(--yellow); color: #000; }
+
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-xs { padding: 3px 8px; font-size: 11px; }
+
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.3px; text-transform: uppercase;
+        }
+
+        .badge-blue { background: var(--accent-glow); color: var(--accent); }
+        .badge-green { background: var(--green-dim); color: var(--green); }
+        .badge-red { background: var(--red-dim); color: var(--red); }
+        .badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
+        .badge-orange { background: var(--orange-dim); color: var(--orange); }
+        .badge-purple { background: var(--purple-dim); color: var(--purple); }
+        .badge-cyan { background: var(--cyan-dim); color: var(--cyan); }
+        .badge-gray { background: rgba(107,127,163,0.12); color: var(--text-muted); }
+
+        .table-container {
+            overflow-x: auto; border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+
+        thead th {
+            padding: 11px 16px;
+            background: var(--bg-card);
+            font-size: 11px; font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.8px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 12px 16px;
+            font-size: 13px; color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: var(--bg-card-hover); color: var(--text-primary); }
+        .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+        .form-control, .form-select {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 13px; width: 100%;
+            transition: var(--transition);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-label {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .form-group { margin-bottom: 18px; }
+
+        .grid { display: grid; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+
+        @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 900px) {
+            .grid-3, .grid-4, .grid-2 { grid-template-columns: 1fr; }
+            .sidebar { transform: translateX(-100%); }
+            .main-content { margin-left: 0; }
+        }
+
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .dot-online { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s infinite; }
+        .dot-tracking { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); animation: blink 1s infinite; }
+        .dot-idle { background: var(--text-muted); }
+        .dot-maintenance { background: var(--yellow); }
+        .dot-fault { background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 0.5s infinite; }
+        .dot-error { background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 0.5s infinite; }
+        .dot-standby { background: var(--purple); }
+        .dot-calibrating { background: var(--orange); animation: blink 1.5s infinite; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        {% block extra_style %}{% endblock %}
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
 <nav class="sidebar">
-  <div class="sidebar-logo">
-    <a href="{% url 'telescope:dashboard' %}" class="logo-mark">
-      <div class="logo-icon"><i class="fas fa-satellite-dish"></i></div>
-      <div>
-        <div class="logo-text">VBO <span>CONTROL</span></div>
-        <div class="logo-subtitle">Observatory System</div>
-      </div>
-    </a>
-  </div>
-
-  <div class="sidebar-nav">
-    <div class="nav-section-label">Operations</div>
-    <a href="{% url 'telescope:dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-      <i class="fas fa-th-large"></i><span>Dashboard</span>
-    </a>
-    
-    {% if user.is_superuser or user.is_telescope_admin %}
-    <div class="nav-section-label">Administration</div>
-    <a href="{% url 'accounts:user_list' %}?tab=telescope" class="nav-item">
-      <i class="fas fa-users-cog"></i><span>Operator Access</span>
-    </a>
-    {% endif %}
-  </div>
-
-  <!-- Sidereal Clock Widget inside standard sidebar structure -->
-  <div class="tele-sidebar-widget">
-    <div class="widget-title">
-      <span>Sidereal Time (LST)</span>
-      <i class="fas fa-clock" style="color:var(--accent)"></i>
+    <div class="sidebar-logo">
+        <a href="{% url 'telescope:dashboard' %}" class="logo-mark">
+            <div class="logo-icon"><i class="fas fa-satellite-dish"></i></div>
+            <div class="logo-text-block">
+                <div class="logo-title">TCS <span>Control</span></div>
+                <div class="logo-sub">Telescope Control System</div>
+            </div>
+        </a>
     </div>
-    <div class="widget-val" id="siderealClock">00:00:00</div>
-    <div style="font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 4px;">
-      VBO Kavalur (78° 50' E)
-    </div>
-  </div>
 
-  <div class="sidebar-user">
-    <div class="user-card" onclick="toggleUserMenu()">
-      {% include 'partials/user_avatar.html' with avatar_user=user size="40" radius="10px" font_size="15" extra_style="border: 2px solid rgba(0,0,0,0.05);" %}
-      <div class="user-info">
-        <div class="user-name">{{ user.display_name }}</div>
-        <div class="user-role">
-          {% if user.is_telescope_admin %}System Admin{% else %}Telescope Operator{% endif %}
+    <nav class="sidebar-nav">
+        <!-- OVERVIEW -->
+        <div class="nav-section-label">Overview</div>
+        <a href="{% url 'telescope:dashboard' %}" class="nav-item {% block nav_dashboard %}{% endblock %}">
+            <i class="fas fa-gauge-high"></i> Mission Control
+        </a>
+
+        <!-- TELESCOPES -->
+        <div class="nav-section-label">Telescope Systems</div>
+        <a href="{% url 'telescope:telescope_list' %}" class="nav-item {% block nav_telescopes %}{% endblock %}">
+            <i class="fas fa-binoculars"></i> Telescope Control
+        </a>
+
+        <!-- INSTRUMENTS -->
+        <div class="nav-section-label">Instruments</div>
+        <a href="{% url 'telescope:instrument_list' %}" class="nav-item {% block nav_instruments %}{% endblock %}">
+            <i class="fas fa-microscope"></i> Instrument Hub
+        </a>
+
+        <!-- OBSERVATIONS / SCIENCE -->
+        <div class="nav-section-label">Science Operations</div>
+        <a href="{% url 'telescope:target_list' %}" class="nav-item {% block nav_targets %}{% endblock %}">
+            <i class="fas fa-crosshairs"></i> Target Catalog
+        </a>
+        <a href="{% url 'telescope:platesolver_index' %}" class="nav-item {% block nav_platesolver %}{% endblock %}">
+            <i class="fas fa-bullseye"></i> Plate Solver
+        </a>
+        <a href="{% url 'telescope:unified_log_root' %}" class="nav-item {% block nav_unified_log %}{% endblock %}">
+            <i class="fas fa-book"></i> Unified Log
+        </a>
+
+        <!-- MAINTENANCE -->
+        <div class="nav-section-label">Engineering &amp; Maintenance</div>
+        <a href="{% url 'telescope:ticket_list' %}" class="nav-item {% block nav_tickets %}{% endblock %}">
+            <i class="fas fa-screwdriver-wrench"></i> Maintenance Tickets
+            {% if open_tickets %}<span class="nav-badge yellow">{{ open_tickets }}</span>{% endif %}
+        </a>
+        <a href="{% url 'telescope:calibration_list' %}" class="nav-item {% block nav_calibrations %}{% endblock %}">
+            <i class="fas fa-sliders"></i> Calibrations
+        </a>
+
+        <!-- ADMIN SECTION -->
+        {% if user.is_superuser or user.is_telescope_admin or user.canonical_role == 'ROOT' or user.canonical_role == 'TCS_ADMIN' or user.canonical_role == 'TM_ADMIN' or user.role == 'admin' %}
+        <div class="nav-section-label">Administration</div>
+        <a href="{% url 'telescope:user_list' %}?tab=telescope" class="nav-item {% block nav_users %}{% endblock %}">
+            <i class="fas fa-users-cog"></i> TCS User Management
+        </a>
+        <a href="/admin/" class="nav-item" target="_blank">
+            <i class="fas fa-shield-halved"></i> Django Admin
+        </a>
+        {% endif %}
+
+        <!-- COMMUNITY & FEEDBACK -->
+        <div class="nav-section-label">Community & Feedback</div>
+        <a href="{% url 'telescope:discussion_hub' %}" class="nav-item {% block nav_discussions %}{% endblock %}">
+            <i class="fas fa-comments"></i> Telescope Discussions
+        </a>
+        <a href="{% url 'telescope:feedback' %}" class="nav-item {% block nav_feedback %}{% endblock %}">
+            <i class="fas fa-heart-pulse"></i> System Feedback
+        </a>
+
+        <!-- PROFILE -->
+        <div class="nav-section-label">Account</div>
+        <a href="{% url 'accounts:telescope_profile' %}" class="nav-item {% block nav_profile %}{% endblock %}">
+            <i class="fas fa-circle-user"></i> My Profile
+        </a>
+    </nav>
+
+    <div class="sidebar-user">
+        <div class="user-card">
+            <div class="user-avatar" style="background:#3b82f6;">
+                {{ user.username|slice:":2"|upper }}
+            </div>
+            <div style="flex:1; overflow:hidden;">
+                <div class="user-name">{{ user.display_name|default:user.username }}</div>
+                <div class="user-role-badge">
+                    {% if user.is_superuser %}Global Super Admin (ROOT){% elif user.is_telescope_admin or user.canonical_role == 'TCS_ADMIN' or user.canonical_role == 'TM_ADMIN' %}TCS Admin{% else %}TCS Member{% endif %}
+                </div>
+            </div>
         </div>
-      </div>
-      <i class="fas fa-chevron-up" style="font-size:10px;color:var(--text-muted)"></i>
-      <div class="user-dropdown" id="userMenu">
-        <a href="{% url 'accounts:telescope_profile' %}"><i class="fas fa-user"></i> My Profile</a>
-        <a href="{% url 'accounts:telescope_settings' %}"><i class="fas fa-cog"></i> Settings</a>
-        <a href="{% url 'accounts:logout' %}" class="danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
-      </div>
     </div>
-  </div>
-  
-  <div class="sidebar-logout">
-    <a href="{% url 'accounts:logout' %}" class="btn-logout">
-      <i class="fas fa-sign-out-alt"></i>
-      <span>Logout</span>
-    </a>
-  </div>
+
+    <div class="sidebar-actions">
+        <a href="{% url 'accounts:logout' %}" class="btn-sidebar-action btn-logout">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
 </nav>
-{% endblock %}
 
-{% block content %}
-<div class="topbar">
-  <div class="topbar-title" style="display:flex; flex-direction:column; justify-content:center;">
-    <h1 style="font-size:16px; font-weight:700; color:var(--text-primary); margin:0">
-      {% block tele_title %}Control Room Console{% endblock %}
-    </h1>
-    <div style="font-size:11px; color:var(--text-muted); margin-top:2px">
-      Indian Institute of Astrophysics | Vainu Bappu Observatory, Kavalur
+<!-- MAIN CONTENT -->
+<div class="main-content">
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="topbar-title">
+            {% block topbar_title %}Telescope Control System (TCS){% endblock %}
+        </div>
+        <div class="topbar-meta">
+            <span>IIA VBO OBSERVATORY</span>
+        </div>
+        <div class="topbar-actions">
+            <div class="status-pill online">SYSTEM ONLINE</div>
+        </div>
     </div>
-  </div>
-  
-  <div style="display:flex; align-items:center; gap:16px;">
-    <div style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:20px; background:var(--green-dim); color:var(--green); font-size:12px; font-weight:600; border:1px solid rgba(16, 185, 129, 0.2);">
-      <span style="width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; box-shadow:0 0 8px var(--green)"></span>
-      VBO LINK: ONLINE
+
+    <!-- MESSAGES -->
+    <div class="messages-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <i class="fas fa-info-circle"></i>
+                    <div>{{ message }}</div>
+                </div>
+            {% endfor %}
+        {% endif %}
     </div>
-  </div>
+
+    <!-- PAGE BODY -->
+    <div class="page-body">
+        {% block content %}{% endblock %}
+    </div>
 </div>
 
-<div class="page-body">
-  {% block tele_content %}{% endblock %}
-</div>
-
-<script>
-function toggleUserMenu() {
-  const menu = document.getElementById('userMenu');
-  if (menu) {
-    menu.classList.toggle('active');
-  }
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(event) {
-  const userCard = document.querySelector('.user-card');
-  const menu = document.getElementById('userMenu');
-  if (menu && userCard && !userCard.contains(event.target)) {
-    menu.classList.remove('active');
-  }
-});
-
-// Real-time local sidereal time calculation for VBO Kavalur (78.83 deg East)
-function updateSiderealTime() {
-  const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const utcDate = new Date(utc);
-  
-  // Approximate Julian Date
-  const JD = (utc / 86400000) + 2440587.5;
-  const T = (JD - 2451545.0) / 36525.0;
-  
-  // GMST in degrees
-  let gmst = 280.46061837 + 360.98564736629 * (JD - 2451545.0) + 0.000387933 * T * T - T * T * T / 38710000.0;
-  gmst = gmst % 360;
-  if (gmst < 0) gmst += 360;
-  
-  // Local Sidereal Time for VBO Kavalur longitude (78.83 deg East)
-  let lst = gmst + 78.83; 
-  lst = lst % 360;
-  if (lst < 0) lst += 360;
-  
-  // Convert to Hours, Minutes, Seconds
-  const lstHours = lst / 15;
-  const h = Math.floor(lstHours);
-  const m = Math.floor((lstHours - h) * 60);
-  const s = Math.floor(((lstHours - h) * 60 - m) * 60);
-  
-  document.getElementById('siderealClock').innerText = 
-    `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
-updateSiderealTime();
-setInterval(updateSiderealTime, 1000);
-</script>
-{% endblock %}
-
-{% block extra_js %}
-{% block tele_js %}{% endblock %}
-{% endblock %}
+{% block extra_js %}{% endblock %}
+</body>
+</html>

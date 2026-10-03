@@ -25,22 +25,33 @@ urlpatterns = [
     path("accounts/", include("accounts.urls", namespace="accounts")),
     path("files/", include("files.urls", namespace="files")),
     path("finance/", include("finance.urls", namespace="finance")),
-    path("", include("tasks.urls", namespace="tasks")),
     path("chat/", include("chat.urls")),
-    
-    # Inventory Isolated Apps Routes
-    path("inventory/dashboard/", include("dashboard.urls")),
-    path("inventory/stock/", include("stock.urls")),
-    path("inventory/main/", include("inventory.urls")),
-    path("inventory/products/", include("products.urls")),
-    path("inventory/audit/", include("audit.urls")),
-    path("inventory/reports/", include("reports.urls")),
-    path("inventory/procurement/", include("procurement.urls")),
-    
-    # Telescope and general Observatory workspaces
-    path("telescope/", include("telescope.urls", namespace="telescope")),
+
+    # Project Management Primary Workspace (/projectmanagement/...)
+    path("projectmanagement/", include("tasks.urls", namespace="tasks")),
+    path("dashboard/", lambda request: redirect("/projectmanagement/dashboard/")),
+    path("projects/", lambda request: redirect("/projectmanagement/projects/")),
+    path("tasks/", lambda request: redirect("/projectmanagement/tasks/")),
+
+    # Inventory Management Primary Workspace (/inventorymanagement/...)
+    path("inventorymanagement/", include("inventory.urls")),
+    path("inventorymanagement/dashboard/", include("dashboard.urls")),
+    path("inventorymanagement/stock/", include("stock.urls")),
+    path("inventorymanagement/main/", include("inventory.urls")),
+    path("inventorymanagement/products/", include("products.urls")),
+    path("inventorymanagement/audit/", include("audit.urls")),
+    path("inventorymanagement/reports/", include("reports.urls")),
+    path("inventorymanagement/procurement/", include("procurement.urls")),
+    path("inventory/dashboard/", lambda request: redirect("/inventorymanagement/dashboard/")),
+    path("inventory/stock/", lambda request: redirect("/inventorymanagement/stock/")),
+    path("inventory/main/", lambda request: redirect("/inventorymanagement/main/")),
+
+    # Telescope Control Primary Workspace (/telescopecontrol/...)
+    path("telescopecontrol/", include("telescope.urls", namespace="telescope")),
+    path("telescope/", lambda request: redirect("/telescopecontrol/")),
+
     path("resource-hub/", include("resource_hub.urls", namespace="resource_hub")),
-    
+
     # Root dashboard default redirection
     path("", views.home_redirect_view, name="home"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,0 +1,68 @@
+{% extends 'telescope/base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block nav_profile %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-circle-user" style="color:var(--accent);margin-right:8px;"></i>Account Profile{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-circle-user"></i>My Profile</h1>
+        <p class="page-subtitle">{{ user.get_role_display }} · {{ user.get_department_display }}</p>
+    </div>
+</div>
+
+<div class="grid grid-2" style="gap:20px;">
+    <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-id-badge"></i>Profile Summary</div></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding:16px;background:var(--bg-primary);border-radius:var(--radius);">
+            <div style="width:60px;height:60px;border-radius:14px;background:{{ user.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;font-family:'Space Grotesk',sans-serif;flex-shrink:0;">
+                {{ user.initials }}
+            </div>
+            <div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);">{{ user.display_name }}</div>
+                <div style="font-size:13px;color:var(--text-muted);">@{{ user.username }}</div>
+                <div style="margin-top:6px;">
+                    <span class="badge {% if user.role == 'admin' %}badge-purple{% elif user.role == 'engineer' %}badge-cyan{% else %}badge-blue{% endif %}">{{ user.get_role_display }}</span>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;justify-content:space-between;padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <span style="font-size:12px;color:var(--text-muted);">Email</span>
+                <span style="font-size:13px;color:var(--text-primary);">{{ user.email|default:"Not set" }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <span style="font-size:12px;color:var(--text-muted);">Department</span>
+                <span style="font-size:13px;color:var(--text-primary);">{{ user.get_department_display }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <span style="font-size:12px;color:var(--text-muted);">Designation</span>
+                <span style="font-size:13px;color:var(--text-primary);">{{ user.designation|default:"Not set" }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <span style="font-size:12px;color:var(--text-muted);">Theme</span>
+                <span class="badge {% if user.theme_preference == 'dark' %}badge-purple{% else %}badge-yellow{% endif %}">{{ user.theme_preference|title }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <span style="font-size:12px;color:var(--text-muted);">Member Since</span>
+                <span class="mono" style="font-size:12px;color:var(--text-primary);">{{ user.date_joined|date:"N j, Y" }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-pen"></i>Edit Profile Settings</div></div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group"><label class="form-label">First Name</label>{{ form.first_name }}</div>
+            <div class="form-group"><label class="form-label">Last Name</label>{{ form.last_name }}</div>
+            <div class="form-group"><label class="form-label">Email Address</label>{{ form.email }}</div>
+            <div class="form-group"><label class="form-label">Phone</label>{{ form.phone }}</div>
+            <div class="form-group"><label class="form-label">Department</label>{{ form.department }}</div>
+            <div class="form-group"><label class="form-label">Designation / Title</label>{{ form.designation }}</div>
+            <div class="form-group"><label class="form-label">Theme Preference</label>{{ form.theme_preference }}</div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Profile</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

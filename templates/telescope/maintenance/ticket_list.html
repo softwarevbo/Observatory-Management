@@ -1,0 +1,133 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Maintenance Tickets{% endblock %}
+{% block nav_tickets %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-screwdriver-wrench" style="color:var(--accent);margin-right:8px;"></i>Maintenance Work Orders{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-screwdriver-wrench"></i>Maintenance Tickets</h1>
+        <p class="page-subtitle">Engineering fault tracking and hardware work orders</p>
+    </div>
+    <a href="{% url 'telescope:ticket_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Create Ticket</a>
+</div>
+
+<!-- Summary row -->
+<div class="grid grid-4" style="margin-bottom:20px;">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:var(--red-dim);color:var(--red);"><i class="fas fa-triangle-exclamation"></i></div>
+        <div><div class="stat-value">{{ open_count }}</div><div class="stat-label">Open Tickets</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:var(--orange-dim);color:var(--orange);"><i class="fas fa-spinner"></i></div>
+        <div><div class="stat-value">{{ in_progress_count }}</div><div class="stat-label">In Progress</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:var(--green-dim);color:var(--green);"><i class="fas fa-circle-check"></i></div>
+        <div><div class="stat-value">{{ resolved_count }}</div><div class="stat-label">Resolved Tickets</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:var(--accent-glow);color:var(--accent);"><i class="fas fa-list"></i></div>
+        <div><div class="stat-value">{{ tickets|length }}</div><div class="stat-label">Filtered Tickets</div></div>
+    </div>
+</div>
+
+<!-- Maintenance Ticket Filters Toolbar -->
+<div class="card" style="margin-bottom:20px; padding:16px;">
+    <form method="get" action="{% url 'telescope:ticket_list' %}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Search Title / Fault</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Keyword search..." class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Severity</label>
+            <select name="severity" class="form-select" style="font-size:13px;">
+                <option value="">All Severities</option>
+                {% for code, label in severity_choices %}
+                <option value="{{ code }}" {% if selected_severity == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Status</label>
+            <select name="status" class="form-select" style="font-size:13px;">
+                <option value="">All Statuses</option>
+                {% for code, label in status_choices %}
+                <option value="{{ code }}" {% if selected_status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Telescope</label>
+            <select name="telescope" class="form-select" style="font-size:13px;">
+                <option value="">All Telescopes</option>
+                {% for t in telescopes %}
+                <option value="{{ t.id }}" {% if selected_telescope == t.id|stringformat:"s" %}selected{% endif %}>{{ t.code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Instrument</label>
+            <select name="instrument" class="form-select" style="font-size:13px;">
+                <option value="">All Instruments</option>
+                {% for inst in instruments %}
+                <option value="{{ inst.id }}" {% if selected_instrument == inst.id|stringformat:"s" %}selected{% endif %}>{{ inst.code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Date From</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Date To</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter"></i> Apply Filters</button>
+            <a href="{% url 'telescope:ticket_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-undo"></i> Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr><th>Title</th><th>Target System</th><th>Severity</th><th>Status</th><th>Assigned To</th><th>Reported</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td style="font-weight:600;color:var(--text-primary);">{{ ticket.title|truncatechars:45 }}</td>
+                <td>
+                    {% if ticket.instrument %}<span class="badge badge-purple"><i class="fas fa-microscope"></i> {{ ticket.instrument.code }}</span>{% endif %}
+                    {% if ticket.telescope %}<span class="badge badge-blue"><i class="fas fa-binoculars"></i> {{ ticket.telescope.code }}</span>{% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if ticket.severity == 'critical' %}badge-red{% elif ticket.severity == 'high' %}badge-orange{% elif ticket.severity == 'medium' %}badge-yellow{% else %}badge-green{% endif %}">
+                        {{ ticket.get_severity_display }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {% if ticket.status == 'open' %}badge-red{% elif ticket.status == 'in_progress' %}badge-orange{% elif ticket.status == 'resolved' %}badge-green{% else %}badge-gray{% endif %}">
+                        {{ ticket.get_status_display }}
+                    </span>
+                </td>
+                <td>{{ ticket.assigned_engineer.display_name|default:"Unassigned" }}</td>
+                <td class="mono" style="font-size:11px;">{{ ticket.created_at|date:"Y-m-d" }}</td>
+                <td><a href="{% url 'telescope:ticket_detail' ticket.pk %}" class="btn btn-secondary btn-xs">View</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;"><i class="fas fa-circle-check" style="color:var(--green);margin-right:6px;"></i>No maintenance tickets. System healthy!</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

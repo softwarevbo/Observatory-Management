@@ -22,10 +22,15 @@ class User(AbstractUser):
     Inventory management, and Telescope operations).
     """
 
-    # Role choices defining system level admin vs normal user.
+    # Role choices defining system level admin vs module level roles.
     ROLE_CHOICES = [
-        ("admin", "Admin"),
-        ("member", "User"),
+        ("ROOT", "Root Administrator"),
+        ("PM_ADMIN", "PM Admin"),
+        ("PM_MEMBER", "PM Member"),
+        ("TCS_ADMIN", "TCS Admin"),
+        ("TCS_MEMBER", "TCS Member"),
+        ("IM_ADMIN", "IM Admin"),
+        ("IM_MEMBER", "IM Member"),
     ]
 
     # Module choices representing the scientific/engineering teams under IIA.
@@ -276,11 +281,23 @@ class User(AbstractUser):
         """
         return f"{self.get_full_name() or self.username} ({self.get_role_display()})"
 
-    # Helper properties for easy permission checks in views and template tags
+    @property
+    def canonical_role(self):
+        """Returns normalized canonical RBAC role string."""
+        from .rbac import get_canonical_role
+        return get_canonical_role(self)
+
+    @property
+    def is_root(self):
+        """Checks if user is Root Administrator."""
+        from .rbac import ROLE_ROOT
+        return self.canonical_role == ROLE_ROOT or self.is_superuser
+
     @property
     def is_admin(self):
-        """Checks if the user has the 'admin' role or is a Django superuser."""
-        return self.role == "admin" or self.is_superuser
+        """Checks if the user has ROOT or PM_ADMIN role or is a Django superuser."""
+        from .rbac import ROLE_ROOT, ROLE_PM_ADMIN
+        return self.canonical_role in [ROLE_ROOT, ROLE_PM_ADMIN] or self.is_superuser
 
     @property
     def is_project_manager(self):
@@ -294,13 +311,52 @@ class User(AbstractUser):
 
     @property
     def is_super_admin(self):
-        """Checks if the user is a super administrator."""
-        return self.role == "admin" or self.is_superuser
+        """Checks if the user is a super administrator (ROOT)."""
+        return self.is_root
 
     @property
     def is_branch_admin(self):
         """Checks if the user has branch admin privileges."""
-        return self.role == "admin" or self.is_superuser
+        from .rbac import ROLE_ROOT, ROLE_IM_ADMIN
+        return self.canonical_role in [ROLE_ROOT, ROLE_IM_ADMIN] or self.is_superuser
+
+    def save(self, *args, **kwargs):
+        """Sync access flags with canonical role when saved."""
+        from .rbac import (
+            get_canonical_role,
+            ROLE_ROOT,
+            ROLE_PM_ADMIN,
+            ROLE_PM_MEMBER,
+            ROLE_TM_ADMIN,
+            ROLE_TM_MEMBER,
+            ROLE_IM_ADMIN,
+            ROLE_IM_MEMBER,
+        )
+        c_role = get_canonical_role(self)
+        if c_role:
+            self.role = c_role
+        if c_role == ROLE_ROOT:
+            self.can_access_pm = True
+            self.can_access_telescope = True
+            self.can_access_inventory = True
+            self.is_telescope_admin = True
+        elif c_role in [ROLE_PM_ADMIN, ROLE_PM_MEMBER]:
+            self.can_access_pm = True
+            self.can_access_telescope = False
+            self.can_access_inventory = False
+            self.is_telescope_admin = False
+        elif c_role in [ROLE_TM_ADMIN, ROLE_TM_MEMBER]:
+            self.can_access_pm = False
+            self.can_access_telescope = True
+            self.can_access_inventory = False
+            self.is_telescope_admin = (c_role == ROLE_TM_ADMIN)
+        elif c_role in [ROLE_IM_ADMIN, ROLE_IM_MEMBER]:
+            self.can_access_pm = False
+            self.can_access_telescope = False
+            self.can_access_inventory = True
+            self.is_telescope_admin = False
+
+        super().save(*args, **kwargs)
 
     @property
     def branch(self):

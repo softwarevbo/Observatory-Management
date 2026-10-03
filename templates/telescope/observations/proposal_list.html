@@ -1,0 +1,56 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Observation Proposals{% endblock %}
+{% block nav_proposals %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-file-contract" style="color:var(--accent);margin-right:8px;"></i>Observation Proposals{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-file-contract"></i>Observation Proposals</h1>
+        <p class="page-subtitle">Submit and manage observatory observing program proposals</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'telescope:proposal_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Proposal</a>
+    </div>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Principal Investigator</th>
+                <th>Priority</th>
+                <th>Time (hrs)</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for proposal in proposals %}
+            <tr>
+                <td style="font-weight:600;color:var(--text-primary);">{{ proposal.title|truncatechars:50 }}</td>
+                <td>{{ proposal.pi.display_name }}</td>
+                <td><span class="badge badge-blue">P{{ proposal.priority }}</span></td>
+                <td class="mono">{{ proposal.total_time_hours }}h</td>
+                <td>
+                    <span class="badge {% if proposal.status == 'approved' %}badge-green{% elif proposal.status == 'rejected' %}badge-red{% elif proposal.status == 'completed' %}badge-cyan{% else %}badge-yellow{% endif %}">
+                        {{ proposal.get_status_display }}
+                    </span>
+                </td>
+                <td class="mono" style="font-size:11px;">{{ proposal.submitted_at|date:"Y-m-d" }}</td>
+                <td>
+                    <a href="{% url 'telescope:proposal_detail' proposal.pk %}" class="btn btn-secondary btn-xs">View</a>
+                    {% if user.is_admin and proposal.status == 'pending' %}
+                    <a href="{% url 'telescope:proposal_review' proposal.pk %}" class="btn btn-warning btn-xs">Review</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No proposals submitted yet. <a href="{% url 'telescope:proposal_create' %}" style="color:var(--accent);">Submit the first one →</a></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

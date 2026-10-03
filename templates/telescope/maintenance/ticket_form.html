@@ -1,0 +1,28 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ action }}{% endblock %}
+{% block nav_tickets %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-screwdriver-wrench" style="color:var(--accent);margin-right:8px;"></i>{{ action }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h1 class="page-title"><i class="fas fa-screwdriver-wrench"></i>{{ action }}</h1></div>
+    <a href="{% url 'telescope:ticket_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:700px;margin:0 auto;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group"><label class="form-label">Ticket Title</label>{{ form.title }}</div>
+        <div class="form-group"><label class="form-label">Description of Fault / Work Required</label>{{ form.description }}</div>
+        <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">Severity Level</label>{{ form.severity }}</div>
+            <div class="form-group"><label class="form-label">Assigned Engineer</label>{{ form.assigned_engineer }}</div>
+            <div class="form-group"><label class="form-label">Affected Instrument (if applicable)</label>{{ form.instrument }}</div>
+            <div class="form-group"><label class="form-label">Affected Telescope (if applicable)</label>{{ form.telescope }}</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Create Ticket</button>
+            <a href="{% url 'telescope:ticket_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

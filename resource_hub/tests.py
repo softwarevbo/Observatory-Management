@@ -47,7 +47,7 @@ class ResourceHubTests(TestCase):
 
     def test_repo_directory_creation_path(self):
         """Verify that git_dir returns the correct directory path."""
-        self.assertTrue(self.public_repo.git_dir.endswith("git_repositories/public-repo.git"))
+        self.assertTrue(self.public_repo.git_dir.replace("\\", "/").endswith("git_repositories/public-repo.git"))
 
     def test_repo_list_anonymous_redirect(self):
         """Verify that non-logged-in users are redirected to login."""
@@ -119,7 +119,7 @@ class ResourceHubTests(TestCase):
         
         with tempfile.TemporaryDirectory() as temp_dir:
             # Initialize empty git repo and link origin
-            subprocess.run(['git', '-c', 'safe.directory=*', 'init', temp_dir], check=True)
+            subprocess.run(['git', '-c', 'safe.directory=*', 'init', '-b', 'master', temp_dir], check=True)
             subprocess.run(['git', '-c', 'safe.directory=*', '-C', temp_dir, 'remote', 'add', 'origin', repo_dir], check=True)
             
             # Write a test file
@@ -132,7 +132,7 @@ class ResourceHubTests(TestCase):
             subprocess.run(['git', '-c', 'safe.directory=*', '-C', temp_dir, 'config', 'user.email', 'test@test.com'], check=True)
             subprocess.run(['git', '-c', 'safe.directory=*', '-C', temp_dir, 'add', 'hello.txt'], check=True)
             subprocess.run(['git', '-c', 'safe.directory=*', '-C', temp_dir, 'commit', '-m', 'Add hello.txt'], check=True)
-            proc = subprocess.run(['git', '-c', 'safe.directory=*', '-C', temp_dir, 'push', '-u', 'origin', 'master'], capture_output=True, text=True)
+            proc = subprocess.run(['git', '-c', 'safe.directory=*', '-C', temp_dir, 'push', '-f', '-u', 'origin', 'master'], capture_output=True, text=True)
             if proc.returncode != 0:
                 print("PUSH STDOUT:", proc.stdout)
                 print("PUSH STDERR:", proc.stderr)

@@ -35,7 +35,7 @@ def dashboard(request):
         stats = {
             "total_projects": projects.count(),
             "active_projects": active_projects_count,
-            "total_users": User.objects.count(),
+            "total_users": User.objects.filter(can_access_pm=True).count(),
             "db_size_mb": f"{db_size:.2f}",
             "deletion_reqs": projects.filter(
                 Q(deletion_requested_by_admin=True) | Q(deletion_requested_by_pm=True)

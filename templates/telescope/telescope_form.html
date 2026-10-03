@@ -1,0 +1,52 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ action }}{% endblock %}
+{% block nav_telescopes %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-binoculars" style="color:var(--accent);margin-right:8px;"></i>{{ action }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-binoculars"></i>{{ action }}</h1>
+    </div>
+    <a href="{% url 'telescope:telescope_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:700px;margin:0 auto;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="grid grid-2">
+            <div class="form-group">
+                <label class="form-label">Telescope Name</label>
+                {{ form.name }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">System Code</label>
+                {{ form.code }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Aperture (m)</label>
+                {{ form.aperture }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Focal Ratio</label>
+                {{ form.focal_ratio }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Mount Type</label>
+                {{ form.mount_type }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Location</label>
+                {{ form.location }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Focus Position (mm)</label>
+                {{ form.focus_position }}
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Configuration</button>
+            <a href="{% url 'telescope:telescope_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

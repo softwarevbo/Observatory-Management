@@ -94,7 +94,7 @@ class TaskForm(forms.ModelForm):
             
             member_ids = list(project.members.values_list("pk", flat=True))
             member_ids.extend(project.managers.values_list("pk", flat=True))
-            self.fields["assignees"].queryset = User.objects.filter(pk__in=member_ids, is_active=True).order_by("first_name")
+            self.fields["assignees"].queryset = User.objects.filter(pk__in=member_ids, is_active=True, can_access_pm=True).order_by("first_name")
             self.fields["parent_task"].queryset = Task.objects.filter(project=project, parent_task__isnull=True, is_in_trash=False).exclude(linked_bugs__is_in_trash=True)
             active_projects = Project.objects.filter(
                 is_archived=False,
@@ -121,7 +121,7 @@ class TaskForm(forms.ModelForm):
                     
                     member_ids = list(curr_project.members.values_list("pk", flat=True))
                     member_ids.extend(curr_project.managers.values_list("pk", flat=True))
-                    self.fields["assignees"].queryset = User.objects.filter(pk__in=member_ids, is_active=True).order_by("first_name")
+                    self.fields["assignees"].queryset = User.objects.filter(pk__in=member_ids, is_active=True, can_access_pm=True).order_by("first_name")
                     self.fields["parent_task"].queryset = Task.objects.filter(project=curr_project, parent_task__isnull=True, is_in_trash=False).exclude(linked_bugs__is_in_trash=True)
                 except (Project.DoesNotExist, ValueError, TypeError):
                     self.fields["module"].queryset = ProjectModule.objects.none()

@@ -1,0 +1,195 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Calibration Logs{% endblock %}
+{% block nav_calibrations %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-sliders" style="color:var(--accent);margin-right:8px;"></i>Calibration Runs{% endblock %}
+
+{% block content %}
+<style>
+    .cal-status-select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 26px 5px 12px;
+        border-radius: 20px;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 9px;
+        transition: all 0.2s ease;
+        display: inline-block;
+        border: 1px solid transparent;
+        outline: none;
+    }
+
+    .cal-status-select:hover {
+        filter: brightness(1.15);
+        box-shadow: 0 0 8px rgba(255,255,255,0.1);
+    }
+
+    /* Status Color Variants */
+    .cal-status-pending {
+        background-color: rgba(245, 158, 11, 0.15) !important;
+        color: #f59e0b !important;
+        border-color: rgba(245, 158, 11, 0.4) !important;
+    }
+
+    .cal-status-running {
+        background-color: rgba(6, 182, 212, 0.15) !important;
+        color: #06b6d4 !important;
+        border-color: rgba(6, 182, 212, 0.4) !important;
+    }
+
+    .cal-status-completed {
+        background-color: rgba(16, 185, 129, 0.15) !important;
+        color: #10b981 !important;
+        border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+
+    .cal-status-failed {
+        background-color: rgba(239, 68, 68, 0.15) !important;
+        color: #ef4444 !important;
+        border-color: rgba(239, 68, 68, 0.4) !important;
+    }
+
+    .cal-status-select option {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-sliders"></i>Calibration Logs</h1>
+        <p class="page-subtitle">Instrument calibration history: bias, dark, flat, wavelength, standard star</p>
+    </div>
+    {% if user.role == 'engineer' or user.role == 'observer' %}
+    <a href="{% url 'telescope:calibration_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Log Calibration</a>
+    {% endif %}
+</div>
+
+<!-- Filter Toolbar -->
+<div class="card" style="margin-bottom:20px; padding:16px;">
+    <form method="get" action="{% url 'telescope:calibration_list' %}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Search Target / Engineer / Notes</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Search target, engineer, notes..." class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:160px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Calibration Type</label>
+            <select name="calibration_type" class="form-select" style="font-size:13px;">
+                <option value="">All Types</option>
+                {% for code, name in cal_type_choices %}
+                <option value="{{ code }}" {% if selected_cal_type == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Run Status</label>
+            <select name="status" class="form-select" style="font-size:13px;">
+                <option value="">All Statuses</option>
+                {% for code, name in status_choices %}
+                <option value="{{ code }}" {% if selected_status == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Telescope</label>
+            <select name="telescope" class="form-select" style="font-size:13px;">
+                <option value="">All Telescopes</option>
+                {% for t in telescopes %}
+                <option value="{{ t.pk }}" {% if selected_telescope == t.pk|stringformat:"i" %}selected{% endif %}>{{ t.code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Instrument</label>
+            <select name="instrument" class="form-select" style="font-size:13px;">
+                <option value="">All Instruments</option>
+                {% for inst in instruments %}
+                <option value="{{ inst.pk }}" {% if selected_instrument == inst.pk|stringformat:"i" %}selected{% endif %}>{{ inst.code }} ({{ inst.telescope.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Executed From</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Executed To</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter"></i> Apply Filters</button>
+            <a href="{% url 'telescope:calibration_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-undo"></i> Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Telescope</th>
+                <th>Instrument</th>
+                <th>Calibration Type</th>
+                <th>Standard / Source</th>
+                <th>Engineer</th>
+                <th>Status (Click to Change)</th>
+                <th>Executed &amp; Status Timestamps</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cal in calibrations %}
+            <tr>
+                <td style="font-weight:600; color:var(--accent);"><i class="fas fa-satellite-dish" style="margin-right:4px;"></i>{{ cal.instrument.telescope.name }}</td>
+                <td><span class="badge badge-purple">{{ cal.instrument.code }}</span></td>
+                <td style="font-weight:600;color:var(--text-primary);">{{ cal.get_calibration_type_display }}</td>
+                <td class="mono" style="font-size:12px;color:var(--text-muted);">{{ cal.standard_lamp_or_target|default:"—" }}</td>
+                <td>{{ cal.engineer.display_name|default:"—" }}</td>
+                <td>
+                    {% if user.role == 'engineer' or user.role == 'observer' %}
+                    <form method="post" action="{% url 'telescope:calibration_status_update' cal.pk %}" style="display:inline-block; margin:0;">
+                        {% csrf_token %}
+                        <select name="status" onchange="this.form.submit()" class="cal-status-select cal-status-{{ cal.status }}" title="Click to change calibration status">
+                            {% for code, name in status_choices %}
+                            <option value="{{ code }}" {% if cal.status == code %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% else %}
+                    <span class="cal-status-select cal-status-{{ cal.status }}">{{ cal.get_status_display }}</span>
+                    {% endif %}
+                </td>
+                <td class="mono" style="font-size:11px; line-height:1.5;">
+                    <div><span style="color:var(--text-muted);">Created:</span> {{ cal.executed_at|date:"Y-m-d H:i" }}</div>
+                    {% if cal.in_progress_at %}
+                    <div><span style="color:#06b6d4;font-weight:600;"><i class="fas fa-play" style="font-size:8px;margin-right:2px;"></i>In Progress:</span> {{ cal.in_progress_at|date:"Y-m-d H:i" }}</div>
+                    {% endif %}
+                    {% if cal.completed_at %}
+                    <div><span style="color:#10b981;font-weight:600;"><i class="fas fa-check" style="font-size:8px;margin-right:2px;"></i>Completed:</span> {{ cal.completed_at|date:"Y-m-d H:i" }}</div>
+                    {% endif %}
+                    {% if cal.failed_at %}
+                    <div><span style="color:#ef4444;font-weight:600;"><i class="fas fa-times" style="font-size:8px;margin-right:2px;"></i>Failed:</span> {{ cal.failed_at|date:"Y-m-d H:i" }}</div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No calibration runs logged for your assigned telescope(s).</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

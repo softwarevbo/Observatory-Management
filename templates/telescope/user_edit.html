@@ -1,0 +1,129 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Edit User - {{ target_user.username }}{% endblock %}
+{% block nav_users %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-user-edit" style="color:var(--accent);margin-right:8px;"></i>Edit User Account{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-user-edit"></i>Edit User Account</h1>
+        <p class="page-subtitle">Update user credentials, role permissions, and active status for {{ target_user.display_name }}</p>
+    </div>
+    <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back to User List</a>
+</div>
+
+<div class="card" style="max-width:720px; margin:0 auto; padding:24px;">
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border-color);">
+        <div style="width:48px; height:48px; border-radius:12px; background:{{ target_user.avatar_color }}; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:#fff;">
+            {{ target_user.initials }}
+        </div>
+        <div>
+            <h3 style="margin:0; font-size:18px; color:var(--text-primary);">{{ target_user.display_name }}</h3>
+            <p style="margin:2px 0 0 0; font-size:12px; color:var(--text-muted); font-family:monospace;">@{{ target_user.username }} | {{ target_user.get_role_display }}</p>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="grid grid-2">
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                {{ form.username }}
+                {% if form.username.errors %}<small style="color:var(--red); font-size:11px;">{{ form.username.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                {{ form.email }}
+                {% if form.email.errors %}<small style="color:var(--red); font-size:11px;">{{ form.email.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">First Name</label>
+                {{ form.first_name }}
+                {% if form.first_name.errors %}<small style="color:var(--red); font-size:11px;">{{ form.first_name.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Last Name</label>
+                {{ form.last_name }}
+                {% if form.last_name.errors %}<small style="color:var(--red); font-size:11px;">{{ form.last_name.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Role Assignment</label>
+                {{ form.role }}
+                {% if form.role.errors %}<small style="color:var(--red); font-size:11px;">{{ form.role.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Department</label>
+                {{ form.department }}
+                {% if form.department.errors %}<small style="color:var(--red); font-size:11px;">{{ form.department.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Designation / Job Title</label>
+                {{ form.designation }}
+                {% if form.designation.errors %}<small style="color:var(--red); font-size:11px;">{{ form.designation.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}<small style="color:var(--red); font-size:11px;">{{ form.phone.errors.0 }}</small>{% endif %}
+            </div>
+        </div>
+
+        <!-- Authorized Telescope Assignments -->
+        <div style="margin-top:16px; padding:16px; background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.2); border-radius:8px;">
+            <h4 style="margin:0 0 8px 0; font-size:14px; color:var(--accent);"><i class="fas fa-binoculars" style="margin-right:6px;"></i>Authorized Telescope Control Assignments</h4>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Check telescopes this observer is authorized to access and control. Engineers and Admins automatically have access to all telescopes.</p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                {% for checkbox in form.assigned_telescopes %}
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary);">
+                    {{ checkbox.tag }}
+                    <span>{{ checkbox.choice_label }}</span>
+                </label>
+                {% empty %}
+                <span style="font-size:12px; color:var(--text-muted);">No telescopes registered in system.</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="margin-top:16px; padding:16px; background:var(--card-bg-subtle, rgba(255,255,255,0.03)); border:1px solid var(--border-color); border-radius:8px;">
+            <h4 style="margin:0 0 10px 0; font-size:14px; color:var(--accent);"><i class="fas fa-key" style="margin-right:6px;"></i>Password Reset & Status</h4>
+
+            <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label">New Password (Optional)</label>
+                {{ form.new_password }}
+                <small style="color:var(--text-muted); font-size:11px;">Leave empty if you do not wish to change the password.</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0; display:flex; align-items:center; gap:8px;">
+                {{ form.is_active }}
+                <label for="{{ form.is_active.id_for_label }}" style="font-size:13px; font-weight:600; color:var(--text-primary); cursor:pointer;">Account Active Status</label>
+            </div>
+        </div>
+
+        {% if form.errors %}
+        <div style="background:var(--red-dim); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-sm); padding:12px; margin-top:16px; font-size:13px; color:var(--red);">
+            {% for field, errors in form.errors.items %}
+                <div><strong>{{ field }}:</strong> {{ errors|join:", " }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border-color);">
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+            {% if target_user.pk != user.pk %}
+            <a href="{% url 'accounts:user_delete' target_user.pk %}" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt"></i> Delete Account</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

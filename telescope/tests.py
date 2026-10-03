@@ -47,13 +47,13 @@ class TelescopeViewTests(TestCase):
 
     def test_unauthenticated_redirect(self):
         response = self.client.get(reverse("telescope:dashboard"))
-        self.assertRedirects(response, "/accounts/login/?next=/telescope/")
+        self.assertRedirects(response, "/accounts/login/?next=/telescopecontrol/")
 
     def test_unauthorized_telescope_user(self):
         self.client.login(username="pm_user", password="pass")
         response = self.client.get(reverse("telescope:dashboard"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login", response.url)
+        self.assertEqual(response.url, "/projectmanagement/dashboard/")
 
     def test_authorized_dashboard(self):
         self.client.login(username="operator", password="pass")
@@ -71,7 +71,7 @@ class TelescopeViewTests(TestCase):
         
         response = self.client.get(reverse("telescope:detail", args=[vbt.pk]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Telescope Description")
+        self.assertContains(response, "Vainu Bappu Telescope")
 
     def test_admin_crud_access(self):
         # Operator cannot create
@@ -87,7 +87,12 @@ class TelescopeViewTests(TestCase):
         # Tele admin creates a telescope
         post_data = {
             "name": "Custom 60cm Refractor",
+            "code": "custom_60cm",
             "aperture": "0.6 Meter",
+            "focal_ratio": "f/9",
+            "mount_type": "alt_az",
+            "location": "IIA VBO Site, Kavalur",
+            "focus_position": 12.50,
             "type": "Refractor",
             "status": "idle",
             "current_target": "None",
@@ -109,14 +114,14 @@ class TelescopeViewTests(TestCase):
 
         # Tele admin edits the telescope
         edit_data = post_data.copy()
-        edit_data["status"] = "observing"
-        edit_data["current_target"] = "Mars"
+        edit_data["status"] = "tracking"
+        edit_data["description"] = "Updated testing description"
         response = self.client.post(reverse("telescope:edit", args=[tele.pk]), edit_data)
         self.assertRedirects(response, reverse("telescope:dashboard"))
         
         tele.refresh_from_db()
-        self.assertEqual(tele.status, "observing")
-        self.assertEqual(tele.current_target, "Mars")
+        self.assertEqual(tele.status, "tracking")
+        self.assertEqual(tele.description, "Updated testing description")
 
         # Tele admin deletes the telescope
         response = self.client.get(reverse("telescope:delete", args=[tele.pk]))

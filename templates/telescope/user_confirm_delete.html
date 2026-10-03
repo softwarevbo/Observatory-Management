@@ -1,0 +1,37 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Confirm User Deletion - {{ target_user.username }}{% endblock %}
+{% block nav_users %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-user-minus" style="color:var(--red);margin-right:8px;"></i>Confirm User Deletion{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title" style="color:var(--red);"><i class="fas fa-exclamation-triangle"></i>Delete User Account</h1>
+        <p class="page-subtitle">Confirm permanent deletion of user account from the observatory database</p>
+    </div>
+    <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Cancel</a>
+</div>
+
+<div class="card" style="max-width:550px; margin:20px auto; padding:28px; border:1px solid rgba(239,68,68,0.4); background:rgba(239,68,68,0.03);">
+    <div style="text-align:center; margin-bottom:20px;">
+        <div style="width:64px; height:64px; border-radius:50%; background:{{ target_user.avatar_color }}; color:#fff; font-size:24px; font-weight:700; display:flex; align-items:center; justify-content:center; margin:0 auto 12px auto;">
+            {{ target_user.initials }}
+        </div>
+        <h3 style="margin:0; font-size:20px; color:var(--text-primary);">{{ target_user.display_name }}</h3>
+        <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Username: <span class="mono" style="color:var(--accent);">{{ target_user.username }}</span></div>
+        <div style="font-size:12px; color:var(--text-muted);">{{ target_user.designation|default:"Staff Member" }} | {{ target_user.get_role_display }}</div>
+    </div>
+
+    <div style="background:rgba(239,68,68,0.1); border-left:4px solid var(--red); padding:12px 16px; border-radius:4px; font-size:13px; color:var(--text-primary); margin-bottom:24px;">
+        <strong>Warning:</strong> Deleting user account <strong>"{{ target_user.username }}"</strong> will permanently remove access for this individual. This action cannot be undone.
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="display:flex; justify-content:center; gap:12px;">
+            <button type="submit" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Yes, Delete User</button>
+            <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

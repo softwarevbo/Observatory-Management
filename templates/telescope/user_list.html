@@ -1,0 +1,385 @@
+{% extends 'telescope/base.html' %}
+{% block title %}User Management — Telescope Control System{% endblock %}
+{% block nav_users %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-users-cog" style="color:var(--accent);margin-right:8px;"></i>User Management &amp; Telescope Permissions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-users-cog"></i>User Management</h1>
+        <p class="page-subtitle">Manage staff accounts, user categories, and specific telescope access authorizations</p>
+    </div>
+    <a href="{% url 'telescope:user_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Create New User</a>
+</div>
+
+<!-- Category Stat Metric Cards -->
+<div class="grid grid-4" style="margin-bottom: 24px;">
+    <a href="{% url 'telescope:user_list' %}?role=admin" style="text-decoration:none;">
+        <div class="stat-card" style="border-left:4px solid var(--purple);">
+            <div class="stat-icon" style="background:var(--purple-dim); color:var(--purple);">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ admin_users_count }}</div>
+                <div class="stat-label">Observatory Admins</div>
+                <div class="stat-sub">Full System Controls</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'telescope:user_list' %}?role=engineer" style="text-decoration:none;">
+        <div class="stat-card" style="border-left:4px solid var(--cyan);">
+            <div class="stat-icon" style="background:var(--cyan-dim); color:var(--cyan);">
+                <i class="fas fa-screwdriver-wrench"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ engineer_users_count }}</div>
+                <div class="stat-label">Instrument Engineers</div>
+                <div class="stat-sub">All Telescope Controls</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'telescope:user_list' %}?role=scientific_officer" style="text-decoration:none;">
+        <div class="stat-card" style="border-left:4px solid var(--yellow);">
+            <div class="stat-icon" style="background:var(--yellow-dim); color:var(--yellow);">
+                <i class="fas fa-flask"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ so_users_count }}</div>
+                <div class="stat-label">Scientific Officers</div>
+                <div class="stat-sub">Operations &amp; Log Overview</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'telescope:user_list' %}?role=observer" style="text-decoration:none;">
+        <div class="stat-card" style="border-left:4px solid var(--accent);">
+            <div class="stat-icon" style="background:var(--accent-glow); color:var(--accent);">
+                <i class="fas fa-eye"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ observer_users_count }}</div>
+                <div class="stat-label">Astronomical Observers</div>
+                <div class="stat-sub">Assigned Telescope Controls</div>
+            </div>
+        </div>
+    </a>
+</div>
+
+<!-- Category Toolbar & Filters -->
+<div class="card" style="margin-bottom:24px; padding:16px;">
+    <form method="get" action="{% url 'telescope:user_list' %}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="flex:1; min-width:240px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Search Staff Name / Designation</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Search name, username, email..." class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:220px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Role Category</label>
+            <select name="role" class="form-select" style="font-size:13px;">
+                <option value="">All Categories ({{ total_users_count }})</option>
+                <option value="admin" {% if selected_role == 'admin' %}selected{% endif %}>Admins ({{ admin_users_count }})</option>
+                <option value="engineer" {% if selected_role == 'engineer' %}selected{% endif %}>Engineers ({{ engineer_users_count }})</option>
+                <option value="scientific_officer" {% if selected_role == 'scientific_officer' %}selected{% endif %}>Scientific Officers ({{ so_users_count }})</option>
+                <option value="observer" {% if selected_role == 'observer' %}selected{% endif %}>Observers ({{ observer_users_count }})</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter"></i> Apply Filter</button>
+            <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-undo"></i> Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- CATEGORIZED USER LIST SECTIONS -->
+
+<!-- 1. ADMINISTRATIVE CATEGORY -->
+{% if not selected_role or selected_role == 'admin' %}
+{% if admin_users %}
+<div style="margin-bottom:28px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--purple-dim);">
+        <div style="width:32px; height:32px; border-radius:8px; background:var(--purple-dim); color:var(--purple); display:flex; align-items:center; justify-content:center; font-size:15px;">
+            <i class="fas fa-user-shield"></i>
+        </div>
+        <h3 style="margin:0; font-size:16px; font-family:'Space Grotesk',sans-serif; color:var(--text-primary);">
+            Observatory Administrators &amp; Directors
+        </h3>
+        <span class="badge badge-purple" style="margin-left:auto;">{{ admin_users|length }} Accounts</span>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>User &amp; Profile</th>
+                    <th>Username</th>
+                    <th>Designation</th>
+                    <th>Authorized Telescopes</th>
+                    <th>Email Contact</th>
+                    <th>Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in admin_users %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:36px;height:36px;border-radius:10px;background:{{ u.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">{{ u.initials }}</div>
+                            <div>
+                                <div style="font-weight:600;color:var(--text-primary);">{{ u.display_name }}</div>
+                                <div style="font-size:11px;color:var(--purple);font-weight:600;">Observatory Administrator</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="mono" style="color:var(--accent);">@{{ u.username }}</td>
+                    <td><div style="font-weight:500;color:var(--text-primary);">{{ u.designation|default:"Observatory Director" }}</div></td>
+                    <td><span class="badge badge-purple"><i class="fas fa-check-double" style="margin-right:4px;"></i>All Telescopes</span></td>
+                    <td style="color:var(--text-muted);font-size:12px;"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ u.email|default:"—" }}</td>
+                    <td>
+                        <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+                            {% if u.is_active %}Active{% else %}Disabled{% endif %}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; justify-content:center; gap:6px;">
+                            <a href="{% url 'telescope:user_edit' u.pk %}" class="btn btn-secondary btn-xs" title="Edit User">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            {% if u.pk != user.pk %}
+                            <a href="{% url 'telescope:user_delete' u.pk %}" class="btn btn-danger btn-xs" title="Delete User">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </a>
+                            {% else %}
+                            <span class="badge badge-purple" style="font-size:10px;">Current Admin</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- 2. INSTRUMENT & SYSTEMS ENGINEERS CATEGORY -->
+{% if not selected_role or selected_role == 'engineer' %}
+{% if engineer_users %}
+<div style="margin-bottom:28px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--cyan-dim);">
+        <div style="width:32px; height:32px; border-radius:8px; background:var(--cyan-dim); color:var(--cyan); display:flex; align-items:center; justify-content:center; font-size:15px;">
+            <i class="fas fa-screwdriver-wrench"></i>
+        </div>
+        <h3 style="margin:0; font-size:16px; font-family:'Space Grotesk',sans-serif; color:var(--text-primary);">
+            Instrument, Optics &amp; Control Engineers
+        </h3>
+        <span class="badge badge-cyan" style="margin-left:auto;">{{ engineer_users|length }} Accounts</span>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>User &amp; Profile</th>
+                    <th>Username</th>
+                    <th>Designation</th>
+                    <th>Authorized Telescopes</th>
+                    <th>Email Contact</th>
+                    <th>Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in engineer_users %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:36px;height:36px;border-radius:10px;background:{{ u.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">{{ u.initials }}</div>
+                            <div>
+                                <div style="font-weight:600;color:var(--text-primary);">{{ u.display_name }}</div>
+                                <div style="font-size:11px;color:var(--cyan);font-weight:600;">Technical &amp; Systems Engineer</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="mono" style="color:var(--accent);">@{{ u.username }}</td>
+                    <td><div style="font-weight:500;color:var(--text-primary);">{{ u.designation|default:"Instrument Engineer" }}</div></td>
+                    <td><span class="badge badge-cyan"><i class="fas fa-microchip" style="margin-right:4px;"></i>All Telescopes</span></td>
+                    <td style="color:var(--text-muted);font-size:12px;"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ u.email|default:"—" }}</td>
+                    <td>
+                        <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+                            {% if u.is_active %}Active{% else %}Disabled{% endif %}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; justify-content:center; gap:6px;">
+                            <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-secondary btn-xs" title="Edit User">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <a href="{% url 'accounts:user_delete' u.pk %}" class="btn btn-danger btn-xs" title="Delete User">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- 3. SCIENTIFIC OFFICERS CATEGORY -->
+{% if not selected_role or selected_role == 'scientific_officer' %}
+{% if so_users %}
+<div style="margin-bottom:28px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--yellow-dim);">
+        <div style="width:32px; height:32px; border-radius:8px; background:var(--yellow-dim); color:var(--yellow); display:flex; align-items:center; justify-content:center; font-size:15px;">
+            <i class="fas fa-flask"></i>
+        </div>
+        <h3 style="margin:0; font-size:16px; font-family:'Space Grotesk',sans-serif; color:var(--text-primary);">
+            Scientific Officers &amp; Research Specialists
+        </h3>
+        <span class="badge badge-yellow" style="margin-left:auto;">{{ so_users|length }} Accounts</span>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>User &amp; Profile</th>
+                    <th>Username</th>
+                    <th>Designation</th>
+                    <th>Authorized Telescopes</th>
+                    <th>Email Contact</th>
+                    <th>Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in so_users %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:36px;height:36px;border-radius:10px;background:{{ u.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">{{ u.initials }}</div>
+                            <div>
+                                <div style="font-weight:600;color:var(--text-primary);">{{ u.display_name }}</div>
+                                <div style="font-size:11px;color:var(--yellow);font-weight:600;">Scientific Officer</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="mono" style="color:var(--accent);">@{{ u.username }}</td>
+                    <td><div style="font-weight:500;color:var(--text-primary);">{{ u.designation|default:"Scientific Officer" }}</div></td>
+                    <td><span class="badge badge-yellow"><i class="fas fa-microchip" style="margin-right:4px;"></i>All Telescopes Overview</span></td>
+                    <td style="color:var(--text-muted);font-size:12px;"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ u.email|default:"—" }}</td>
+                    <td>
+                        <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+                            {% if u.is_active %}Active{% else %}Disabled{% endif %}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; justify-content:center; gap:6px;">
+                            <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-secondary btn-xs" title="Edit User">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <a href="{% url 'accounts:user_delete' u.pk %}" class="btn btn-danger btn-xs" title="Delete User">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- 3. ASTRONOMICAL OBSERVERS CATEGORY -->
+{% if not selected_role or selected_role == 'observer' %}
+{% if observer_users %}
+<div style="margin-bottom:28px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--accent-glow);">
+        <div style="width:32px; height:32px; border-radius:8px; background:var(--accent-glow); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:15px;">
+            <i class="fas fa-eye"></i>
+        </div>
+        <h3 style="margin:0; font-size:16px; font-family:'Space Grotesk',sans-serif; color:var(--text-primary);">
+            Astronomical Observers &amp; Researchers
+        </h3>
+        <span class="badge badge-blue" style="margin-left:auto;">{{ observer_users|length }} Accounts</span>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>User &amp; Profile</th>
+                    <th>Username</th>
+                    <th>Designation</th>
+                    <th>Authorized Assigned Telescopes</th>
+                    <th>Email Contact</th>
+                    <th>Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in observer_users %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:36px;height:36px;border-radius:10px;background:{{ u.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">{{ u.initials }}</div>
+                            <div>
+                                <div style="font-weight:600;color:var(--text-primary);">{{ u.display_name }}</div>
+                                <div style="font-size:11px;color:var(--accent);font-weight:600;">Astronomical Observer</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="mono" style="color:var(--accent);">@{{ u.username }}</td>
+                    <td><div style="font-weight:500;color:var(--text-primary);">{{ u.designation|default:"Astronomer" }}</div></td>
+                    <td>
+                        {% for t in u.assigned_telescopes.all %}
+                        <span class="badge badge-blue" style="margin-right:2px;"><i class="fas fa-binoculars" style="font-size:9px;margin-right:3px;"></i>{{ t.code }}</span>
+                        {% empty %}
+                        <span class="badge badge-gray"><i class="fas fa-lock" style="font-size:9px;margin-right:3px;"></i>No Telescopes Assigned</span>
+                        {% endfor %}
+                    </td>
+                    <td style="color:var(--text-muted);font-size:12px;"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ u.email|default:"—" }}</td>
+                    <td>
+                        <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+                            {% if u.is_active %}Active{% else %}Disabled{% endif %}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; justify-content:center; gap:6px;">
+                            <a href="{% url 'telescope:user_edit' u.pk %}" class="btn btn-secondary btn-xs" title="Edit Permissions &amp; Telescopes">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <a href="{% url 'telescope:user_delete' u.pk %}" class="btn btn-danger btn-xs" title="Delete User">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if not users %}
+<div class="card" style="text-align:center; padding:48px; color:var(--text-muted);">
+    <i class="fas fa-users-slash" style="font-size:36px; margin-bottom:12px; color:var(--border-light);"></i>
+    <h3>No User Accounts Match Criteria</h3>
+    <p style="font-size:13px; margin-top:4px;">Try resetting filters or clearing the search query.</p>
+    <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary btn-sm" style="margin-top:12px;"><i class="fas fa-undo"></i> Reset Filters</a>
+</div>
+{% endif %}
+
+{% endblock %}

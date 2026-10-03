@@ -20,15 +20,19 @@ def profile_view(request):
     Renders the logged-in user's Project Management profile page.
     Retrieves assigned tasks and related projects to show a quick dashboard summary.
     """
+    u = request.user
+    if hasattr(u, "_meta"):
+        if u._meta.model_name == "telescopeuser":
+            return redirect("accounts:telescope_profile")
+        elif u._meta.model_name == "inventoryuser":
+            return redirect("accounts:inventory_profile")
+
     from tasks.models import Project, Task
 
-    u = request.user
-    
     # Query tasks where the user is an assignee
     my_tasks = Task.objects.filter(assignees=u)
     
     # Query projects where the user is listed as either a manager or a member.
-    # We use Q objects for complex OR queries, and .distinct() to avoid duplicate results.
     my_projects = Project.objects.filter(Q(managers=u) | Q(members=u)).distinct()
     
     # Calculate task status metrics
@@ -37,7 +41,6 @@ def profile_view(request):
         "todo": my_tasks.filter(status="todo").count(),
         "in_progress": my_tasks.filter(status="in_progress").count(),
         "done": my_tasks.filter(status="done").count(),
-        # Iterate over tasks and check the 'is_overdue' model property
         "overdue": sum(1 for t in my_tasks if t.is_overdue),
     }
     
@@ -46,8 +49,8 @@ def profile_view(request):
         "accounts/profile.html",
         {
             "profile_user": u,
-            "my_tasks": my_tasks[:8],      # Slice to display only the top 8 tasks
-            "my_projects": my_projects[:6],  # Slice to display only the top 6 projects
+            "my_tasks": my_tasks[:8],
+            "my_projects": my_projects[:6],
             "task_stats": task_stats,
         },
     )
@@ -56,26 +59,17 @@ def profile_view(request):
 def _resolve_base_template(user):
     """
     Return the correct base HTML layout template based on the user's primary access rights.
-    This enables rendering the settings page nested inside the correct navbar/sidebar wrapper.
-
-    Priority rules:
-    - Telescope-only users  → telescope/base.html
-    - Inventory-only users  → inventory_base.html
-    - PM / admin / members  → base.html  (Observatory Management)
     """
     can_pm        = getattr(user, 'can_access_pm', True)
     can_telescope = getattr(user, 'can_access_telescope', False)
     can_inventory = getattr(user, 'can_access_inventory', False)
 
-    # Telescope console users who don't also have PM access
     if can_telescope and not can_pm:
         return "telescope/base.html"
 
-    # Inventory-only users
     if can_inventory and not can_pm and not can_telescope:
         return "inventory_base.html"
 
-    # Everyone else: observatory management workspace
     return "base.html"
 
 
@@ -83,13 +77,14 @@ def _resolve_base_template(user):
 def settings_view(request):
     """
     Renders and handles the user settings panel.
-    Supports multiple post action targets identified by the 'action' parameter.
-    Actions:
-    - update_profile: Edit basic fields (first_name, nickname, upload avatar, password update)
-    - update_preferences: Change theme preferences and email notifications settings
-    - report_issue: Save a new system bug/feedback ticket
-    - update_system_settings: Modify global application parameters (Admin only)
     """
+    u = request.user
+    if hasattr(u, "_meta"):
+        if u._meta.model_name == "telescopeuser":
+            return redirect("accounts:telescope_settings")
+        elif u._meta.model_name == "inventoryuser":
+            return redirect("accounts:inventory_settings")
+
     from tasks.models import SystemIssue, SystemSettings
     from events.models import UserCalendarSettings
 
@@ -106,7 +101,6 @@ def settings_view(request):
         if action == "update_profile":
             from accounts.models import User as UserModel
             user = request.user
-            # Update user model fields from POST payload, fallback to current values if omitted
             (
                 user.first_name,
                 user.last_name,
@@ -121,7 +115,6 @@ def settings_view(request):
                 request.POST.get("phone", user.phone),
             )
             
-            # Update email with uniqueness check — ensure no other user has this email
             new_email = request.POST.get("email", "").strip()
             if new_email and new_email != user.email:
                 if UserModel.objects.filter(email=new_email).exclude(pk=user.pk).exists():
@@ -129,23 +122,21 @@ def settings_view(request):
                     return redirect("/accounts/settings/#account")
                 user.email = new_email
             elif not new_email:
-                user.email = ""  # Allow clearing the email field
+                user.email = ""
             
-            # Save uploaded profile picture if supplied in request.FILES
             if "profile_picture" in request.FILES:
                 user.profile_picture = request.FILES["profile_picture"]
                 
             if "avatar_color" in request.POST:
                 user.avatar_color = request.POST.get("avatar_color")
                 
-            # If changing password, hash it and update session token to avoid automatic logout
             if request.POST.get("new_password"):
                 user.set_password(request.POST.get("new_password"))
                 update_session_auth_hash(request, user)
                 
             user.save()
             messages.success(request, "Profile updated successfully.")
-            return redirect("/accounts/settings/#account") # Redirect using anchor link to focus tab
+            return redirect("/accounts/settings/#account")
 
         # ─── ACTION: Update User Preferences ───
         elif action == "update_preferences":
@@ -169,8 +160,8 @@ def settings_view(request):
             messages.success(request, "Thank you! Your issue has been reported.")
             return redirect("/accounts/settings/#issues")
 
-        # ─── ACTION: Update System Settings (Admin Only) ───
-        elif action == "update_system_settings" and request.user.is_admin:
+        # ─── ACTION: Update System Settings (ROOT Admin Only) ───
+        elif action == "update_system_settings" and (request.user.is_superuser or getattr(request.user, 'role', '') == 'ROOT'):
             (
                 sys_settings.primary_color,
                 sys_settings.font_size,
@@ -184,7 +175,6 @@ def settings_view(request):
             )
             sys_settings.save()
 
-            # Update file manager configurations
             from files.models import SystemSettings as FileSystemSettings
             files_settings = FileSystemSettings.objects.first()
             if not files_settings:
@@ -202,14 +192,15 @@ def settings_view(request):
             messages.success(request, "System settings updated successfully.")
             return redirect("/accounts/settings/#system")
 
-    # Fetch configuration for file uploading
     from files.models import SystemSettings as FileSystemSettings
     from accounts.models import UserLoginHistory, get_client_ip
     files_settings = FileSystemSettings.objects.first()
     if not files_settings:
         files_settings = FileSystemSettings.objects.create()
 
-    if request.user.is_admin:
+    is_root = getattr(request.user, 'is_superuser', False) or getattr(request.user, 'role', '') == 'ROOT'
+
+    if is_root:
         login_history = UserLoginHistory.objects.all().select_related("user")[:100]
     else:
         login_history = UserLoginHistory.objects.filter(user=request.user)[:50]
@@ -222,12 +213,11 @@ def settings_view(request):
             ip_address=ip,
             user_agent=ua
         )
-        if request.user.is_admin:
+        if is_root:
             login_history = UserLoginHistory.objects.all().select_related("user")[:100]
         else:
             login_history = UserLoginHistory.objects.filter(user=request.user)[:50]
 
-    # Renders the settings view context
     return render(
         request,
         "accounts/settings.html",
@@ -238,7 +228,7 @@ def settings_view(request):
             "login_history": login_history,
             "reported_issues": (
                 SystemIssue.objects.all().order_by("-created_at")
-                if request.user.is_admin
+                if is_root
                 else SystemIssue.objects.none()
             ),
             "my_issues": SystemIssue.objects.filter(

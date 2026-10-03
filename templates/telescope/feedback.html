@@ -1,0 +1,533 @@
+{% extends 'telescope/base.html' %}
+
+{% block title %}Feedback & Issue Tracker — IMS{% endblock %}
+{% block nav_feedback %}active{% endblock %}
+{% block topbar_title %}Feedback & Bug Report Tracker{% endblock %}
+
+{% block extra_style %}
+<style>
+    /* ═══ SUMMARY STATS ═══ */
+    .stat-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        transition: var(--transition);
+    }
+    .stat-card:hover {
+        border-color: var(--border-light);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-sm);
+    }
+    .stat-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+    .stat-num {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 26px;
+        font-weight: 800;
+        color: var(--text-primary);
+        line-height: 1;
+    }
+    .stat-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 3px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* ═══ CATEGORY FILTER PILLS ═══ */
+    .category-pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        align-items: center;
+    }
+    .cat-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+    .cat-pill:hover { color: var(--text-primary); border-color: var(--border-light); }
+
+    .cat-pill.active-all,
+    .cat-pill.p-all:hover   { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-glow); }
+    .cat-pill.p-bug.active,
+    .cat-pill.p-bug:hover   { background: var(--red); border-color: var(--red); color: #fff; }
+    .cat-pill.p-ui.active,
+    .cat-pill.p-ui:hover    { background: var(--purple); border-color: var(--purple); color: #fff; }
+    .cat-pill.p-feat.active,
+    .cat-pill.p-feat:hover  { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-glow); }
+    .cat-pill.p-hw.active,
+    .cat-pill.p-hw:hover    { background: var(--yellow); border-color: var(--yellow); color: #000; }
+    .cat-pill.p-perf.active,
+    .cat-pill.p-perf:hover  { background: #10b981; border-color: #10b981; color: #fff; }
+    .cat-pill.p-other.active,
+    .cat-pill.p-other:hover { background: var(--text-muted); border-color: var(--text-muted); color: #fff; }
+
+    /* ═══ FILTER BAR ═══ */
+    .filter-bar {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .filter-bar .search-wrap {
+        flex: 1;
+        min-width: 200px;
+        position: relative;
+    }
+    .filter-bar .search-wrap i {
+        position: absolute;
+        left: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 13px;
+        pointer-events: none;
+    }
+    .filter-bar .search-wrap input { padding-left: 34px; }
+    .filter-bar .form-select { width: auto; min-width: 150px; }
+
+    /* ═══ FEEDBACK CARDS ═══ */
+    .feedback-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px 22px;
+        margin-bottom: 14px;
+        transition: var(--transition);
+    }
+    .feedback-card:hover {
+        border-color: var(--border-light);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .fb-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .user-avatar-sm {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 12px;
+        color: #fff;
+        flex-shrink: 0;
+    }
+    .fb-subject {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+    }
+    .fb-message {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.55;
+        white-space: pre-line;
+    }
+    .admin-reply {
+        margin-top: 14px;
+        padding: 12px 16px;
+        background: rgba(59, 130, 246, 0.08);
+        border-left: 3px solid var(--accent);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        font-size: 13px;
+    }
+    .admin-reply-label {
+        font-weight: 700;
+        color: var(--accent);
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* ═══ EMPTY STATE ═══ */
+    .empty-state {
+        text-align: center;
+        padding: 50px 30px;
+        background: var(--bg-card);
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+    }
+    .empty-state > i.empty-icon { font-size: 42px; color: var(--text-muted); margin-bottom: 14px; display: block; }
+    /* ═══ SUBMIT FEEDBACK BUTTON ═══ */
+    .btn-submit-feedback {
+        background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%) !important;
+        color: #ffffff !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        padding: 9px 20px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35) !important;
+        cursor: pointer !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        letter-spacing: 0.3px !important;
+        height: auto !important;
+        width: auto !important;
+        margin-top: 12px !important;
+    }
+    .btn-submit-feedback i {
+        font-size: 13px !important;
+        display: inline-block !important;
+        margin: 0 !important;
+        color: #ffffff !important;
+    }
+    .btn-submit-feedback:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 22px rgba(99, 102, 241, 0.55) !important;
+        background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%) !important;
+        border-color: rgba(255, 255, 255, 0.45) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-bug"></i> Feedback & Issue Tracker</h1>
+        <p class="page-subtitle">Report system bugs, errors, UI issues, or request new features for the observatory management system.</p>
+    </div>
+    <div class="page-actions">
+        <button type="button" class="btn-submit-feedback" onclick="toggleFeedbackForm()">
+            <i class="fas fa-plus"></i> Submit Feedback / Bug Report
+        </button>
+    </div>
+</div>
+
+<!-- ═══════ STAT SUMMARY CARDS ═══════ -->
+<div class="grid grid-4" style="margin-bottom: 26px;">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(239,68,68,.15); color: var(--red);">
+            <i class="fas fa-bug"></i>
+        </div>
+        <div>
+            <div class="stat-num">{{ bug_count }}</div>
+            <div class="stat-label">Bugs & Errors</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(245,158,11,.15); color: var(--yellow);">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div>
+            <div class="stat-num">{{ open_count }}</div>
+            <div class="stat-label">Open Issues</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: var(--accent-glow); color: var(--accent);">
+            <i class="fas fa-lightbulb"></i>
+        </div>
+        <div>
+            <div class="stat-num">{{ feature_count }}</div>
+            <div class="stat-label">Feature Requests</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(139,92,246,.15); color: var(--purple);">
+            <i class="fas fa-palette"></i>
+        </div>
+        <div>
+            <div class="stat-num">{{ ui_count }}</div>
+            <div class="stat-label">UI / UX Reports</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════ SUBMIT FEEDBACK FORM ═══════ -->
+<div id="feedback-form-container" class="card" style="display: none; margin-bottom: 24px; border-color: var(--accent);">
+    <div class="card-header">
+        <div class="card-title"><i class="fas fa-pen-to-square"></i> Submit Bug Report or Feedback</div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFeedbackForm()">
+            <i class="fas fa-xmark"></i> Close
+        </button>
+    </div>
+    <form method="post" action="{% url 'telescope:feedback' %}">
+        {% csrf_token %}
+        <div class="grid grid-2">
+            <div class="form-group">
+                <label class="form-label">Category</label>
+                {{ form.category }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Title / Summary</label>
+                {{ form.subject }}
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Detailed Description / Error Logs / Steps to Reproduce</label>
+            {{ form.message }}
+        </div>
+        <div class="grid grid-2">
+            <div class="form-group">
+                <label class="form-label">Your Name <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                {{ form.name }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contact Email <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                {{ form.email }}
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 12px; flex-wrap: wrap;">
+            <label style="font-size: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                {{ form.is_public }}
+                <span>Show publicly in community feedback tracker</span>
+            </label>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Submit Report
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- ═══════ SEARCH & STATUS FILTER BAR ═══════ -->
+<div class="filter-bar">
+    <form method="get" action="{% url 'telescope:feedback' %}"
+          style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; width: 100%;">
+        {% if selected_category %}
+        <input type="hidden" name="category" value="{{ selected_category }}">
+        {% endif %}
+
+        <div class="search-wrap">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" name="q" value="{{ search_query }}"
+                   class="form-control" placeholder="Search by subject, error details, or submitter...">
+        </div>
+
+        <select name="status" class="form-select">
+            <option value="">All Statuses</option>
+            <option value="new"          {% if selected_status == 'new' %}selected{% endif %}>New</option>
+            <option value="under_review" {% if selected_status == 'under_review' %}selected{% endif %}>Under Review</option>
+            <option value="resolved"     {% if selected_status == 'resolved' %}selected{% endif %}>Resolved</option>
+            <option value="closed"       {% if selected_status == 'closed' %}selected{% endif %}>Closed</option>
+        </select>
+
+        <button type="submit" class="btn btn-secondary btn-sm">
+            <i class="fas fa-filter"></i> Filter
+        </button>
+        {% if search_query or selected_status %}
+        <a href="{% url 'telescope:feedback' %}{% if selected_category %}?category={{ selected_category }}{% endif %}"
+           class="btn btn-secondary btn-sm">
+            <i class="fas fa-rotate-left"></i> Reset
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- ═══════ CATEGORY FILTER PILLS ═══════ -->
+<div class="category-pills">
+    <a href="{% url 'telescope:feedback' %}{% if selected_status %}?status={{ selected_status }}{% endif %}"
+       class="cat-pill p-all {% if not selected_category %}active-all{% endif %}">
+        <i class="fas fa-layer-group"></i> All <span style="opacity:.7;">({{ total_count }})</span>
+    </a>
+    <a href="?category=bug_error{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="cat-pill p-bug {% if selected_category == 'bug_error' %}active{% endif %}">
+        <i class="fas fa-bug"></i> Bug / System Error <span style="opacity:.7;">({{ bug_count }})</span>
+    </a>
+    <a href="?category=ui_ux{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="cat-pill p-ui {% if selected_category == 'ui_ux' %}active{% endif %}">
+        <i class="fas fa-palette"></i> UI / UX Issue <span style="opacity:.7;">({{ ui_count }})</span>
+    </a>
+    <a href="?category=feature_req{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="cat-pill p-feat {% if selected_category == 'feature_req' %}active{% endif %}">
+        <i class="fas fa-lightbulb"></i> Feature Request <span style="opacity:.7;">({{ feature_count }})</span>
+    </a>
+    <a href="?category=hardware_error{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="cat-pill p-hw {% if selected_category == 'hardware_error' %}active{% endif %}">
+        <i class="fas fa-microchip"></i> Hardware / Telemetry <span style="opacity:.7;">({{ hardware_count }})</span>
+    </a>
+    <a href="?category=performance{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="cat-pill p-perf {% if selected_category == 'performance' %}active{% endif %}">
+        <i class="fas fa-gauge-high"></i> Performance
+    </a>
+    <a href="?category=other_general{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="cat-pill p-other {% if selected_category == 'other_general' %}active{% endif %}">
+        <i class="fas fa-comments"></i> Other / General
+    </a>
+</div>
+
+<!-- ═══════ FEEDBACK FEED ═══════ -->
+{% if feedbacks %}
+    {% for fb in feedbacks %}
+    <div class="feedback-card">
+        <div class="fb-meta-row">
+            <div class="user-pill">
+                <div class="user-avatar-sm"
+                     style="background: {% if fb.user %}{{ fb.user.avatar_color|default:'#3b82f6' }}{% else %}#6b7fa3{% endif %};">
+                    {% if fb.user %}{{ fb.user.initials }}{% else %}<i class="fas fa-user-secret"></i>{% endif %}
+                </div>
+                <div>
+                    <div style="font-weight: 600; color: var(--text-primary); font-size: 13px;">
+                        {{ fb.name|default:"Anonymous Visitor" }}
+                        {% if fb.user %}
+                        <span class="badge badge-blue" style="font-size:9px; margin-left:4px;">{{ fb.user.get_role_display }}</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted);">
+                        <i class="far fa-clock"></i> {{ fb.created_at|date:"M d, Y · H:i" }}
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                {% if fb.category == 'bug_error' %}
+                    <span class="badge badge-red"><i class="fas fa-bug"></i> Bug / Error</span>
+                {% elif fb.category == 'hardware_error' %}
+                    <span class="badge badge-yellow"><i class="fas fa-microchip"></i> Hardware Error</span>
+                {% elif fb.category == 'ui_ux' %}
+                    <span class="badge badge-purple"><i class="fas fa-palette"></i> UI/UX Issue</span>
+                {% elif fb.category == 'feature_req' %}
+                    <span class="badge badge-blue"><i class="fas fa-lightbulb"></i> Feature Request</span>
+                {% elif fb.category == 'performance' %}
+                    <span class="badge badge-cyan"><i class="fas fa-gauge-high"></i> Performance</span>
+                {% else %}
+                    <span class="badge badge-cyan">{{ fb.get_category_display }}</span>
+                {% endif %}
+
+                {% if fb.status == 'new' %}
+                    <span class="badge badge-cyan">New</span>
+                {% elif fb.status == 'under_review' %}
+                    <span class="badge badge-yellow">Under Review</span>
+                {% elif fb.status == 'resolved' %}
+                    <span class="badge badge-green">Resolved</span>
+                {% else %}
+                    <span class="badge badge-gray">Closed</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="fb-subject">{{ fb.subject }}</div>
+        <div class="fb-message">{{ fb.message }}</div>
+
+        {% if fb.admin_response %}
+        <div class="admin-reply">
+            <div class="admin-reply-label">
+                <i class="fas fa-shield-halved"></i> Admin Response:
+            </div>
+            <div style="color: var(--text-primary); white-space: pre-line;">{{ fb.admin_response }}</div>
+        </div>
+        {% endif %}
+
+        {% if user.is_authenticated and user.is_admin %}
+        <div style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px;">
+            <button type="button" class="btn btn-secondary btn-xs"
+                    onclick="toggleAdminRespond('admin-resp-{{ fb.id }}')">
+                <i class="fas fa-reply"></i>
+                {% if fb.admin_response %}Edit Response{% else %}Respond as Admin{% endif %}
+            </button>
+
+            <div id="admin-resp-{{ fb.id }}"
+                 style="display: none; margin-top: 10px; background: var(--bg-secondary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                <form method="post" action="{% url 'telescope:feedback_respond' fb.id %}">
+                    {% csrf_token %}
+                    <div class="grid grid-2" style="margin-bottom: 10px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Update Status</label>
+                            <select name="status" class="form-select">
+                                <option value="new"          {% if fb.status == 'new' %}selected{% endif %}>New</option>
+                                <option value="under_review" {% if fb.status == 'under_review' %}selected{% endif %}>Under Review</option>
+                                <option value="resolved"     {% if fb.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                                <option value="closed"       {% if fb.status == 'closed' %}selected{% endif %}>Closed</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
+                                <i class="fas fa-check"></i> Save Response
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Admin Response Message</label>
+                        <textarea name="admin_response" class="form-control" rows="2"
+                                  placeholder="Type official response to user...">{{ fb.admin_response|default:'' }}</textarea>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-inbox empty-icon"></i>
+        <h3>No reports or feedback found</h3>
+        <p>
+            {% if selected_category %}
+                No feedback submitted under this category yet.
+            {% else %}
+                No feedback has been submitted yet. Be the first!
+            {% endif %}
+        </p>
+        <button type="button" class="btn-submit-feedback" onclick="toggleFeedbackForm()">
+            <i class="fas fa-plus"></i> Submit Report
+        </button>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleFeedbackForm() {
+        const el = document.getElementById('feedback-form-container');
+        const isHidden = el.style.display === 'none' || el.style.display === '';
+        el.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function toggleAdminRespond(id) {
+        const el = document.getElementById(id);
+        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    }
+</script>
+{% endblock %}

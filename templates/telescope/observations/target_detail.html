@@ -1,0 +1,75 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Target Details - {{ target.name }}{% endblock %}
+{% block nav_targets %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-crosshairs" style="color:var(--accent);margin-right:8px;"></i>Astronomical Target Details{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-crosshairs"></i>{{ target.name }}</h1>
+        <p class="page-subtitle">Catalog ID: {{ target.catalog_id|default:"N/A" }} | Epoch: {{ target.epoch }}</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{% url 'telescope:target_edit' target.pk %}" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit Target</a>
+        <a href="{% url 'telescope:target_list' %}" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Back to Catalog</a>
+    </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom: 24px;">
+    <div class="card" style="padding: 24px;">
+        <h3 style="font-family:'Space Grotesk',sans-serif; color:var(--accent); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-compass"></i> Celestial Coordinates &amp; Properties
+        </h3>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+                <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Right Ascension (RA)</label>
+                <div class="mono" style="font-size:16px; font-weight:700; color:var(--cyan);">{{ target.right_ascension }}</div>
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Declination (DEC)</label>
+                <div class="mono" style="font-size:16px; font-weight:700; color:var(--cyan);">{{ target.declination }}</div>
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Object Class</label>
+                <span class="badge badge-purple" style="font-size:13px; padding:6px 12px;">{{ target.get_object_class_display }}</span>
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Visual Magnitude</label>
+                <div class="mono" style="font-size:15px; font-weight:600; color:var(--text-primary);">{{ target.magnitude|default:"—" }}</div>
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Recommended Filter</label>
+                <span class="badge badge-yellow" style="font-size:13px; padding:6px 12px;"><i class="fas fa-filter" style="margin-right:4px;"></i>{{ target.recommended_filter|default:"V (550nm)" }}</span>
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Distance (Light Years)</label>
+                <div class="mono" style="font-size:15px; font-weight:600; color:var(--text-primary);">{% if target.distance_ly %}{{ target.distance_ly|floatformat:0 }} ly{% else %}—{% endif %}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 24px;">
+        <h3 style="font-family:'Space Grotesk',sans-serif; color:var(--accent); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-clock"></i> Record Timestamps &amp; Notes
+        </h3>
+
+        <div style="margin-bottom: 16px;">
+            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Observation / Scheduled Date</label>
+            <div class="mono" style="font-size:14px; color:var(--accent);"><i class="fas fa-calendar-alt" style="margin-right:6px;"></i>{{ target.observation_date|date:"Y-m-d"|default:"Not specified" }}</div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px;">Record Created Timestamp</label>
+            <div class="mono" style="font-size:14px; color:var(--text-primary);"><i class="fas fa-history" style="margin-right:6px;"></i>{{ target.created_at|date:"Y-m-d H:i:s" }}</div>
+        </div>
+
+        <div>
+            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Astronomer Notes &amp; Target Details</label>
+            <div style="background:var(--card-bg-subtle, rgba(255,255,255,0.03)); border:1px solid var(--border-light); padding:12px; border-radius:8px; font-size:13px; color:var(--text-primary); min-height:80px;">
+                {{ target.notes|linebreaks|default:"No notes entered for this target." }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

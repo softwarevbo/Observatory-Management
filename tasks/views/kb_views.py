@@ -63,7 +63,7 @@ def kb_overview(request):
     accessible_projects = Project.objects.filter(
         Q(managers=request.user) | Q(members=request.user) | Q(project_incharge=request.user)
     ).distinct()
-    authors = User.objects.filter(knowledgebasenote__isnull=False).distinct()
+    authors = User.objects.filter(can_access_pm=True, knowledgebasenote__isnull=False).distinct()
 
     current_project = None
     if project_filter:
@@ -236,7 +236,7 @@ def kb_access(request, pk):
         return redirect("tasks:kb_detail", pk=pk)
 
     access_rights = DocumentAccessRight.objects.filter(kb_note=note)
-    all_users = User.objects.filter(is_active=True)
+    all_users = User.objects.filter(is_active=True, can_access_pm=True)
 
     if request.method == "POST":
         action = request.POST.get("action")

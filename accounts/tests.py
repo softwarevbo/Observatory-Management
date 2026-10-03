@@ -33,114 +33,94 @@ class TelescopeUserManagementTest(TestCase):
         # This will attach the admin session cookies to all future requests made during tests.
         self.client.login(username="admin", password="pass@1234")
 
-        # 3. Create a mock standard user account with Telescope access permissions for modification tests.
-        self.tele_user = User.objects.create_user(
+        from telescope.models import TelescopeUser
+        # 3. Create a mock standard user account in TelescopeUser for TCS testing.
+        self.tele_user = TelescopeUser.objects.create_user(
             username="operator1",
             email="operator1@observatory.res.in",
             password="pass1234",
-            can_access_telescope=True,
             can_operate_vbt=True
         )
 
     def test_user_list_telescope_tab(self):
         """
-        Tests that an admin can view the user list page specifically filtered for Telescope users.
+        Tests that an admin can view the TCS user list page.
         """
-        # Resolve the URL path name to '/accounts/users/?tab=telescope' dynamically
-        url = reverse("accounts:user_list") + "?tab=telescope"
-        
-        # Send a GET request as the logged-in admin user
+        url = reverse("telescope:user_list")
         response = self.client.get(url)
-        
-        # Assertions to verify correct response code and content
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "operator1") # Expect user list page contains the operator
-        
-        # Ensure stats dictionary (for rendering operator count summaries) is computed and present in context
-        self.assertIn("stats", response.context)
-        self.assertEqual(response.context["stats"]["vbt_operators"], 1)
+        self.assertContains(response, "operator1")
 
     def test_telescope_user_create(self):
         """
-        Tests creating a new telescope user via form POST submission.
+        Tests creating a new TCS user via form POST submission.
         """
-        url = reverse("accounts:telescope_user_create")
+        url = reverse("telescope:user_create")
         
-        # Form inputs representing new operator credentials and permissions
         data = {
             "username": "operator2",
             "email": "operator2@observatory.res.in",
             "password": "pass1234",
+            "role": "observer",
             "is_active": "on",
             "can_operate_vbt": "on",
             "can_operate_jcbt": "on",
         }
         
-        # Send a POST request to submit the form data
         response = self.client.post(url, data)
+        self.assertRedirects(response, reverse("telescope:user_list"))
         
-        # Assert that the view redirects the admin user back to the list page on success
-        self.assertRedirects(response, reverse("accounts:user_list") + "?tab=telescope")
-        
-        # Query the database to verify the user was actually saved and has correct attributes
-        u = User.objects.get(username="operator2")
+        from telescope.models import TelescopeUser
+        u = TelescopeUser.objects.get(username="operator2")
         self.assertTrue(u.can_access_telescope)
         self.assertTrue(u.can_operate_vbt)
         self.assertTrue(u.can_operate_jcbt)
-        # Undefined checkboxes on POST fall back to False (e.g. Zeiss)
         self.assertFalse(u.can_operate_zeiss)
 
     def test_telescope_user_edit(self):
         """
-        Tests editing an existing telescope user's fields via a POST request.
+        Tests editing an existing TCS user via a POST request.
         """
-        url = reverse("accounts:telescope_user_edit", args=[self.tele_user.pk])
+        url = reverse("telescope:user_edit", args=[self.tele_user.pk])
         
-        # Form parameters to change email and add dome command capabilities
         data = {
+            "username": "operator1",
             "email": "updated_operator@observatory.res.in",
-            "password": "", # Sending empty password should keep the current password unmodified
+            "password": "",
+            "role": "observer",
             "can_operate_vbt": "on",
             "can_command_dome": "on",
         }
         
-        # Submit the edit request
         response = self.client.post(url, data)
-        self.assertRedirects(response, reverse("accounts:user_list") + "?tab=telescope")
+        self.assertRedirects(response, reverse("telescope:user_list"))
         
-        # Reload the user object attributes from the database to get fresh updates
         self.tele_user.refresh_from_db()
-        
-        # Assert edits were updated correctly
         self.assertEqual(self.tele_user.email, "updated_operator@observatory.res.in")
         self.assertTrue(self.tele_user.can_operate_vbt)
         self.assertTrue(self.tele_user.can_command_dome)
-        self.assertFalse(self.tele_user.can_operate_jcbt) # Ensure it was unchecked/disabled
 
     def test_telescope_user_toggle(self):
         """
-        Tests toggling the 'is_active' state of a telescope operator.
+        Tests toggling the 'is_active' state of a TCS user.
         """
-        # Ensure user starts active
         self.assertTrue(self.tele_user.is_active)
         
-        url = reverse("accounts:telescope_user_toggle", args=[self.tele_user.pk])
+        url = reverse("telescope:user_toggle", args=[self.tele_user.pk])
         response = self.client.get(url)
-        self.assertRedirects(response, reverse("accounts:user_list") + "?tab=telescope")
+        self.assertRedirects(response, reverse("telescope:user_list"))
         
-        # Refresh and verify is_active was toggled from True to False
         self.tele_user.refresh_from_db()
         self.assertFalse(self.tele_user.is_active)
 
     def test_telescope_user_delete(self):
         """
-        Tests deleting a telescope operator account.
+        Tests deleting/deactivating a TCS user account.
         """
-        url = reverse("accounts:telescope_user_delete", args=[self.tele_user.pk])
+        url = reverse("telescope:user_delete", args=[self.tele_user.pk])
         response = self.client.get(url)
-        self.assertRedirects(response, reverse("accounts:user_list") + "?tab=telescope")
+        self.assertRedirects(response, reverse("telescope:user_list"))
         
-        # Check that the user still exists in the database but is deactivated
         self.tele_user.refresh_from_db()
         self.assertFalse(self.tele_user.is_active)
 
@@ -174,7 +154,7 @@ class UserFormPermissionsTest(TestCase):
             "first_name": "PM",
             "last_name": "User",
             "email": "pm@example.com",
-            "role": "member",
+            "role": "PM_MEMBER",
             "team": "software",
             "avatar_color": "#6366f1",
             "password1": "pass@1234",
@@ -320,44 +300,160 @@ class GlobalUsernameUniquenessTest(TestCase):
             "password": "pass@1234",
         }
         response = self.client.post(url, data)
-        self.assertRedirects(response, "/accounts/users/?tab=telescope")
+        self.assertRedirects(response, reverse("telescope:user_list"))
         
         # Verify standard User was not created with this username
         self.assertFalse(User.objects.filter(username="invclash").exists())
 
 
-class UserAdminTest(TestCase):
+class RBACTestCase(TestCase):
     """
-    Test case to verify custom UserAdmin functionality (e.g. badges, querysets).
+    Comprehensive test case for Role-Based Access Control (RBAC):
+    - 7 roles: ROOT, PM_ADMIN, PM_MEMBER, TM_ADMIN, TM_MEMBER, IM_ADMIN, IM_MEMBER
+    - 3 login entry points
+    - Strict URL access restrictions
+    - Promotion prevention & user management rules
     """
 
-    def test_badges(self):
-        from django.contrib.admin.sites import AdminSite
-        from accounts.admin import UserAdmin
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        user = User.objects.create_user(
-            username="testuser",
-            email="testuser@example.com",
-            password="password123",
-            role="admin",
-            is_active=True,
-            is_superuser=True
+    def setUp(self):
+        # Create users for all 7 canonical roles
+        self.root_user = User.objects.create_user(
+            username="root_admin", password="password123", role="ROOT", is_superuser=True
         )
-        site = AdminSite()
-        admin_instance = UserAdmin(User, site)
-        
-        # Test role_badge
-        role_html = admin_instance.role_badge(user)
-        self.assertIn("Admin", role_html)
-        
-        # Test status_badge
-        status_html = admin_instance.status_badge(user)
-        self.assertIn("Active", status_html)
-        
-        # Test is_superuser_badge
-        superuser_html = admin_instance.is_superuser_badge(user)
-        self.assertIn("Yes", superuser_html)
+        self.pm_admin = User.objects.create_user(
+            username="pm_admin", password="password123", role="PM_ADMIN"
+        )
+        self.pm_member = User.objects.create_user(
+            username="pm_member", password="password123", role="PM_MEMBER"
+        )
+        self.tm_admin = User.objects.create_user(
+            username="tm_admin", password="password123", role="TM_ADMIN"
+        )
+        self.tm_member = User.objects.create_user(
+            username="tm_member", password="password123", role="TM_MEMBER"
+        )
+        self.im_admin = User.objects.create_user(
+            username="im_admin", password="password123", role="IM_ADMIN"
+        )
+        self.im_member = User.objects.create_user(
+            username="im_member", password="password123", role="IM_MEMBER"
+        )
+
+    def test_canonical_role_resolution(self):
+        from accounts.rbac import get_canonical_role
+        self.assertEqual(get_canonical_role(self.root_user), "ROOT")
+        self.assertEqual(get_canonical_role(self.pm_admin), "PM_ADMIN")
+        self.assertEqual(get_canonical_role(self.pm_member), "PM_MEMBER")
+        self.assertEqual(get_canonical_role(self.tm_admin), "TCS_ADMIN")
+        self.assertEqual(get_canonical_role(self.tm_member), "TCS_MEMBER")
+        self.assertEqual(get_canonical_role(self.im_admin), "IM_ADMIN")
+        self.assertEqual(get_canonical_role(self.im_member), "IM_MEMBER")
+
+    def test_project_login_restrictions(self):
+        url = reverse("accounts:login")
+
+        # Allowed: ROOT, PM_ADMIN, PM_MEMBER
+        res = self.client.post(url, {"username": "pm_admin", "password": "password123"})
+        self.assertRedirects(res, reverse("tasks:dashboard"))
+        self.client.logout()
+
+        res = self.client.post(url, {"username": "root_admin", "password": "password123"})
+        self.assertRedirects(res, reverse("tasks:dashboard"))
+        self.client.logout()
+
+        # Denied: TM_ADMIN, TM_MEMBER, IM_ADMIN, IM_MEMBER
+        res = self.client.post(url, {"username": "tm_admin", "password": "password123"})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, "Access Denied")
+
+        res = self.client.post(url, {"username": "im_admin", "password": "password123"})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, "Access Denied")
+
+    def test_telescope_login_restrictions(self):
+        url = reverse("accounts:telescope_login")
+
+        # Allowed: ROOT, TM_ADMIN, TM_MEMBER
+        res = self.client.post(url, {"username": "tm_admin", "password": "password123"})
+        self.assertRedirects(res, "/telescopecontrol/")
+        self.client.logout()
+
+        res = self.client.post(url, {"username": "root_admin", "password": "password123"})
+        self.assertRedirects(res, "/telescopecontrol/")
+        self.client.logout()
+
+        # Denied: PM_ADMIN, IM_ADMIN
+        res = self.client.post(url, {"username": "pm_admin", "password": "password123"})
+        self.assertRedirects(res, reverse("accounts:login"))
+
+    def test_inventory_login_restrictions(self):
+        url = reverse("accounts:inventory_login")
+
+        # Allowed: ROOT, IM_ADMIN, IM_MEMBER
+        res = self.client.post(url, {"username": "im_admin", "password": "password123"})
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.url, "/inventorymanagement/dashboard/")
+        self.client.logout()
+
+        res = self.client.post(url, {"username": "root_admin", "password": "password123"})
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.url, "/inventorymanagement/dashboard/")
+        self.client.logout()
+
+        # Denied: PM_ADMIN, TM_ADMIN
+        res = self.client.post(url, {"username": "pm_admin", "password": "password123"})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, "Access Denied")
+
+    def test_url_access_isolation(self):
+        # PM_MEMBER cannot access telescope or inventory
+        self.client.login(username="pm_member", password="password123")
+        res = self.client.get("/telescopecontrol/")
+        self.assertRedirects(res, "/projectmanagement/dashboard/")
+
+        res = self.client.get("/inventorymanagement/dashboard/")
+        self.assertRedirects(res, "/projectmanagement/dashboard/")
+        self.client.logout()
+
+        # TM_MEMBER cannot access PM or inventory
+        self.client.login(username="tm_member", password="password123")
+        res = self.client.get("/projectmanagement/dashboard/")
+        self.assertRedirects(res, "/telescopecontrol/")
+
+        res = self.client.get("/inventorymanagement/dashboard/")
+        self.assertRedirects(res, "/telescopecontrol/")
+        self.client.logout()
+
+        # IM_MEMBER cannot access PM or telescope
+        self.client.login(username="im_member", password="password123")
+        res = self.client.get("/projectmanagement/dashboard/")
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.url, "/inventorymanagement/dashboard/")
+
+        res = self.client.get("/telescopecontrol/")
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res.url, "/inventorymanagement/dashboard/")
+        self.assertRedirects(res, "/inventorymanagement/dashboard/")
+        self.client.logout()
+
+    def test_promotion_prevention(self):
+        from accounts.rbac import can_manage_target_user, can_assign_role
+
+        # PM_ADMIN cannot manage TM_ADMIN or ROOT
+        self.assertFalse(can_manage_target_user(self.pm_admin, self.root_user))
+        self.assertFalse(can_manage_target_user(self.pm_admin, self.tm_admin))
+        self.assertTrue(can_manage_target_user(self.pm_admin, self.pm_member))
+
+        # PM_ADMIN cannot assign ROOT or TM_ADMIN
+        self.assertFalse(can_assign_role(self.pm_admin, "ROOT"))
+        self.assertFalse(can_assign_role(self.pm_admin, "TM_ADMIN"))
+        self.assertTrue(can_assign_role(self.pm_admin, "PM_MEMBER"))
+
+        # ROOT can assign any role
+        self.assertTrue(can_assign_role(self.root_user, "PM_ADMIN"))
+        self.assertTrue(can_assign_role(self.root_user, "TM_ADMIN"))
+        self.assertTrue(can_assign_role(self.root_user, "IM_ADMIN"))
+
 
 
 

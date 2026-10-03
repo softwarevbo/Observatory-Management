@@ -1,0 +1,30 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ action }}{% endblock %}
+{% block nav_queue %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-layer-group" style="color:var(--accent);margin-right:8px;"></i>{{ action }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h1 class="page-title"><i class="fas fa-layer-group"></i>{{ action }}</h1></div>
+    <a href="{% url 'telescope:queue' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:700px;margin:0 auto;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group"><label class="form-label">Observation Proposal</label>{{ form.proposal }}</div>
+        <div class="form-group"><label class="form-label">Astronomical Target</label>{{ form.target }}</div>
+        <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">Telescope</label>{{ form.telescope }}</div>
+            <div class="form-group"><label class="form-label">Instrument</label>{{ form.instrument }}</div>
+            <div class="form-group"><label class="form-label">Exposure Time (s)</label>{{ form.exposure_time }}</div>
+            <div class="form-group"><label class="form-label">Number of Frames</label>{{ form.number_of_frames }}</div>
+            <div class="form-group"><label class="form-label">Filter</label>{{ form.filter_name }}</div>
+            <div class="form-group"><label class="form-label">Queue Order</label>{{ form.queue_order }}</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Add to Queue</button>
+            <a href="{% url 'telescope:queue' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

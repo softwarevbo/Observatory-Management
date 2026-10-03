@@ -79,7 +79,7 @@ class CalendarEventForm(forms.ModelForm):
                 self.fields["task"].queryset = Task.objects.none()
 
         self.fields["attendees"].queryset = User.objects.filter(
-            is_active=True
+            is_active=True, can_access_pm=True
         ).order_by("first_name")
         self.fields["attendees"].required = False
 

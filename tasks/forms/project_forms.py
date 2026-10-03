@@ -66,17 +66,17 @@ class ProjectForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # All active users are eligible to be assigned as managers, incharges, or members
-        self.fields["managers"].queryset = User.objects.filter(is_active=True).order_by(
+        # All active PM users are eligible to be assigned as managers, incharges, or members
+        self.fields["managers"].queryset = User.objects.filter(is_active=True, can_access_pm=True).order_by(
             "first_name", "username"
         )
-        self.fields["incharges"].queryset = User.objects.filter(is_active=True).order_by(
+        self.fields["incharges"].queryset = User.objects.filter(is_active=True, can_access_pm=True).order_by(
             "first_name", "username"
         )
-        self.fields["project_incharge"].queryset = User.objects.filter(is_active=True).order_by(
+        self.fields["project_incharge"].queryset = User.objects.filter(is_active=True, can_access_pm=True).order_by(
             "first_name", "username"
         )
-        self.fields["members"].queryset = User.objects.filter(is_active=True).order_by(
+        self.fields["members"].queryset = User.objects.filter(is_active=True, can_access_pm=True).order_by(
             "team", "first_name", "username"
         )
         self.fields["managers"].required = False
@@ -142,14 +142,14 @@ class ProjectEditForm(forms.ModelForm):
                 | Q(managed_projects=self.instance)
                 | Q(incharge_projects_set=self.instance)
                 | Q(created_projects=self.instance)
-            ).filter(is_active=True).distinct().order_by("first_name", "username")
+            ).filter(is_active=True, can_access_pm=True).distinct().order_by("first_name", "username")
         else:
-            members_qs = User.objects.filter(is_active=True).order_by("first_name", "username")
+            members_qs = User.objects.filter(is_active=True, can_access_pm=True).order_by("first_name", "username")
 
         self.fields["managers"].queryset = members_qs
         self.fields["incharges"].queryset = members_qs
         self.fields["project_incharge"].queryset = members_qs
-        self.fields["members"].queryset = User.objects.filter(is_active=True).order_by(
+        self.fields["members"].queryset = User.objects.filter(is_active=True, can_access_pm=True).order_by(
             "team", "first_name", "username"
         )
         self.fields["managers"].required = False
@@ -224,9 +224,9 @@ class ProjectSettingsForm(forms.ModelForm):
                 | Q(managed_projects=self.instance)
                 | Q(incharge_projects_set=self.instance)
                 | Q(created_projects=self.instance)
-            ).filter(is_active=True).distinct().order_by("first_name", "username")
+            ).filter(is_active=True, can_access_pm=True).distinct().order_by("first_name", "username")
         else:
-            members_qs = User.objects.filter(is_active=True).order_by("first_name", "username")
+            members_qs = User.objects.filter(is_active=True, can_access_pm=True).order_by("first_name", "username")
 
         self.fields["managers"].queryset = members_qs
         self.fields["incharges"].queryset = members_qs

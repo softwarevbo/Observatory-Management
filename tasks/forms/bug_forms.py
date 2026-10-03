@@ -76,14 +76,14 @@ class BugReportForm(forms.ModelForm):
             member_ids = list(target_project.members.values_list("pk", flat=True))
             member_ids.extend(target_project.managers.values_list("pk", flat=True))
             self.fields["assignees"].queryset = User.objects.filter(
-                pk__in=member_ids, is_active=True
+                pk__in=member_ids, is_active=True, can_access_pm=True
             ).order_by("first_name", "username")
             self.fields["linked_task"].queryset = Task.objects.filter(
                 project=target_project, is_in_trash=False
             ).order_by("title")
         else:
             self.fields["assignees"].queryset = User.objects.filter(
-                is_active=True
+                is_active=True, can_access_pm=True
             ).order_by("first_name")
             if user and not user.is_admin:
                 accessible = Project.objects.filter(

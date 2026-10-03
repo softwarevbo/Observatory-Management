@@ -323,6 +323,11 @@ class InventoryUser(models.Model):
         verbose_name_plural = "Inventory Users"
 
     @property
+    def canonical_role(self):
+        from accounts.rbac import get_canonical_role
+        return get_canonical_role(self)
+
+    @property
     def display_name(self):
         return self.username
 
@@ -341,6 +346,22 @@ class InventoryUser(models.Model):
     @property
     def is_staff(self):
         return self.role == "staff"
+
+    @property
+    def is_superuser(self):
+        return False
+
+    @property
+    def can_access_pm(self):
+        return False
+
+    @property
+    def can_access_telescope(self):
+        return False
+
+    @property
+    def can_access_inventory(self):
+        return True
 
     @property
     def is_authenticated(self):

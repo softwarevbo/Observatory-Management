@@ -1,0 +1,35 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ action }}{% endblock %}
+{% block nav_instruments %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-microscope" style="color:var(--accent);margin-right:8px;"></i>{{ action }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h1 class="page-title"><i class="fas fa-microscope"></i>{{ action }}</h1></div>
+    <a href="{% url 'telescope:instrument_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:800px;margin:0 auto;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">Instrument Name</label>{{ form.name }}</div>
+            <div class="form-group"><label class="form-label">Code</label>{{ form.code }}</div>
+            <div class="form-group"><label class="form-label">Type</label>{{ form.instrument_type }}</div>
+            <div class="form-group"><label class="form-label">Host Telescope</label>{{ form.telescope }}</div>
+            <div class="form-group"><label class="form-label">Status</label>{{ form.status }}</div>
+            <div class="form-group"><label class="form-label">Active Filter</label>{{ form.active_filter }}</div>
+            <div class="form-group"><label class="form-label">Detector Temp (°C)</label>{{ form.detector_temp }}</div>
+            <div class="form-group"><label class="form-label">Setpoint Temp (°C)</label>{{ form.setpoint_temp }}</div>
+            <div class="form-group"><label class="form-label">Vacuum Pressure (mbar)</label>{{ form.vacuum_pressure }}</div>
+            <div class="form-group"><label class="form-label">Cooling Power (%)</label>{{ form.cooling_power_percent }}</div>
+            <div class="form-group"><label class="form-label">Gain (e⁻/ADU)</label>{{ form.gain }}</div>
+            <div class="form-group"><label class="form-label">Binning</label>{{ form.binning }}</div>
+            <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Readout Speed</label>{{ form.readout_speed }}</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Instrument</button>
+            <a href="{% url 'telescope:instrument_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

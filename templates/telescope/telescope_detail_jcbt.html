@@ -1,0 +1,422 @@
+{% extends 'telescope/base.html' %}
+{% block title %}1.3m JCBT Control Panel — IMS Observatory{% endblock %}
+{% block nav_telescopes %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-binoculars" style="color:var(--green);margin-right:8px;"></i>1.3m JCBT Control Panel{% endblock %}
+
+{% block extra_style %}
+<style>
+/* ════════════════════════════════════════════════
+   1.3m JCBT TELESCOPE CONTROL PANEL
+   ════════════════════════════════════════════════ */
+
+.tel-page-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--border);
+}
+.tel-brand h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: var(--text-primary); margin: 0;
+    display: flex; align-items: center; gap: 10px;
+}
+.tel-brand .tel-obs {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text-muted);
+    font-weight: 400;
+}
+.tel-header-right {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.tel-status-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    border-radius: 999px;
+    padding: 5px 13px;
+}
+.pill-tracking { color: var(--cyan);   border: 1px solid rgba(6,182,212,.3);  background: var(--cyan-dim); }
+.pill-online   { color: var(--green);  border: 1px solid rgba(16,185,129,.3); background: var(--green-dim); }
+.pill-idle     { color: var(--text-muted); border: 1px solid var(--border); background: var(--bg-card); }
+.pill-maint    { color: var(--yellow); border: 1px solid rgba(245,158,11,.3); background: var(--yellow-dim); }
+.pill-fault    { color: var(--red);    border: 1px solid rgba(239,68,68,.3);  background: var(--red-dim); }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.tel-hero {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+@media (max-width: 820px) { .tel-hero { grid-template-columns: 1fr; } }
+
+.hero-readout {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--green);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+}
+.hero-readout::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(120deg, rgba(16,185,129,0.07), transparent 55%);
+    pointer-events: none;
+}
+
+.tracking-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.3px;
+}
+.tracking-label span { color: var(--text-primary); font-weight: 600; }
+
+.big-coords {
+    display: flex; gap: 40px; flex-wrap: wrap;
+    margin: 4px 0 20px 0;
+}
+.big-coord-block .coord-key {
+    font-size: 11px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 6px;
+}
+.big-coord-block .coord-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(22px, 3.5vw, 32px);
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+}
+
+.coord-sub-row {
+    display: flex; gap: 28px; flex-wrap: wrap;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.coord-sub-row .cs-k {
+    font-size: 11px; color: var(--text-muted);
+    margin-bottom: 2px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.coord-sub-row .cs-v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; color: var(--text-secondary);
+}
+
+.hero-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.mode-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--green);
+    border: 1px solid rgba(16,185,129,0.3);
+    background: var(--green-dim);
+    border-radius: 999px;
+    padding: 5px 13px;
+    width: fit-content;
+}
+.mode-badge .md { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+.action-btn {
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+}
+.action-btn:hover { border-color: var(--border-light); background: var(--bg-card-hover); color: var(--text-primary); }
+.action-btn:active { transform: translateY(1px); }
+.action-btn .ah { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+.action-btn.slew-btn  { border-color: rgba(16,185,129,.25); }
+.action-btn.slew-btn:hover  { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.action-btn.dome-btn  { border-color: rgba(245,158,11,.25); }
+.action-btn.dome-btn:hover  { border-color: var(--yellow); background: var(--yellow-dim); color: var(--yellow); }
+.action-btn.edit-btn  { border-color: rgba(16,185,129,.25); }
+.action-btn.edit-btn:hover  { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.action-btn.stop-btn  { border-color: rgba(239,68,68,.25); background: var(--red-dim); color: var(--red); }
+.action-btn.stop-btn:hover  { border-color: var(--red); background: rgba(239,68,68,.2); }
+
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+}
+@media (max-width: 1000px) { .panel-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 580px)  { .panel-grid { grid-template-columns: 1fr; } }
+
+.kv-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 16px 12px;
+}
+.kv-panel-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.kv-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.kv-row:last-child { border-bottom: none; }
+.kv-k { font-size: 12px; color: var(--text-muted); }
+.kv-v { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-primary); }
+
+.sdot { display: inline-flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.sdot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); display: inline-block; }
+.sdot.on  { color: var(--green); }
+.sdot.on::before  { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.sdot.off { color: var(--text-muted); }
+.sdot.off::before { background: var(--text-muted); }
+
+.bottom-grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; margin-bottom: 18px; }
+@media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+.log-scroll { display: flex; flex-direction: column; gap: 5px; max-height: 160px; overflow-y: auto; }
+.log-entry { display: flex; gap: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 2px 0; }
+.log-entry .lt { color: var(--text-muted); flex-shrink: 0; }
+.log-entry .lm { color: var(--text-secondary); }
+
+.inst-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; transition: var(--transition); margin-bottom: 8px; }
+.inst-item:hover { border-color: var(--green); background: var(--bg-card-hover); }
+.inst-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.inst-type { font-size: 11px; color: var(--text-muted); }
+
+.slew-section { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; display: none; }
+.slew-section.open { display: block; }
+
+.ims-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 9999; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+.ims-modal-overlay.open { display: flex; }
+.ims-modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 560px; margin: 16px; max-height: 90vh; overflow-y: auto; }
+.ims-modal-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.ims-modal-head-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.ims-modal-close { width: 28px; height: 28px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); font-size: 13px; }
+.ims-modal-body { padding: 20px 22px; }
+.ims-modal-foot { padding: 14px 22px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- PAGE HEADER -->
+<div class="tel-page-header">
+    <div class="tel-brand">
+        <h1>
+            <span class="badge badge-green">1.3m JCBT</span>
+            {{ telescope.name }}
+            <span class="tel-obs">Vainu Bappu Observatory · Kavalur</span>
+        </h1>
+    </div>
+    <div class="tel-header-right">
+        <span class="tel-status-pill {% if telescope.status == 'tracking' %}pill-tracking{% elif telescope.status == 'online' %}pill-online{% else %}pill-idle{% endif %}">
+            <span class="pill-dot"></span>
+            {{ telescope.get_status_display }}
+        </span>
+        <span class="tel-status-pill {% if telescope.dome_status == 'open' %}pill-online{% else %}pill-idle{% endif %}">
+            <i class="fas fa-{% if telescope.dome_status == 'open' %}door-open{% else %}door-closed{% endif %}"></i>
+            Dome {{ telescope.get_dome_status_display }}
+        </span>
+        {% if user.role == 'admin' or user.is_admin or user.role == 'observer' or is_assigned_observer %}
+        <a href="{% url 'telescope:telescope_edit' telescope.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-pen"></i> Edit Config</a>
+        {% endif %}
+        <a href="{% url 'telescope:telescope_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> All Telescopes</a>
+    </div>
+</div>
+
+<!-- HERO SECTION -->
+<div class="tel-hero">
+    <div class="hero-readout">
+        <div class="tracking-label">Tracking target <span>{{ telescope.right_ascension }}</span> · Epoch {{ telescope.epoch }}</div>
+        <div class="big-coords">
+            <div class="big-coord-block"><div class="coord-key">Right Ascension</div><div class="coord-val" style="color:var(--green);">{{ telescope.right_ascension }}</div></div>
+            <div class="big-coord-block"><div class="coord-key">Declination</div><div class="coord-val" style="color:var(--green);">{{ telescope.declination }}</div></div>
+        </div>
+        <div class="coord-sub-row">
+            <div><div class="cs-k">Aperture</div><div class="cs-v">1.30m</div></div>
+            <div><div class="cs-k">Focal Ratio</div><div class="cs-v">{{ telescope.focal_ratio }}</div></div>
+            <div><div class="cs-k">Mount</div><div class="cs-v">{{ telescope.get_mount_type_display }}</div></div>
+            <div><div class="cs-k">Focus</div><div class="cs-v">{{ telescope.focus_position }} mm</div></div>
+            <div><div class="cs-k">Humidity</div><div class="cs-v" style="color:{% if telescope.humidity > 75 %}var(--red){% else %}var(--green){% endif %};">{{ telescope.humidity }}%</div></div>
+        </div>
+    </div>
+
+    {% if is_assigned_observer %}
+    <div class="hero-controls">
+        <div>
+            <div class="mode-badge">
+                <span class="md"></span>
+                <span>{{ telescope.get_status_display }}</span>
+            </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button type="button" class="action-btn slew-btn" onclick="toggleSlewSection()">
+                <span><i class="fas fa-location-crosshairs" style="margin-right:8px;"></i>Slew to target</span>
+                <span class="ah">move to target</span>
+            </button>
+            <form method="post" action="{% url 'telescope:park_telescope' telescope.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="action-btn park-btn" {% if telescope.status == 'idle' %}disabled style="opacity:0.6; cursor:not-allowed;"{% endif %}>
+                    <span><i class="fas fa-parking" style="margin-right:8px; color:var(--purple);"></i>Park / Standby</span>
+                    <span class="ah">standby mode</span>
+                </button>
+            </form>
+            <form method="post" action="{% url 'telescope:stop_telescope' telescope.pk %}" id="stopFormHead" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="action-btn stop-btn" {% if telescope.status == 'idle' %}disabled style="opacity:0.45; cursor:not-allowed; pointer-events:none;"{% endif %}>
+                    <span><i class="fas fa-hand" style="margin-right:8px;"></i>Stop</span>
+                    <span class="ah">halt all motion</span>
+                </button>
+            </form>
+            <form method="post" action="{% url 'telescope:toggle_dome' telescope.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="action-btn dome-btn">
+                    <span><i class="fas fa-{% if telescope.dome_status == 'open' %}door-closed{% else %}door-open{% endif %}" style="margin-right:8px;"></i>{% if telescope.dome_status == 'open' %}Close dome{% else %}Open dome{% endif %}</span>
+                    <span class="ah">shutter control</span>
+                </button>
+            </form>
+            <button type="button" class="action-btn edit-btn" onclick="openTelemetryModal()">
+                <span><i class="fas fa-sliders" style="margin-right:8px;"></i>Edit telemetry</span>
+                <span class="ah">focus · temp · humidity</span>
+            </button>
+            <a href="{% url 'telescope:discussion_hub' %}?telescope={{ telescope.id }}" class="action-btn">
+                <span><i class="fas fa-comments" style="margin-right:8px;"></i>Open discussions</span>
+                <span class="ah">{{ discussions|length }} thread{% if discussions|length != 1 %}s{% endif %}</span>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if is_assigned_observer %}
+<div class="slew-section" id="slew-section">
+    <div class="slew-section-title" style="color:var(--green);">
+        <i class="fas fa-location-crosshairs"></i> Slew 1.3m JCBT to Target
+        <button type="button" onclick="toggleSlewSection()" style="margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer;"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'telescope:telescope_slew' telescope.pk %}" id="slewForm">
+        {% csrf_token %}
+        <div class="grid grid-2" style="gap:12px; margin-bottom:12px;">
+            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Target Name</label>{{ slew_form.target_name }}</div>
+            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Epoch</label>{{ slew_form.epoch }}</div>
+        </div>
+        <div class="grid grid-2" style="gap:12px; margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Right Ascension (RA)</label>{{ slew_form.right_ascension }}</div>
+            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Declination (DEC)</label>{{ slew_form.declination }}</div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('stopFormHead').submit();"><i class="fas fa-hand"></i> Halt Motion</button>
+            <button type="submit" class="btn btn-primary" style="background:var(--green); border-color:var(--green);"><i class="fas fa-location-crosshairs"></i> Execute Slew & Track</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- PANEL GRID -->
+<div class="panel-grid">
+    <div class="kv-panel">
+        <div class="kv-panel-title">JCBT Status</div>
+        <div class="kv-row"><span class="kv-k">Mount</span><span class="sdot {% if telescope.status == 'tracking' %}track{% elif telescope.status == 'online' %}on{% else %}off{% endif %}">{{ telescope.get_status_display }}</span></div>
+        <div class="kv-row"><span class="kv-k">Dome Shutter</span><span class="sdot {% if telescope.dome_status == 'open' %}on{% else %}off{% endif %}">{{ telescope.get_dome_status_display }}</span></div>
+        <div class="kv-row"><span class="kv-k">Epoch</span><span class="kv-v">{{ telescope.epoch }}</span></div>
+    </div>
+    <div class="kv-panel">
+        <div class="kv-panel-title">JCBT Optics</div>
+        <div class="kv-row"><span class="kv-k">Aperture</span><span class="kv-v">1.30m Primary</span></div>
+        <div class="kv-row"><span class="kv-k">Focal Ratio</span><span class="kv-v">{{ telescope.focal_ratio }}</span></div>
+        <div class="kv-row"><span class="kv-k">Mount Type</span><span class="kv-v">{{ telescope.get_mount_type_display }}</span></div>
+    </div>
+    <div class="kv-panel">
+        <div class="kv-panel-title">Environment</div>
+        <div class="kv-row"><span class="kv-k">Mirror Temp</span><span class="kv-v" style="color:var(--green);">{{ telescope.primary_mirror_temp }} °C</span></div>
+        <div class="kv-row"><span class="kv-k">Ambient Temp</span><span class="kv-v">{{ telescope.ambient_temp|default:"—" }} °C</span></div>
+        <div class="kv-row"><span class="kv-k">Humidity</span><span class="kv-v">{{ telescope.humidity }}%</span></div>
+    </div>
+    <div class="kv-panel">
+        <div class="kv-panel-title">Mounted Instruments</div>
+        {% for inst in instruments %}
+        <div class="kv-row"><span class="kv-k">{{ inst.code }}</span><span class="sdot on">{{ inst.get_status_display }}</span></div>
+        {% empty %}
+        <div style="font-size:12px; color:var(--text-muted); padding:8px 0;">No instruments registered.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- BOTTOM GRID -->
+<div class="bottom-grid">
+    <div class="kv-panel">
+        <div class="kv-panel-title">JCBT Activity Log</div>
+        <div class="log-scroll">
+            {% for log in logs %}
+            <div class="log-entry"><span class="lt">{{ log.timestamp|date:"H:i:s" }}</span><span class="lm">[{{ log.get_event_type_display }}] {{ log.message }}</span></div>
+            {% empty %}
+            <div style="font-size:12px; color:var(--text-muted); padding:10px 0;">No activity logged yet tonight.</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="kv-panel">
+        <div class="kv-panel-title">Mounted Instruments</div>
+        {% for inst in instruments %}
+        <a href="{% url 'telescope:instrument_detail' inst.pk %}" class="inst-item">
+            <div><div class="inst-name">{{ inst.code }}</div><div class="inst-type">{{ inst.get_instrument_type_display }}</div></div>
+            <span class="badge badge-green">{{ inst.get_status_display }}</span>
+        </a>
+        {% empty %}
+        <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:12px 0;">No mounted instruments.</div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if is_assigned_observer %}
+<div id="telemetryModal" class="ims-modal-overlay">
+    <div class="ims-modal">
+        <div class="ims-modal-head">
+            <div class="ims-modal-head-title" style="color:var(--green);"><i class="fas fa-sliders"></i> Edit 1.3m JCBT Telemetry</div>
+            <button class="ims-modal-close" onclick="closeTelemetryModal()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="ims-modal-body">
+            <form method="post" action="{% url 'telescope:update_telemetry' telescope.pk %}" id="modalTelemetryForm">
+                {% csrf_token %}
+                <div class="grid grid-3" style="gap:12px; margin-bottom:16px;">
+                    <div class="form-group"><label class="form-label">Focus (mm)</label><input type="number" step="0.01" name="focus_position" value="{{ telescope.focus_position }}" class="form-control"></div>
+                    <div class="form-group"><label class="form-label">Mirror Temp (°C)</label><input type="number" step="0.1" name="primary_mirror_temp" value="{{ telescope.primary_mirror_temp }}" class="form-control"></div>
+                    <div class="form-group"><label class="form-label">Humidity (%)</label><input type="number" step="0.1" name="humidity" value="{{ telescope.humidity }}" class="form-control"></div>
+                </div>
+            </form>
+        </div>
+        <div class="ims-modal-foot">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeTelemetryModal()">Cancel</button>
+            <button type="submit" form="modalTelemetryForm" class="btn btn-primary btn-sm" style="background:var(--green); border-color:var(--green);"><i class="fas fa-floppy-disk"></i> Save Changes</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openTelemetryModal() { document.getElementById('telemetryModal').classList.add('open'); }
+function closeTelemetryModal() { document.getElementById('telemetryModal').classList.remove('open'); }
+function toggleSlewSection() { document.getElementById('slew-section').classList.toggle('open'); }
+</script>
+{% endblock %}

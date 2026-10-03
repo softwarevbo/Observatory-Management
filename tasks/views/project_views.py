@@ -385,7 +385,7 @@ def project_members(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
     # Fetch active system users ordered by team and name for template regrouping
-    all_users = User.objects.filter(is_active=True).order_by("team", "first_name", "username")
+    all_users = User.objects.filter(is_active=True, can_access_pm=True).order_by("team", "first_name", "username")
     current_member_ids = set(project.members.values_list("pk", flat=True))
 
     # Process member operations (Add / Remove)

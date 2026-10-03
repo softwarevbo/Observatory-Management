@@ -1,0 +1,102 @@
+{% extends 'inventory_base.html' %}
+{% block title %}Staff Profile — IIAP IM{% endblock %}
+{% block page_title %}Inventory Staff Profile Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <!-- Profile Header Card -->
+  <div class="card border-0 shadow-sm p-4 mb-4" style="background:var(--bg-card); border-radius:14px;">
+    <div class="d-flex align-items-center gap-4 flex-wrap">
+      <div>
+        {% include 'partials/user_avatar.html' with avatar_user=profile_user size="80" radius="20px" font_size="28" %}
+      </div>
+      <div class="flex-grow-1">
+        <h3 class="fw-bold mb-1" style="color:var(--text-primary)">{{ profile_user.username }}</h3>
+        <div class="text-muted d-flex gap-3 flex-wrap" style="font-size:13px;">
+          <span><i class="fas fa-envelope text-primary me-1"></i> {{ profile_user.email|default:"No email registered" }}</span>
+          <span><i class="fas fa-shield-alt text-primary me-1"></i> Role: {{ profile_user.role|title }}</span>
+          <span><i class="fas fa-warehouse text-primary me-1"></i> Branch: {% if profile_user.branch %}{{ profile_user.branch.name }}{% else %}Global Warehouse Access{% endif %}</span>
+        </div>
+      </div>
+      <div>
+        {% if profile_user == user %}
+        <a href="{% url 'accounts:inventory_settings' %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-cog me-1"></i> Account Settings</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Metrics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm p-3" style="background:var(--bg-card); border-radius:12px;">
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-3 rounded-3" style="background:rgba(79,142,247,0.1); color:var(--accent); font-size:22px;"><i class="fas fa-sliders-h"></i></div>
+          <div>
+            <div style="font-size:24px; font-weight:700; color:var(--text-primary)">{{ stats.adjustments_count }}</div>
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Stock Adjustments Created</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm p-3" style="background:var(--bg-card); border-radius:12px;">
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-3 rounded-3" style="background:rgba(16,185,129,0.1); color:#10b981; font-size:22px;"><i class="fas fa-tools"></i></div>
+          <div>
+            <div style="font-size:24px; font-weight:700; color:var(--text-primary)">{{ stats.rentals_count }}</div>
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Tools & Equipment Rentals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Granular Permissions Matrix -->
+  <div class="card border-0 shadow-sm p-4" style="background:var(--bg-card); border-radius:14px;">
+    <h5 class="fw-bold mb-3" style="color:var(--text-primary)"><i class="fas fa-key text-primary me-2"></i>Inventory Staff Authorization Matrix</h5>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
+          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Stock Adjustments Access</div>
+          {% if profile_user.can_access_adjustments_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
+          {% if profile_user.can_manage_adjustments %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
+          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Serial Number Tracking</div>
+          {% if profile_user.can_access_serials_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
+          {% if profile_user.can_manage_serials %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
+          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Reorder Point Limits</div>
+          {% if profile_user.can_access_limits_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
+          {% if profile_user.can_manage_limits %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
+          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Rental Items & Tools</div>
+          {% if profile_user.can_access_rentals_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
+          {% if profile_user.can_manage_rentals %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
+          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Shortage Exports</div>
+          {% if profile_user.can_access_shortage_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
+          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Global Branch View</div>
+          {% if profile_user.can_view_all_branches_inventory %}<span class="badge bg-info">All Branches</span>{% else %}<span class="badge bg-secondary">Assigned Branch Only</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

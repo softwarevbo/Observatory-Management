@@ -1,0 +1,26 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ action }}{% endblock %}
+{% block nav_proposals %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-file-contract" style="color:var(--accent);margin-right:8px;"></i>{{ action }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h1 class="page-title"><i class="fas fa-file-contract"></i>{{ action }}</h1></div>
+    <a href="{% url 'telescope:proposal_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:700px;margin:0 auto;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group"><label class="form-label">Proposal Title</label>{{ form.title }}</div>
+        <div class="form-group"><label class="form-label">Scientific Abstract</label>{{ form.abstract }}</div>
+        <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">Observing Priority</label>{{ form.priority }}</div>
+            <div class="form-group"><label class="form-label">Total Time Requested (hours)</label>{{ form.total_time_hours }}</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Submit Proposal</button>
+            <a href="{% url 'telescope:proposal_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

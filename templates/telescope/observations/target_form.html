@@ -1,0 +1,103 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ action }}{% endblock %}
+{% block nav_targets %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-crosshairs" style="color:var(--accent);margin-right:8px;"></i>{{ action }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h1 class="page-title"><i class="fas fa-crosshairs"></i>{{ action }}</h1></div>
+    <a href="{% url 'telescope:target_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back to Catalog</a>
+</div>
+
+<div class="card" style="max-width:760px; margin:0 auto; padding:24px;">
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div style="background:var(--red-dim); border:1px solid rgba(239,68,68,0.4); border-radius:var(--radius-sm); padding:14px; margin-bottom:20px; font-size:13px; color:var(--red);">
+            <div style="font-weight:700; margin-bottom:6px;"><i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>Please fix the following form errors:</div>
+            <ul style="margin-left:20px; margin-bottom:0;">
+                {% for field, errors in form.errors.items %}
+                <li><strong>{{ field|title }}:</strong> {{ errors|join:", " }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-2">
+            <div class="form-group">
+                <label class="form-label">Target Name <span style="color:var(--red);">*</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.name.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Catalog ID</label>
+                {{ form.catalog_id }}
+                {% if form.catalog_id.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.catalog_id.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Object Class</label>
+                {{ form.object_class }}
+                {% if form.object_class.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.object_class.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Observation Date</label>
+                {{ form.observation_date }}
+                {% if form.observation_date.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.observation_date.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Optical Filter</label>
+                {{ form.recommended_filter }}
+                {% if form.recommended_filter.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.recommended_filter.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Coordinate Epoch</label>
+                {{ form.epoch }}
+                {% if form.epoch.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.epoch.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Right Ascension (RA)</label>
+                {{ form.right_ascension }}
+                {% if form.right_ascension.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.right_ascension.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Declination (DEC)</label>
+                {{ form.declination }}
+                {% if form.declination.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.declination.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Visual Magnitude</label>
+                {{ form.magnitude }}
+                {% if form.magnitude.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.magnitude.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Distance (light-years)</label>
+                {{ form.distance_ly }}
+                {% if form.distance_ly.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.distance_ly.errors|join:", " }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Notes &amp; Target Rationale</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<div style="color:var(--red); font-size:11px; margin-top:4px;">{{ form.notes.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Target to Catalog</button>
+                <a href="{% url 'telescope:target_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

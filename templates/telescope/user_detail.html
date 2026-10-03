@@ -1,0 +1,85 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Operator Profile — VBO Console{% endblock %}
+{% block tele_title %}Operator Profile Details{% endblock %}
+
+{% block tele_css %}
+<style>
+.profile-header-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.profile-avatar-wrapper { position: relative; }
+.profile-info { flex: 1; }
+.profile-name { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.profile-meta { font-size: 13px; color: var(--text-muted); display: flex; gap: 16px; flex-wrap: wrap; }
+
+.section-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+.section-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+
+.privilege-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.priv-box { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; align-items: center; justify-content: space-between; }
+.priv-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block tele_content %}
+<div class="profile-header-card">
+  <div class="profile-avatar-wrapper">
+    {% include 'partials/user_avatar.html' with avatar_user=profile_user size="80" radius="20px" font_size="28" %}
+  </div>
+  <div class="profile-info">
+    <div class="profile-name">{{ profile_user.display_name }}</div>
+    <div class="profile-meta">
+      <span><i class="fas fa-user-tag me-1" style="color:var(--accent)"></i> @{{ profile_user.username }}</span>
+      <span><i class="fas fa-envelope me-1" style="color:var(--accent)"></i> {{ profile_user.email|default:"No email listed" }}</span>
+      <span><i class="fas fa-shield-alt me-1" style="color:var(--accent)"></i> {% if is_tele_admin %}Telescope Administrator{% else %}Telescope Operator{% endif %}</span>
+    </div>
+  </div>
+  <div>
+    {% if profile_user == user %}
+    <a href="{% url 'accounts:telescope_settings' %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-cog me-1"></i> Profile Settings</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="section-card">
+  <div class="section-title"><i class="fas fa-satellite-dish" style="color:var(--accent)"></i> Hardware Operation Privileges</div>
+  <div class="privilege-grid">
+    <div class="priv-box">
+      <div class="priv-name"><i class="fas fa-satellite me-2" style="color:#818cf8"></i> VBT 2.3m Telescope</div>
+      {% if profile_user.can_operate_vbt %}<span class="badge bg-success">Authorized</span>{% else %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+    </div>
+    <div class="priv-box">
+      <div class="priv-name"><i class="fas fa-atom me-2" style="color:#34d399"></i> JCBT 1.3m Telescope</div>
+      {% if profile_user.can_operate_jcbt %}<span class="badge bg-success">Authorized</span>{% else %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+    </div>
+    <div class="priv-box">
+      <div class="priv-name"><i class="fas fa-adjust me-2" style="color:#fbbf24"></i> Zeiss 1.0m Telescope</div>
+      {% if profile_user.can_operate_zeiss %}<span class="badge bg-success">Authorized</span>{% else %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+    </div>
+    <div class="priv-box">
+      <div class="priv-name"><i class="fas fa-archway me-2" style="color:#f87171"></i> Dome Shutter & Motion</div>
+      {% if profile_user.can_command_dome %}<span class="badge bg-success">Authorized</span>{% else %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+    </div>
+    <div class="priv-box">
+      <div class="priv-name"><i class="fas fa-camera me-2" style="color:#c084fc"></i> CCD Science Exposure</div>
+      {% if profile_user.can_trigger_exposures %}<span class="badge bg-success">Authorized</span>{% else %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="section-card">
+  <div class="section-title"><i class="fas fa-server" style="color:var(--accent)"></i> VBO Telescope Status & Activity</div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+    {% for t in telescopes %}
+    <div style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:16px;">
+      <div style="font-weight:700; font-size:14px; color:var(--text-primary); margin-bottom:4px;">{{ t.name }}</div>
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Location: {{ t.location }}</div>
+      <div style="display:flex; justify-content:space-between; align-size:11px;">
+        <span class="badge bg-info">Status: {{ t.status|title }}</span>
+        <span class="text-muted" style="font-size:11px;">Aperture: {{ t.aperture_size }}m</span>
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-muted" style="font-size:13px;">No active telescope logs found for this session.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

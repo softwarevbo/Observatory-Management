@@ -113,6 +113,14 @@ class UserCreateForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, admin_user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if admin_user:
+            from .rbac import get_assignable_roles
+            assignable = get_assignable_roles(admin_user)
+            if assignable:
+                self.fields["role"].choices = assignable
+
     def clean_username(self):
         """
         Custom validation hook: checks if the username is unique in the database.
@@ -189,6 +197,14 @@ class UserEditForm(forms.ModelForm):
             ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, admin_user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if admin_user:
+            from .rbac import get_assignable_roles
+            assignable = get_assignable_roles(admin_user)
+            if assignable:
+                self.fields["role"].choices = assignable
 
 
 class AdminPasswordResetForm(forms.Form):

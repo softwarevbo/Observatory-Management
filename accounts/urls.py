@@ -29,14 +29,19 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     
     # ─── User Management (Admin only) ──────────────────────────────────────────
-    # Lists users depending on tab settings (Project Management, Inventory, Telescope)
     path("users/", views.user_list, name="user_list"),
+    path("users/pm/", views.user_list_pm, name="pm_user_list"),
+    path("users/telescope/", views.user_list_telescope, name="telescope_user_list"),
+    path("users/inventory/", views.user_list_inventory, name="inventory_user_list"),
     
     # Create a new PM user
     path("users/create/", views.user_create, name="user_create"),
     
     # View details of a specific user profile
     path("users/<int:pk>/", views.user_detail, name="user_detail"),
+    path("users/<int:pk>/pm/", views.pm_user_profile, name="pm_user_detail"),
+    path("users/<int:pk>/telescope/", views.telescope_user_profile, name="telescope_user_detail"),
+    path("users/<int:pk>/inventory/", views.inventory_user_profile, name="inventory_user_detail"),
     
     # Edit details of a specific user
     path("users/<int:pk>/edit/", views.user_edit, name="user_edit"),
@@ -76,6 +81,7 @@ urlpatterns = [
     # ─── Profile & Self-Service Settings ───────────────────────────────────────
     # Profile viewing dashboard (Self)
     path("profile/", views.profile_view, name="profile"),
+    path("pm/profile/", views.pm_user_profile, name="pm_profile"),
     
     # Password changing form (Self)
     path("change-password/", views.change_password, name="change_password"),
@@ -84,8 +90,8 @@ urlpatterns = [
     path("settings/", views.settings_view, name="settings"),
     
     # Specialized profile pages and settings for sub-app portals
-    path("inventory/profile/", views.inventory_profile_view, name="inventory_profile"),
+    path("inventory/profile/", views.inventory_user_profile, name="inventory_profile"),
     path("inventory/settings/", views.inventory_settings_view, name="inventory_settings"),
-    path("telescope/profile/", views.telescope_profile_view, name="telescope_profile"),
+    path("telescope/profile/", views.telescope_user_profile, name="telescope_profile"),
     path("telescope/settings/", views.telescope_settings_view, name="telescope_settings"),
 ]

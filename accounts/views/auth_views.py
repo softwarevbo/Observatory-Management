@@ -1,112 +1,218 @@
 from django.contrib import messages
-from django.contrib.auth import login, logout, update_session_auth_hash
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
+
 from ..forms import LoginForm, UserSelfPasswordChangeForm
+from ..rbac import (
+    can_login_to_module,
+    get_canonical_role,
+    get_default_redirect_for_role,
+    has_permission,
+    PERMISSION_INVENTORY_ACCESS,
+    PERMISSION_PROJECT_ACCESS,
+    PERMISSION_TELESCOPE_ACCESS,
+)
 
 """
-This module handles authentication views for the system.
-It supports:
-1. Standard Project Management (PM) user login with active checks.
-2. Separate Inventory portal credentials authentication utilizing the `InventoryUser` model.
-3. Telescope Control portal authentications.
-4. Global session logouts and self password updates.
+Authentication views enforcing module-based role isolation.
+Entry points:
+1. Project Management Login: ROOT, PM_ADMIN, PM_MEMBER.
+2. Telescope Management Login: ROOT, TM_ADMIN, TM_MEMBER.
+3. Inventory Management Login: ROOT, IM_ADMIN, IM_MEMBER.
 """
+
 
 @never_cache
 def login_view(request):
     """
-    Handles standard user login.
-    Using `@never_cache` ensures that the login page and response are never cached by the browser,
-    preventing security leaks when users log out and press back.
+    Handles Project Management Login.
+    Allowed roles: ROOT, PM_ADMIN, PM_MEMBER.
+    Denied roles: TM_ADMIN, TM_MEMBER, IM_ADMIN, IM_MEMBER.
     """
-    # If the user is already logged in, redirect them immediately to their designated portal
     if request.user.is_authenticated:
-        if not request.user.is_superuser and not getattr(request.user, "is_admin", False) and not getattr(request.user, "can_access_pm", False) and getattr(request.user, "can_access_telescope", False):
-            return redirect(reverse("telescope:dashboard"))
-        return redirect(reverse("tasks:dashboard"))
-    
-    # Initialize the custom login form with POST data if present, otherwise None
+        redirect_url = get_default_redirect_for_role(request.user)
+        return redirect(redirect_url)
+
     form = LoginForm(request, data=request.POST or None)
-    
+
     if request.method == "POST":
         if form.is_valid():
-            # Retrieve the authenticated user instance from the form
             user = form.get_user()
-            
-            # Assert that the user account status is Active
+
             if not user.is_active:
                 messages.error(
                     request,
                     "Your account has been deactivated. Contact the administrator.",
                 )
                 return render(request, "accounts/login.html", {"form": form})
-            
-            # Assert that the user has general Project Management access rights
-            if not user.is_admin and not user.can_access_pm:
+
+            # Check Project Management Login Restriction
+            if not can_login_to_module(user, "project"):
                 messages.error(
                     request,
-                    "Access Denied: You do not have permission to access the Project Management System.",
+                    "Access Denied: Your role does not have permission to access Project Management.",
                 )
                 return render(request, "accounts/login.html", {"form": form})
-            
-            # Log the user into the current session. Django updates session tokens behind the scenes.
+
             login(request, user)
-            
-            # If there was a leftovers inventory session ID in the browser, clean it up
+
             if "inv_user_id" in request.session:
                 del request.session["inv_user_id"]
-                
+
             messages.success(request, f"Welcome back, {user.display_name}!")
-            
-            # Handle post-login redirection if 'next' parameter is provided (e.g. from redirecting deep-link URLs)
+
             next_url = request.POST.get("next") or request.GET.get("next", "")
-            if next_url:
+            if next_url and next_url.startswith("/"):
                 return redirect(next_url)
             return redirect(reverse("tasks:dashboard"))
-        
-        # Display an error message if form validation fails
+
         messages.error(request, "Invalid username or password.")
-        
+
     return render(request, "accounts/login.html", {"form": form})
+
+
+@never_cache
+def telescope_login(request):
+    """
+    Handles Telescope Management Login.
+    Allowed roles: ROOT, TM_ADMIN, TM_MEMBER.
+    Denied roles: PM_ADMIN, PM_MEMBER, IM_ADMIN, IM_MEMBER.
+    Authenticates standard User model AND custom TelescopeUser model.
+    """
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "").strip()
+
+        # 1. First attempt authenticating via standard Django User model
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            if not user.is_active:
+                messages.error(
+                    request,
+                    "Your account has been deactivated. Contact the administrator.",
+                )
+                return redirect("accounts:login")
+
+            # Check Telescope Management Login Restriction
+            if not can_login_to_module(user, "telescope"):
+                messages.error(
+                    request,
+                    "Access Denied: Your role does not have permission to access Telescope Management.",
+                )
+                return redirect("accounts:login")
+
+            login(request, user)
+
+            if "inv_user_id" in request.session:
+                del request.session["inv_user_id"]
+            if "tele_user_id" in request.session:
+                del request.session["tele_user_id"]
+
+            messages.success(
+                request, f"Welcome to the Telescope Control System, {user.display_name}!"
+            )
+            next_url = request.POST.get("next") or request.GET.get("next", "")
+            if next_url and next_url.startswith("/"):
+                return redirect(next_url)
+            return redirect("/telescopecontrol/")
+
+        # 2. Next attempt authenticating via custom TelescopeUser model
+        try:
+            from telescope.models import TelescopeUser
+
+            tele_user = TelescopeUser.objects.get(username=username)
+
+            if tele_user.check_password(password) and tele_user.is_active:
+                logout(request)
+                request.session["tele_user_id"] = tele_user.id
+                messages.success(
+                    request, f"Welcome to the Telescope Control System, {tele_user.username}!"
+                )
+                next_url = request.POST.get("next") or request.GET.get("next", "")
+                if next_url and next_url.startswith("/"):
+                    return redirect(next_url)
+                return redirect("/telescopecontrol/")
+
+            messages.error(
+                request, "Invalid telescope credentials or inactive account."
+            )
+        except Exception:
+            messages.error(request, "Invalid username or password for Telescope Management.")
+
+    return redirect("accounts:login")
 
 
 @never_cache
 def inventory_login(request):
     """
-    Handles separate authentication for Inventory-only users.
-    Inventory users are not stored in standard User table; they are verified 
-    against the custom `InventoryUser` model. We set `inv_user_id` in session 
-    to track authorization.
+    Handles Inventory Management Login.
+    Allowed roles: ROOT, IM_ADMIN, IM_MEMBER.
+    Denied roles: PM_ADMIN, PM_MEMBER, TM_ADMIN, TM_MEMBER.
+    Authenticates standard User model AND custom InventoryUser model.
     """
     if request.method == "POST":
-        username, password = request.POST.get("username"), request.POST.get("password")
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "").strip()
+
+        # 1. First attempt authenticating via standard Django User model
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            if not user.is_active:
+                messages.error(
+                    request,
+                    "Your account has been deactivated. Contact the administrator.",
+                )
+                return render(request, "accounts/login.html", {"form": LoginForm(request)})
+
+            if not can_login_to_module(user, "inventory"):
+                messages.error(
+                    request,
+                    "Access Denied: Your role does not have permission to access Inventory Management.",
+                )
+                return render(request, "accounts/login.html", {"form": LoginForm(request)})
+
+            login(request, user)
+            if "inv_user_id" in request.session:
+                del request.session["inv_user_id"]
+
+            messages.success(request, f"Welcome back, {user.display_name}!")
+            next_url = request.POST.get("next") or request.GET.get("next", "")
+            if next_url and next_url.startswith("/"):
+                return redirect(next_url)
+            return redirect("/inventorymanagement/dashboard/")
+
+        # 2. Next attempt authenticating via custom InventoryUser model
         try:
             from inventory.models import InventoryUser
 
-            # Fetch the matching inventory user
-            user = InventoryUser.objects.get(username=username)
-            
-            # Validate password and active status
-            if user.check_password(password) and user.is_active:
-                # Log out any currently logged-in standard PM user to prevent mixed authorization states
+            inv_user = InventoryUser.objects.get(username=username)
+
+            if inv_user.check_password(password) and inv_user.is_active:
+                if not can_login_to_module(inv_user, "inventory"):
+                    messages.error(
+                        request,
+                        "Access Denied: Your role does not have permission to access Inventory Management.",
+                    )
+                    return render(
+                        request, "accounts/login.html", {"form": LoginForm(request)}
+                    )
+
                 logout(request)
-                
-                # Store the custom inventory user ID in session storage
-                request.session["inv_user_id"] = user.id
-                messages.success(request, f"Welcome back, {user.username}!")
-                return redirect("/inventory/dashboard/")
-            
+                request.session["inv_user_id"] = inv_user.id
+                messages.success(request, f"Welcome back, {inv_user.username}!")
+                return redirect("/inventorymanagement/dashboard/")
+
             messages.error(
                 request, "Invalid inventory credentials or inactive account."
             )
         except Exception:
             messages.error(request, "Invalid inventory credentials.")
-            
+
         return render(request, "accounts/login.html", {"form": LoginForm(request)})
-    
-    # Redirect GET requests to the standard login page
+
     return redirect("accounts:login")
 
 
@@ -115,23 +221,20 @@ def logout_view(request):
     Logs out the user and flushes their active session entirely.
     """
     name = getattr(request.user, "display_name", "")
-    
-    # Check if this logout originates from an inventory session
+
     if "inv_user_id" in request.session:
         try:
             from inventory.models import InventoryUser
+
             inv_user = InventoryUser.objects.get(id=request.session["inv_user_id"])
             if not name:
                 name = inv_user.username
         except Exception:
             pass
-            
-    # Flush destroys all session cookies and data inside backend session store
+
     request.session.flush()
-    
-    # Triggers Django logout to remove user reference from session context
     logout(request)
-    
+
     messages.info(
         request,
         (
@@ -146,54 +249,15 @@ def logout_view(request):
 def change_password(request):
     """
     Allows a logged-in user to modify their own password.
-    Requires inputting current password for security verification.
     """
     form = UserSelfPasswordChangeForm(user=request.user, data=request.POST or None)
     if request.method == "POST":
         if form.is_valid():
-            # Update password and save changes
             request.user.set_password(form.cleaned_data["new_password1"])
             request.user.save()
-            
-            # IMPORTANT: Updating password invalidates the session hash which causes log out.
-            # update_session_auth_hash keeps the user logged in after their password is changed.
             update_session_auth_hash(request, request.user)
-            
             messages.success(request, "✅ Your password has been changed successfully.")
             return redirect("accounts:profile")
-        
+
         messages.error(request, "Please fix the errors below.")
     return render(request, "accounts/change_password.html", {"form": form})
-
-
-@never_cache
-def telescope_login(request):
-    """
-    Handles user login specifically for the Telescope Control portal.
-    Authenticates standard User, but verifies they have explicit telescope access rights.
-    """
-    if request.method == "POST":
-        from django.contrib.auth import authenticate
-        
-        username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "").strip()
-        
-        # Authenticate checks credentials against database records
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            if not user.is_active:
-                messages.error(request, "Your account has been deactivated. Contact the administrator.")
-                return redirect("accounts:login")
-            
-            # Verify authorization access rights to the telescope module
-            if not user.is_admin and not user.can_access_telescope:
-                messages.error(request, "Access Denied: You do not have permission to access the Telescope Control System.")
-                return redirect("accounts:login")
-            
-            login(request, user)
-            messages.success(request, f"Welcome to the Telescope Control System, {user.display_name}!")
-            return redirect("/telescope/")
-        
-        messages.error(request, "Invalid username or password.")
-        
-    return redirect("accounts:login")

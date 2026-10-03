@@ -1,0 +1,118 @@
+{% extends 'telescope/base.html' %}
+{% block title %}Science Queue{% endblock %}
+{% block nav_queue %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-layer-group" style="color:var(--accent);margin-right:8px;"></i>Science Observation Queue{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-layer-group"></i>Science Queue</h1>
+        <p class="page-subtitle">VBO observation queue items with target, instrument, filter, and date tracking</p>
+    </div>
+    <a href="{% url 'telescope:queue_add' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Add to Queue</a>
+</div>
+
+<!-- Queue Filter Bar -->
+<div class="card" style="margin-bottom:20px; padding:16px;">
+    <form method="get" action="{% url 'telescope:queue' %}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Search Target / Proposal</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Target or proposal keyword..." class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:160px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Telescope</label>
+            <select name="telescope" class="form-select" style="font-size:13px;">
+                <option value="">All VBO Telescopes</option>
+                {% for t in telescopes %}
+                <option value="{{ t.id }}" {% if selected_telescope == t.id|stringformat:"s" %}selected{% endif %}>{{ t.code }} - {{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:140px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Filter</label>
+            <input type="text" name="filter_name" value="{{ selected_filter }}" placeholder="e.g. V, B, R" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Status</label>
+            <select name="status" class="form-select" style="font-size:13px;">
+                <option value="">All Statuses</option>
+                {% for code, label in status_choices %}
+                <option value="{{ code }}" {% if selected_status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter"></i> Filter</button>
+            <a href="{% url 'telescope:queue' %}" class="btn btn-secondary btn-sm"><i class="fas fa-undo"></i> Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Target</th>
+                <th>Obs. Date</th>
+                <th>Telescope</th>
+                <th>Instrument</th>
+                <th>Filter</th>
+                <th>Exp. (s)</th>
+                <th>Frames</th>
+                <th>Status</th>
+                {% if user.is_admin %}<th>Actions</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in queue_items %}
+            <tr>
+                <td class="mono" style="color:var(--accent);">{{ item.queue_order }}</td>
+                <td>
+                    <div style="font-weight:600;color:var(--text-primary);">{{ item.target.name }}</div>
+                    <div style="font-size:11px;color:var(--text-muted);">{{ item.target.get_object_class_display }} | {{ item.proposal.title|truncatechars:25 }}</div>
+                </td>
+                <td class="mono" style="color:var(--accent); font-size:12px;">
+                    {% if item.target.observation_date %}
+                        <i class="fas fa-calendar-alt" style="margin-right:4px;"></i>{{ item.target.observation_date|date:"Y-m-d" }}
+                    {% else %}
+                        {{ item.created_at|date:"Y-m-d" }}
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-blue">{{ item.telescope.code }}</span></td>
+                <td><span class="badge badge-purple">{{ item.instrument.code }}</span></td>
+                <td class="mono" style="color:var(--yellow);"><i class="fas fa-filter" style="margin-right:4px;font-size:10px;"></i>{{ item.filter_name }}</td>
+                <td class="mono">{{ item.exposure_time }}s</td>
+                <td class="mono">× {{ item.number_of_frames }}</td>
+                <td>
+                    <span class="badge
+                        {% if item.queue_status == 'executing' %}badge-cyan
+                        {% elif item.queue_status == 'completed' %}badge-green
+                        {% elif item.queue_status == 'aborted' %}badge-red
+                        {% elif item.queue_status == 'paused' %}badge-yellow
+                        {% else %}badge-blue{% endif %}">
+                        <span class="status-dot dot-{% if item.queue_status == 'executing' %}tracking{% elif item.queue_status == 'completed' %}online{% else %}idle{% endif %}" style="margin-right:0;"></span>
+                        {{ item.get_queue_status_display }}
+                    </span>
+                </td>
+                {% if user.is_admin %}
+                <td style="display:flex;gap:5px;">
+                    {% if item.queue_status == 'queued' %}
+                    <form method="post" action="{% url 'telescope:queue_execute' item.pk %}">{% csrf_token %}<button type="submit" class="btn btn-success btn-xs" title="Start Run"><i class="fas fa-play"></i></button></form>
+                    {% elif item.queue_status == 'executing' %}
+                    <form method="post" action="{% url 'telescope:queue_complete' item.pk %}">{% csrf_token %}<button type="submit" class="btn btn-primary btn-xs" title="Complete Run"><i class="fas fa-check"></i></button></form>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:32px;">No queue items match filter criteria. <a href="{% url 'telescope:queue' %}" style="color:var(--accent);">Reset filters →</a></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

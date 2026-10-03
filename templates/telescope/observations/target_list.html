@@ -1,0 +1,110 @@
+{% extends 'telescope/base.html' %}
+{% block title %}VBO Target Catalog{% endblock %}
+{% block nav_targets %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-crosshairs" style="color:var(--accent);margin-right:8px;"></i>VBO Astronomical Target Catalog{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-crosshairs"></i>VBO Target Catalog</h1>
+        <p class="page-subtitle">Vainu Bappu Observatory targets, dates, filters, and celestial coordinates</p>
+    </div>
+    <a href="{% url 'telescope:target_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Target</a>
+</div>
+
+<!-- Filter Toolbar -->
+<div class="card" style="margin-bottom:20px; padding:16px;">
+    <form method="get" action="{% url 'telescope:target_list' %}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Search Target / Catalog ID</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="e.g. Andromeda, M42, HD..." class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:160px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Object Class</label>
+            <select name="object_class" class="form-select" style="font-size:13px;">
+                <option value="">All Classes</option>
+                {% for code, name in object_choices %}
+                <option value="{{ code }}" {% if selected_object_class == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="width:160px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Optical Filter</label>
+            <input type="text" name="filter_name" value="{{ selected_filter }}" placeholder="e.g. V, B, H-alpha" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Obs. Date From</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="width:150px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Obs. Date To</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="font-size:13px;">
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter"></i> Apply Filters</button>
+            <a href="{% url 'telescope:target_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-undo"></i> Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Target Name</th>
+                <th>Catalog ID</th>
+                <th>Class</th>
+                <th>Obs. Date</th>
+                <th>Filter</th>
+                <th>RA (J2000)</th>
+                <th>DEC (J2000)</th>
+                <th>Mag</th>
+                <th>Distance (ly)</th>
+                <th style="text-align:center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for target in targets %}
+            <tr>
+                <td style="font-weight:600;color:var(--text-primary);">
+                    {{ target.name }}
+                    {% if target.epoch %}<span style="font-size:10px; color:var(--text-muted); margin-left:4px;">({{ target.epoch }})</span>{% endif %}
+                </td>
+                <td class="mono">{{ target.catalog_id|default:"—" }}</td>
+                <td><span class="badge badge-purple">{{ target.get_object_class_display }}</span></td>
+                <td class="mono" style="color:var(--accent); font-size:11px; line-height:1.4;">
+                    <div>{% if target.observation_date %}<i class="fas fa-calendar-alt" style="margin-right:4px;"></i>{{ target.observation_date|date:"Y-m-d" }}{% else %}—{% endif %}</div>
+                    <div style="color:var(--text-muted); font-size:10px;"><i class="fas fa-clock" style="margin-right:3px;"></i>{{ target.created_at|date:"Y-m-d H:i" }}</div>
+                </td>
+                <td><span class="badge badge-yellow"><i class="fas fa-filter" style="margin-right:4px;font-size:10px;"></i>{{ target.recommended_filter|default:"V (550nm)" }}</span></td>
+                <td class="mono" style="color:var(--cyan);">{{ target.right_ascension }}</td>
+                <td class="mono" style="color:var(--cyan);">{{ target.declination }}</td>
+                <td class="mono">{% if target.magnitude %}{{ target.magnitude }}{% else %}—{% endif %}</td>
+                <td class="mono">{% if target.distance_ly %}{{ target.distance_ly|floatformat:0 }}{% else %}—{% endif %}</td>
+                <td style="text-align:center; white-space:nowrap;">
+                    <a href="{% url 'telescope:target_detail' target.pk %}" class="btn btn-primary btn-sm" style="padding:4px 8px; font-size:12px; margin-right:4px;" title="View Target Details">
+                        <i class="fas fa-eye"></i> View
+                    </a>
+                    <a href="{% url 'telescope:target_edit' target.pk %}" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:12px; margin-right:4px;" title="Edit Target">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <form method="post" action="{% url 'telescope:target_delete' target.pk %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete target {{ target.name|escapejs }}?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm" style="padding:4px 8px; font-size:12px; background:rgba(239, 68, 68, 0.15); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3);" title="Delete Target">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:32px;">No targets match the filter criteria. <a href="{% url 'telescope:target_list' %}" style="color:var(--accent);">Reset filters →</a></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

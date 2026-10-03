@@ -1,0 +1,70 @@
+{% extends 'telescope/base.html' %}
+{% block title %}{{ proposal.title }}{% endblock %}
+{% block nav_proposals %}active{% endblock %}
+{% block topbar_title %}<i class="fas fa-file-contract" style="color:var(--accent);margin-right:8px;"></i>Proposal Detail{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-file-contract"></i>{{ proposal.title }}</h1>
+        <p class="page-subtitle">PI: {{ proposal.pi.display_name }} · Submitted {{ proposal.submitted_at|date:"N j, Y" }}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'telescope:proposal_list' %}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
+</div>
+
+<div class="grid grid-2" style="gap:20px;">
+    <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-info-circle"></i>Proposal Details</div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Status</div>
+                <span class="badge {% if proposal.status == 'approved' %}badge-green{% elif proposal.status == 'rejected' %}badge-red{% elif proposal.status == 'completed' %}badge-cyan{% else %}badge-yellow{% endif %}" style="font-size:13px;padding:5px 12px;">{{ proposal.get_status_display }}</span>
+            </div>
+            <div style="padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Priority</div>
+                <div style="font-weight:600;color:var(--text-primary);">{{ proposal.get_priority_display }}</div>
+            </div>
+            <div style="padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Requested Time</div>
+                <div class="mono" style="font-size:18px;font-weight:700;color:var(--accent);">{{ proposal.total_time_hours }} hours</div>
+            </div>
+            {% if proposal.reviewed_by %}
+            <div style="padding:10px;background:var(--bg-primary);border-radius:var(--radius-sm);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Reviewed By</div>
+                <div style="font-weight:600;color:var(--text-primary);">{{ proposal.reviewed_by.display_name }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-align-left"></i>Scientific Abstract</div></div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;padding:4px 0;">{{ proposal.abstract }}</div>
+        {% if proposal.review_notes %}
+        <div style="margin-top:16px;padding:12px;background:var(--bg-primary);border-radius:var(--radius-sm);border-left:3px solid var(--accent);">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Review Notes</div>
+            <div style="font-size:13px;color:var(--text-secondary);">{{ proposal.review_notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if user.is_admin and proposal.status == 'pending' %}
+<div class="card" style="margin-top:20px;">
+    <div class="card-header"><div class="card-title"><i class="fas fa-gavel"></i>Review Decision</div></div>
+    <form method="post" action="{% url 'telescope:proposal_review' proposal.pk %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label class="form-label">Review Notes</label>
+            <textarea name="review_notes" class="form-control" rows="3" placeholder="Add optional review notes or feedback..."></textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button type="submit" name="decision" value="approved" class="btn btn-success"><i class="fas fa-check"></i> Approve Proposal</button>
+            <button type="submit" name="decision" value="rejected" class="btn btn-danger"><i class="fas fa-times"></i> Reject Proposal</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

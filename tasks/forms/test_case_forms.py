@@ -46,7 +46,7 @@ class TestCaseForm(forms.ModelForm):
             
             member_ids = list(project.members.values_list("pk", flat=True))
             member_ids.extend(project.managers.values_list("pk", flat=True))
-            self.fields["assigned_members"].queryset = User.objects.filter(pk__in=member_ids, is_active=True).order_by("first_name")
+            self.fields["assigned_members"].queryset = User.objects.filter(pk__in=member_ids, is_active=True, can_access_pm=True).order_by("first_name")
         else:
             # Dynamic filtering based on selected project
             curr_project_id = self.data.get(self.add_prefix("project")) or (self.instance.project_id if self.instance.pk else None)
@@ -57,7 +57,7 @@ class TestCaseForm(forms.ModelForm):
                     self.fields["task"].queryset = Task.objects.filter(project=curr_project, is_in_trash=False).order_by("title")
                     member_ids = list(curr_project.members.values_list("pk", flat=True))
                     member_ids.extend(curr_project.managers.values_list("pk", flat=True))
-                    self.fields["assigned_members"].queryset = User.objects.filter(pk__in=member_ids, is_active=True).order_by("first_name")
+                    self.fields["assigned_members"].queryset = User.objects.filter(pk__in=member_ids, is_active=True, can_access_pm=True).order_by("first_name")
                 except:
                     self.fields["task"].queryset = Task.objects.none()
                     self.fields["assigned_members"].queryset = User.objects.none()
