@@ -1,1 +1,619 @@
-{% extends 'telescope/observations/unified_log.html' %}
+{% extends 'telescope/base.html' %}
+
+{% block title %}Unified Log - 2.3m VBT{% endblock %}
+{% block topbar_title %}2.3m VBT Unified Log{% endblock %}
+{% block nav_unified_log %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UNIFIED LOG VBT — BASE GUI DESIGN SYSTEM INTEGRATION
+   ═══════════════════════════════════════════════════════════════ */
+
+.log-tabbar {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  gap: 6px !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 6px 10px !important;
+  margin-bottom: 24px !important;
+  box-shadow: var(--shadow-sm) !important;
+  width: 100% !important;
+}
+
+.log-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 16px !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  transition: var(--transition) !important;
+  border: 1px solid transparent !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+}
+
+.log-tab:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-card-hover) !important;
+}
+
+.log-tab.active-vbt {
+  color: var(--accent) !important;
+  background: var(--accent-glow) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.log-badge {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 2px 7px !important;
+  border-radius: 10px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.log-tab.active-vbt .log-badge {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+/* Telescope Main Container */
+.tel-container {
+  padding-bottom: 80px;
+}
+.tel-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+.tel-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tel-banner-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.tel-date-picker {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: var(--transition);
+}
+.tel-date-picker:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Form Sections */
+.form-sec {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.form-sec-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.form-sec-hdr:hover { background: var(--bg-card-hover); }
+.form-sec-hdr i { color: var(--accent); font-size: 15px; }
+.form-sec-chev { margin-left: auto; color: var(--text-muted); font-size: 12px; transition: var(--transition); }
+.form-sec.collapsed .form-sec-chev { transform: rotate(-90deg); }
+.form-sec.collapsed .form-sec-body { display: none; }
+.form-sec-body { padding: 18px 20px; }
+
+/* Form Controls */
+.form-control, .form-select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  width: 100%;
+  transition: var(--transition);
+  font-family: 'Inter', sans-serif;
+}
+.form-control:focus, .form-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: var(--bg-primary);
+}
+.form-control[readonly] {
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  cursor: default;
+}
+.form-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: block;
+}
+.frow-rel { position: relative; }
+
+/* Sky grid */
+.sky-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 900px) { .sky-grid { grid-template-columns: repeat(2, 1fr); } }
+.sky-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+}
+.sky-card-hdr {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  text-align: center;
+}
+.sky-card textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 8px 10px;
+  resize: vertical;
+  height: 65px;
+  outline: none;
+  line-height: 1.5;
+}
+
+/* Domes */
+.dome-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 900px) { .dome-grid { grid-template-columns: repeat(2, 1fr); } }
+.dome-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dome-lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); }
+.dome-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  padding: 8px 0; width: 100%; text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer; color: var(--text-muted);
+  background: var(--bg-secondary);
+  transition: var(--transition);
+  user-select: none;
+}
+.dome-btn.open { background: var(--green-dim); border-color: rgba(16,185,129,0.4); color: var(--green); }
+.dome-btn.closed { background: var(--red-dim); border-color: rgba(239,68,68,0.4); color: var(--red); }
+.dome-note {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--text-secondary);
+  padding: 4px 6px; width: 100%; outline: none; text-align: center;
+}
+
+/* Save bar */
+.save-bar {
+  position: fixed; bottom: 0; left: var(--sidebar-width); right: 0;
+  background: var(--bg-secondary);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  padding: 12px 28px;
+  display: flex; align-items: center; gap: 12px;
+  z-index: 90; box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+}
+
+.mic-btn {
+  position: absolute; right: 8px; bottom: 8px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-primary); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: var(--transition);
+  color: var(--text-muted); font-size: 12px; z-index: 10;
+}
+.mic-btn:hover { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+.mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); animation: pulse 1s infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if show_tabbar %}
+<!-- LOG TABBAR -->
+<div class="log-tabbar">
+  {% if can_access_overview %}
+  <a href="{% url 'telescope:unified_log' 'overview' %}" class="log-tab" id="tab-overview"><i class="fas fa-chart-pie"></i> Overview</a>
+  {% endif %}
+  {% if can_access_vbt %}
+  <a href="{% url 'telescope:unified_log' 'vbt' %}" class="log-tab active-vbt" id="tab-vbt"><i class="fas fa-binoculars"></i> 2.3m VBT <span class="log-badge" id="vbt-thr">—</span></a>
+  {% endif %}
+  {% if can_access_jcbt %}
+  <a href="{% url 'telescope:unified_log' 'jcbt' %}" class="log-tab" id="tab-jcbt"><i class="fas fa-binoculars"></i> 1.3m JCBT <span class="log-badge" id="jcbt-thr">—</span></a>
+  {% endif %}
+  {% if can_access_czt %}
+  <a href="{% url 'telescope:unified_log' 'czt' %}" class="log-tab" id="tab-czt"><i class="fas fa-binoculars"></i> 1.0m CZT <span class="log-badge" id="czt-thr">—</span></a>
+  {% endif %}
+  {% if can_access_report %}
+  <a href="{% url 'telescope:unified_log' 'report' %}" class="log-tab" id="tab-report"><i class="fas fa-file-alt"></i> Monthly Report <span class="log-badge" id="report-thr">0 nights</span></a>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+    if (typeof window !== 'undefined') {
+        const serverLogs = {{ logs_json|safe }};
+        for (const key in serverLogs) {
+            localStorage.setItem(key, JSON.stringify(serverLogs[key]));
+        }
+    }
+</script>
+
+<div class="tel-container">
+  <!-- Banner -->
+  <div class="tel-banner">
+    <div class="tel-banner-left">
+      <span class="badge badge-blue">2.3m VBT</span>
+      <span class="tel-banner-title">Vainu Bappu Telescope Log</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Night Date:</span>
+      <input type="date" id="dpick" class="tel-date-picker" onchange="loadFromPick()">
+    </div>
+  </div>
+
+  <!-- Section 1 -->
+  <div class="form-sec">
+    <div class="form-sec-hdr" onclick="toggleSec(this)">
+      <i class="fas fa-users"></i> Observing Team &amp; Program Details
+      <i class="fas fa-chevron-down form-sec-chev"></i>
+    </div>
+    <div class="form-sec-body">
+      <div class="grid grid-3" style="margin-bottom: 14px;">
+        <div>
+          <label class="form-label">Observing Mode</label>
+          <input id="vbt-mode" type="text" class="form-control" placeholder="e.g. Queue Mode">
+        </div>
+        <div>
+          <label class="form-label">Comm No.</label>
+          <input id="vbt-commno" type="text" class="form-control" placeholder="e.g. 84">
+        </div>
+        <div>
+          <label class="form-label">Date (YYYY-MM-DD)</label>
+          <input id="vbt-obsdate" type="text" class="form-control" readonly>
+        </div>
+      </div>
+      <div class="form-group frow-rel">
+        <label class="form-label">Team Members / Observers</label>
+        <textarea id="vbt-team" class="form-control" rows="2" placeholder="Names of observers on duty…"></textarea>
+        <button class="mic-btn" type="button" onclick="startMic('vbt-team')" title="Speak">🎙</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Instrument(s) Used</label>
+        <input id="vbt-instrument" type="text" class="form-control" placeholder="e.g. Echelle + 4k×4k CCD Blue">
+      </div>
+      <div class="form-group frow-rel" style="margin-bottom:0;">
+        <label class="form-label">Observational Program(s) — Proposal ID &amp; PI</label>
+        <textarea id="vbt-programs" class="form-control" rows="2" placeholder="e.g. VBT-2026-C1-P8 (PI Name)"></textarea>
+        <button class="mic-btn" type="button" onclick="startMic('vbt-programs')" title="Speak">🎙</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2 -->
+  <div class="form-sec">
+    <div class="form-sec-hdr" onclick="toggleSec(this)">
+      <i class="fas fa-cloud-sun"></i> Sky Conditions (IST)
+      <i class="fas fa-chevron-down form-sec-chev"></i>
+    </div>
+    <div class="form-sec-body">
+      <div class="sky-grid">
+        <div class="sky-card"><div class="sky-card-hdr">18:00 – 21:00</div><textarea id="vbt-sky1" placeholder="Conditions…"></textarea><button class="mic-btn" type="button" onclick="startMic('vbt-sky1')">🎙</button></div>
+        <div class="sky-card"><div class="sky-card-hdr">21:00 – 00:00</div><textarea id="vbt-sky2" placeholder="Conditions…"></textarea><button class="mic-btn" type="button" onclick="startMic('vbt-sky2')">🎙</button></div>
+        <div class="sky-card"><div class="sky-card-hdr">00:00 – 03:00</div><textarea id="vbt-sky3" placeholder="Conditions…"></textarea><button class="mic-btn" type="button" onclick="startMic('vbt-sky3')">🎙</button></div>
+        <div class="sky-card"><div class="sky-card-hdr">03:00 – 06:00</div><textarea id="vbt-sky4" placeholder="Conditions…"></textarea><button class="mic-btn" type="button" onclick="startMic('vbt-sky4')">🎙</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3 -->
+  <div class="form-sec">
+    <div class="form-sec-hdr" onclick="toggleSec(this)">
+      <i class="fas fa-door-open"></i> Dome Shutter Status
+      <i class="fas fa-chevron-down form-sec-chev"></i>
+    </div>
+    <div class="form-sec-body">
+      <div class="dome-grid" id="vbt-domes"></div>
+    </div>
+  </div>
+
+  <!-- Section 4 -->
+  <div class="form-sec">
+    <div class="form-sec-hdr" onclick="toggleSec(this)">
+      <i class="fas fa-star"></i> Objects Observed
+      <i class="fas fa-chevron-down form-sec-chev"></i>
+    </div>
+    <div class="form-sec-body">
+      <div class="form-group frow-rel" style="margin-bottom:0;">
+        <label class="form-label">Target List &amp; Coordinates</label>
+        <textarea id="vbt-objects" class="form-control" rows="4" placeholder="Object list for tonight's run…"></textarea>
+        <button class="mic-btn" type="button" onclick="startMic('vbt-objects')">🎙</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 5 -->
+  <div class="form-sec">
+    <div class="form-sec-hdr" onclick="toggleSec(this)">
+      <i class="fas fa-stopwatch"></i> Hours Summary &amp; Performance
+      <i class="fas fa-chevron-down form-sec-chev"></i>
+    </div>
+    <div class="form-sec-body">
+      <div class="grid grid-2">
+        <div>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Category</th><th style="width:110px">Hours</th></tr></thead>
+              <tbody>
+                <tr><td>Spectroscopic</td><td><input type="number" id="vbt-spec" class="form-control mono" step="0.5" min="0" placeholder="0"></td></tr>
+                <tr><td>Photometric</td><td><input type="number" id="vbt-photo" class="form-control mono" step="0.5" min="0" placeholder="0"></td></tr>
+                <tr><td>Lost — Weather</td><td><input type="number" id="vbt-lwx" class="form-control mono" step="0.5" min="0" placeholder="0"></td></tr>
+                <tr><td>Lost — Technical</td><td><input type="number" id="vbt-ltech" class="form-control mono" step="0.5" min="0" placeholder="0"></td></tr>
+                <tr style="background: var(--bg-secondary);"><td><strong>Total Observed</strong></td><td><input type="number" id="vbt-total" class="form-control mono" style="font-weight:700;" step="0.5" min="0" placeholder="0"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="form-label">Telescope Performance</label>
+            <select id="vbt-perf" class="form-select">
+              <option value="">Select Performance…</option>
+              <option>Good</option>
+              <option>Satisfactory</option>
+              <option>Poor</option>
+            </select>
+          </div>
+          <div class="frow-rel">
+            <label class="form-label">Maintenance Notes</label>
+            <textarea id="vbt-maint" class="form-control" rows="3" placeholder="Describe any technical issues or maintenance notes…"></textarea>
+            <button class="mic-btn" type="button" onclick="startMic('vbt-maint')">🎙</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 6 -->
+  <div class="form-sec">
+    <div class="form-sec-hdr" onclick="toggleSec(this)">
+      <i class="fas fa-temperature-half"></i> Meteorology — Hourly (UT 13 to 23)
+      <i class="fas fa-chevron-down form-sec-chev"></i>
+    </div>
+    <div class="form-sec-body">
+      <div class="table-container" style="max-width: 420px;">
+        <table>
+          <thead><tr><th>UT (h)</th><th>Humidity (%)</th><th>Temp (°C)</th></tr></thead>
+          <tbody id="vbt-meteo"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="save-bar">
+  <button class="btn btn-primary" onclick="submitTel('vbt')"><i class="fas fa-save"></i> Save VBT to Database</button>
+  {% if can_access_overview %}
+  <a href="{% url 'telescope:unified_log' 'overview' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Overview</a>
+  {% endif %}
+  <div style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted);" id="vbt-ls"></div>
+</div>
+
+<form method="POST" id="django-form" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="log_data" id="log_data_input">
+</form>
+
+<script>
+const tel = 'vbt';
+const SLOTS = ['18:00–21:00', '21:00–00:00', '00:00–03:00', '03:00–06:00'];
+const MUT = ['13', '15', '17', '19', '21', '23'];
+const TF = ['mode', 'commno', 'team', 'instrument', 'programs', 'sky1', 'sky2', 'sky3', 'sky4', 'objects', 'lwx', 'ltech', 'perf', 'maint'];
+const NF = ['spec', 'photo', 'total'];
+const DS = ['none', 'open', 'closed'], DL = ['—', 'OPEN', 'CLOSED'], DC = ['', 'open', 'closed'];
+
+const SK = (d, t) => `vbo4-${d}-${t}`;
+let currentDate = null;
+
+function toggleSec(h) { h.closest('.form-sec').classList.toggle('collapsed'); }
+
+function buildDomes() {
+  const c = document.getElementById('vbt-domes'); c.innerHTML = '';
+  SLOTS.forEach((slot, i) => {
+    const d = document.createElement('div'); d.className = 'dome-cell';
+    d.innerHTML = `<div class="dome-lbl">${slot}</div>
+      <div class="dome-btn" data-state="none" data-idx="${i}" onclick="cycleDome(this)">—</div>
+      <input class="dome-note" type="text" id="vbt-dn${i}" placeholder="note…">`;
+    c.appendChild(d);
+  });
+}
+buildDomes();
+
+function cycleDome(el) {
+  let s = DS.indexOf(el.dataset.state || 'none');
+  s = (s + 1) % 3;
+  el.dataset.state = DS[s]; el.textContent = DL[s]; el.className = 'dome-btn ' + DC[s];
+}
+
+function buildMeteo(data) {
+  const tb = document.getElementById('vbt-meteo'); tb.innerHTML = '';
+  MUT.forEach((ut, i) => {
+    const d = (data && data[i]) || { hum: '', temp: '' };
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="text" value="${ut}h" class="form-control mono" readonly style="border:none; background:transparent;"></td>
+      <td><input type="number" value="${d.hum || ''}" placeholder="—" min="0" max="100" class="form-control mono mi" data-i="${i}" data-k="hum"></td>
+      <td><input type="number" value="${d.temp || ''}" placeholder="—" step="0.1" class="form-control mono mi" data-i="${i}" data-k="temp"></td>`;
+    tb.appendChild(tr);
+  });
+}
+buildMeteo(null);
+
+function collectTel() {
+  const o = {};
+  [...TF, ...NF].forEach(f => { const el = document.getElementById('vbt-' + f); if (el) o[f] = el.value; });
+  o.domes = SLOTS.map((_, i) => { const el = document.querySelector(`.dome-btn[data-idx="${i}"]`); return el ? el.dataset.state : 'none'; });
+  o.domeNotes = SLOTS.map((_, i) => document.getElementById('vbt-dn' + i)?.value || '');
+  o.meteo = MUT.map((_, i) => ({
+    hum: document.querySelector(`.mi[data-i="${i}"][data-k="hum"]`)?.value || '',
+    temp: document.querySelector(`.mi[data-i="${i}"][data-k="temp"]`)?.value || ''
+  }));
+  o.savedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  return o;
+}
+
+function populateTel(o) {
+  if (!o) return;
+  [...TF, ...NF].forEach(f => { const el = document.getElementById('vbt-' + f); if (el) el.value = o[f] || ''; });
+  (o.domes || []).forEach((s, i) => {
+    const el = document.querySelector(`.dome-btn[data-idx="${i}"]`);
+    if (el) { const idx = Math.max(0, DS.indexOf(s)); el.dataset.state = DS[idx]; el.textContent = DL[idx]; el.className = 'dome-btn ' + DC[idx]; }
+  });
+  (o.domeNotes || []).forEach((n, i) => { const el = document.getElementById('vbt-dn' + i); if (el) el.value = n; });
+  buildMeteo(o.meteo || null);
+  if (o.savedAt) document.getElementById('vbt-ls').textContent = 'Last saved: ' + o.savedAt;
+  const tot = parseFloat(document.getElementById('vbt-total').value) || 0;
+  document.getElementById('vbt-thr').textContent = tot > 0 ? tot.toFixed(1) + 'h' : '—';
+}
+
+function clearTel() {
+  [...TF, ...NF].forEach(f => { const el = document.getElementById('vbt-' + f); if (el) el.value = ''; });
+  SLOTS.forEach((_, i) => {
+    const el = document.querySelector(`.dome-btn[data-idx="${i}"]`);
+    if (el) { el.dataset.state = DS[0]; el.textContent = DL[0]; el.className = 'dome-btn ' + DC[0]; }
+  });
+  SLOTS.forEach((_, i) => { const el = document.getElementById('vbt-dn' + i); if (el) el.value = ''; });
+  buildMeteo(null);
+  document.getElementById('vbt-ls').textContent = 'No log recorded for this date';
+  document.getElementById('vbt-thr').textContent = '—';
+}
+
+function loadDate(date) {
+  currentDate = date;
+  document.getElementById('dpick').value = date;
+  document.getElementById('vbt-obsdate').value = date;
+  const dbLogs = {{ logs_json|safe }};
+  const key = `vbo4-${date}-${tel}`;
+  const raw = dbLogs[key] ? JSON.stringify(dbLogs[key]) : localStorage.getItem(SK(date, tel));
+  if (raw) {
+    try {
+      populateTel(typeof raw === 'string' ? JSON.parse(raw) : raw);
+      return;
+    } catch (e) {}
+  }
+  clearTel();
+}
+
+function loadFromPick() {
+  const v = document.getElementById('dpick').value;
+  if (v) loadDate(v);
+}
+
+function submitTel() {
+  if (!currentDate) currentDate = document.getElementById('dpick').value;
+  const data = collectTel();
+  localStorage.setItem(SK(currentDate, tel), JSON.stringify(data));
+  document.getElementById('log_data_input').value = JSON.stringify(data);
+  document.getElementById('django-form').submit();
+}
+
+// Speech recognition
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null, activeMicBtn = null, activeFieldId = null;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-IN';
+  recognition.onresult = function(event) {
+    const el = document.getElementById(activeFieldId); if (!el) return;
+    let final = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) final += event.results[i][0].transcript;
+    }
+    if (final) {
+      const cur = el.value; el.value = cur + (cur && !cur.endsWith(' ') ? ' ' : '') + final;
+    }
+  };
+}
+
+function startMic(fieldId) {
+  if (!recognition) return alert('Speech recognition not supported in this browser.');
+  if (activeFieldId === fieldId && activeMicBtn) { stopMic(); return; }
+  if (activeMicBtn) stopMic();
+
+  activeFieldId = fieldId;
+  activeMicBtn = document.querySelector(`button.mic-btn[onclick="startMic('${fieldId}')"]`);
+  if (activeMicBtn) activeMicBtn.classList.add('recording');
+
+  const el = document.getElementById(fieldId); if (el) el.focus();
+  try { recognition.start(); } catch(e) {}
+}
+
+function stopMic() {
+  if (activeMicBtn) { activeMicBtn.classList.remove('recording'); activeMicBtn = null; }
+  activeFieldId = null;
+  try { recognition.stop(); } catch(e) {}
+}
+
+(function() {
+  const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const p = n => String(n).padStart(2, '0');
+  loadDate(`${ist.getFullYear()}-${p(ist.getMonth() + 1)}-${p(ist.getDate())}`);
+})();
+</script>
+{% endblock %}

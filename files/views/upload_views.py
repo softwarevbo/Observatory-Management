@@ -36,12 +36,7 @@ def file_upload(request):
     parent = ProjectFile.objects.filter(pk=parent_id).first() if parent_id else None
     
     # Access authorization check
-    if project and not (
-        request.user.is_admin
-        or request.user.is_project_manager
-        or project.managers.filter(pk=request.user.pk).exists()
-        or project.members.filter(pk=request.user.pk).exists()
-    ):
+    if project and not project.is_member(request.user):
         messages.error(request, "You do not have access to upload files to this project.")
         return redirect("tasks:project_list")
     

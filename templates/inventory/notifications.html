@@ -1,80 +1,107 @@
 {% extends "inventory_base.html" %}
 
-{% block title %}Inventory Notifications{% endblock %}
+{% block title %}Inventory Notifications — IIAP IM{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="page-title mb-0">Notifications</h1>
+<div class="page-header" style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1 class="page-title" style="margin-bottom:4px !important;">Notifications</h1>
+        <p style="color:var(--text-muted);font-size:14px;">View and manage your inventory system notifications.</p>
+    </div>
     <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="mark_all_read">
-        <button type="submit" class="btn btn-secondary">Mark All Read</button>
+        <button type="submit" class="btn btn-secondary btn-sm">
+            <i class="fas fa-check-double"></i> Mark All Read
+        </button>
     </form>
 </div>
 
-<div class="card">
-    <form method="get" class="row g-2 mb-3">
-        <div class="col-md-3">
-            <select name="status" class="form-select">
-                <option value="">All Status</option>
-                <option value="unread" {% if status_filter == 'unread' %}selected{% endif %}>Unread</option>
-                <option value="read" {% if status_filter == 'read' %}selected{% endif %}>Read</option>
-            </select>
+<!-- Filter Bar -->
+<div class="card" style="margin-bottom:24px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <select name="status" onchange="this.form.submit()"
+            style="padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;min-width:130px;">
+            <option value="">All Status</option>
+            <option value="unread" {% if status_filter == 'unread' %}selected{% endif %}>Unread</option>
+            <option value="read" {% if status_filter == 'read' %}selected{% endif %}>Read</option>
+        </select>
+        <select name="type" onchange="this.form.submit()"
+            style="padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;min-width:150px;">
+            <option value="">All Types</option>
+            {% for key, label in type_choices %}
+            <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="date" name="date" value="{{ date_filter }}"
+            style="padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+        <div style="flex:1;min-width:200px;position:relative;">
+            <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search title or message…"
+                style="width:100%;padding:9px 12px 9px 36px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
         </div>
-        <div class="col-md-3">
-            <select name="type" class="form-select">
-                <option value="">All Types</option>
-                {% for key, label in type_choices %}
-                <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <input type="date" name="date" value="{{ date_filter }}" class="form-control">
-        </div>
-        <div class="col-md-3">
-            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Search title/message">
-        </div>
-        <div class="col-md-1">
-            <button type="submit" class="btn btn-secondary w-100">Go</button>
-        </div>
+        <button type="submit" class="btn btn-secondary">
+            <i class="fas fa-filter"></i> Filter
+        </button>
     </form>
+</div>
+
+<!-- Notifications Table -->
+<div class="card">
+    <div class="card-header" style="margin-bottom:20px;">
+        <div class="card-title" style="font-size:16px;">
+            <i class="fas fa-bell" style="color:var(--accent);margin-right:8px;"></i>
+            All Notifications
+        </div>
+        {% if notifications %}
+        <span class="badge badge-blue">{{ notifications|length }} items</span>
+        {% endif %}
+    </div>
+
     {% if notifications %}
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
             <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Title</th>
-                    <th>Message</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>View</th>
+                <tr style="border-bottom:2px solid var(--border);">
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Type</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Title</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Message</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Time</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Status</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Link</th>
                 </tr>
             </thead>
             <tbody>
                 {% for n in notifications %}
-                <tr{% if not n.is_read %} class="table-warning"{% endif %}>
-                    <td>{{ n.get_notification_type_display }}</td>
-                    <td>{{ n.title }}</td>
-                    <td>{{ n.message }}</td>
-                    <td>{{ n.created_at|date:"M d, Y H:i" }}</td>
-                    <td>
+                <tr style="border-bottom:1px solid var(--border);transition:var(--transition);{% if not n.is_read %}background:var(--yellow-dim);{% endif %}"
+                    onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                    <td style="padding:12px 14px;">
+                        <span class="badge badge-purple" style="font-size:11px;">{{ n.get_notification_type_display }}</span>
+                    </td>
+                    <td style="padding:12px 14px;font-weight:600;font-size:13px;color:var(--text-primary);">{{ n.title }}</td>
+                    <td style="padding:12px 14px;font-size:13px;color:var(--text-secondary);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ n.message }}">
+                        {{ n.message }}
+                    </td>
+                    <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);white-space:nowrap;">{{ n.created_at|date:"M d, Y H:i" }}</td>
+                    <td style="padding:12px 14px;text-align:center;">
                         {% if n.is_read %}
-                            <span class="badge bg-success">Read</span>
+                        <span class="badge badge-green">Read</span>
                         {% else %}
-                            <form method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="notification_id" value="{{ n.id }}">
-                                <button type="submit" class="btn btn-sm btn-primary">Mark Read</button>
-                            </form>
+                        <form method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="notification_id" value="{{ n.id }}">
+                            <button type="submit" class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px;">Mark Read</button>
+                        </form>
                         {% endif %}
                     </td>
-                    <td>
+                    <td style="padding:12px 14px;text-align:center;">
                         {% if n.target_url %}
-                        <a href="{{ n.target_url }}" class="btn btn-sm btn-secondary">View</a>
+                        <a href="{{ n.target_url }}" class="btn btn-secondary btn-sm btn-icon" title="View">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
                         {% else %}
-                        <span class="text-muted">-</span>
+                        <span style="color:var(--text-muted);">—</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -82,8 +109,15 @@
             </tbody>
         </table>
     </div>
+    {% include 'pagination.html' %}
     {% else %}
-    <div class="text-center py-5 text-muted">No notifications available.</div>
+    <div style="text-align:center;padding:70px 20px;">
+        <div style="width:64px;height:64px;background:var(--bg-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--text-muted);">
+            <i class="fas fa-bell-slash" style="font-size:28px;"></i>
+        </div>
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-size:18px;margin-bottom:8px;color:var(--text-primary);">No Notifications</h3>
+        <p style="color:var(--text-muted);font-size:14px;">You're all caught up. No notifications to display.</p>
+    </div>
     {% endif %}
 </div>
 {% endblock %}

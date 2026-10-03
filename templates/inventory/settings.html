@@ -1,29 +1,41 @@
 {% extends 'inventory_base.html' %}
 {% load inventory_extras %}
 
-{% block title %}System Settings - Inventory Management{% endblock %}
+{% block title %}System Settings — IIAP IM{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="page-title mb-0">System Settings</h1>
+<div class="page-header" style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1 class="page-title" style="margin-bottom:4px !important;">System Settings</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Configure global and branch-level inventory system options.</p>
+    </div>
     {% if is_global %}
-    <span class="badge bg-primary px-3 py-2">Global Mode</span>
+    <span class="badge badge-blue" style="font-size:13px;padding:7px 14px;"><i class="fas fa-globe"></i> Global Mode</span>
     {% else %}
-    <span class="badge bg-success px-3 py-2">Branch Mode: {{ request.user.branch.name }}</span>
+    <span class="badge badge-green" style="font-size:13px;padding:7px 14px;"><i class="fas fa-building"></i> Branch: {{ request.user.branch.name }}</span>
     {% endif %}
 </div>
 
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card mb-4">
-            <h2 class="card-title mb-4">General Configuration</h2>
+<div style="display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;">
+    <!-- Left: Main Settings -->
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <!-- General Config -->
+        <div class="card">
+            <div class="card-header" style="margin-bottom:20px;">
+                <div class="card-title" style="font-size:16px;">
+                    <i class="fas fa-cogs" style="color:var(--accent);margin-right:8px;"></i>
+                    General Configuration
+                </div>
+            </div>
+
             <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
-                
+
                 {% if is_global %}
-                <div class="mb-4">
-                    <label class="form-label">Managing Settings For:</label>
-                    <select name="branch_id" class="form-select" onchange="this.form.submit()">
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Managing Settings For</label>
+                    <select name="branch_id" onchange="this.form.submit()"
+                        style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
                         <option value="">Global (Default)</option>
                         {% for b in branches %}
                         <option value="{{ b.id }}" {% if settings.branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
@@ -32,81 +44,115 @@
                 </div>
                 {% endif %}
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="site_name" class="form-label">System Name</label>
-                        <input type="text" class="form-control" id="site_name" name="site_name" value="{{ settings.site_name }}" required>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label for="site_name" style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">System Name</label>
+                        <input type="text" id="site_name" name="site_name" value="{{ settings.site_name }}" required
+                            style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="contact_email" class="form-label">Contact Email</label>
-                        <input type="email" class="form-control" id="contact_email" name="contact_email" value="{{ settings.contact_email }}" required>
+                    <div>
+                        <label for="contact_email" style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Contact Email</label>
+                        <input type="email" id="contact_email" name="contact_email" value="{{ settings.contact_email }}" required
+                            style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="site_logo" class="form-label">System Logo</label>
+                <div style="margin-bottom:20px;">
+                    <label for="site_logo" style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">System Logo</label>
                     {% if settings.site_logo %}
-                    <div class="mb-2">
-                        <img src="{{ settings.site_logo.url }}" alt="Logo" class="img-thumbnail" style="max-height: 100px;">
+                    <div style="margin-bottom:10px;">
+                        <img src="{{ settings.site_logo.url }}" alt="Logo" style="max-height:80px;border-radius:var(--radius-sm);border:1px solid var(--border);padding:6px;background:var(--bg-primary);">
                     </div>
                     {% endif %}
-                    <input type="file" class="form-control" id="site_logo" name="site_logo" accept="image/*">
+                    <input type="file" id="site_logo" name="site_logo" accept="image/*"
+                        style="width:100%;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
                 </div>
 
-                <hr class="my-4">
-
-                <h3 class="h5 mb-3">Feature Controls</h3>
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="enable_notifications" name="enable_notifications" {% if settings.enable_notifications %}checked{% endif %}>
-                    <label class="form-check-label" for="enable_notifications">Enable In-App Notifications</label>
+                <div style="padding:16px 0;border-top:1px solid var(--border);margin-bottom:16px;">
+                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:14px;">Feature Controls</div>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+                            <div style="position:relative;width:40px;height:22px;">
+                                <input type="checkbox" id="enable_notifications" name="enable_notifications"
+                                    {% if settings.enable_notifications %}checked{% endif %}
+                                    style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:2;"
+                                    onchange="this.parentElement.querySelector('.toggle-bg').style.background=this.checked?'var(--accent)':'var(--border)'">
+                                <div class="toggle-bg" style="position:absolute;inset:0;border-radius:11px;background:{% if settings.enable_notifications %}var(--accent){% else %}var(--border){% endif %};transition:var(--transition);"></div>
+                                <div style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:var(--transition);"></div>
+                            </div>
+                            <div>
+                                <div style="font-size:13px;font-weight:600;color:var(--text-primary);">In-App Notifications</div>
+                                <div style="font-size:11px;color:var(--text-muted);">Enable real-time inventory notifications</div>
+                            </div>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+                            <div style="position:relative;width:40px;height:22px;">
+                                <input type="checkbox" id="enable_low_stock_alerts" name="enable_low_stock_alerts"
+                                    {% if settings.enable_low_stock_alerts %}checked{% endif %}
+                                    style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:2;"
+                                    onchange="this.parentElement.querySelector('.toggle-bg').style.background=this.checked?'var(--accent)':'var(--border)'">
+                                <div class="toggle-bg" style="position:absolute;inset:0;border-radius:11px;background:{% if settings.enable_low_stock_alerts %}var(--accent){% else %}var(--border){% endif %};transition:var(--transition);"></div>
+                                <div style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:var(--transition);"></div>
+                            </div>
+                            <div>
+                                <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Low Stock Email Alerts</div>
+                                <div style="font-size:11px;color:var(--text-muted);">Send email when stock falls below limit</div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
-                <div class="form-check form-switch mb-4">
-                    <input class="form-check-input" type="checkbox" id="enable_low_stock_alerts" name="enable_low_stock_alerts" {% if settings.enable_low_stock_alerts %}checked{% endif %}>
-                    <label class="form-check-label" for="enable_low_stock_alerts">Enable Low Stock Email Alerts</label>
-                </div>
 
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="submit" class="btn btn-primary px-5">Save Settings</button>
+                <div style="display:flex;justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Settings
+                    </button>
                 </div>
             </form>
         </div>
 
+        <!-- User Permission Management -->
         {% if is_global and inventory_users %}
         <div class="card">
-            <h2 class="card-title h5 mb-4">User Permission Management</h2>
-            <p class="text-muted small mb-4">Configure granular feature access for each system user.</p>
-            
+            <div class="card-header" style="margin-bottom:16px;">
+                <div class="card-title" style="font-size:16px;">
+                    <i class="fas fa-users-cog" style="color:var(--purple);margin-right:8px;"></i>
+                    User Permission Management
+                </div>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Configure granular feature access for each system user.</p>
+
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_controls">
-                <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-                    <table class="table table-sm table-hover align-middle">
-                        <thead class="table-light sticky-top" style="z-index: 10;">
-                            <tr>
-                                <th>User</th>
+                <div style="overflow-x:auto;max-height:500px;overflow-y:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead style="position:sticky;top:0;z-index:10;background:var(--bg-card);">
+                            <tr style="border-bottom:2px solid var(--border);">
+                                <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">User</th>
                                 {% for _, label in permission_fields %}
-                                <th class="text-center small" style="min-width: 80px; font-size: 0.7rem;">{{ label }}</th>
+                                <th style="text-align:center;padding:10px 8px;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;min-width:70px;">{{ label }}</th>
                                 {% endfor %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for i_user in inventory_users %}
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="user-avatar-sm me-2" style="background: {{ i_user.avatar_color }}; width: 24px; height: 24px; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white;">
+                            <tr style="border-bottom:1px solid var(--border);transition:var(--transition);" onmouseenter="this.style.background='var(--bg-card-hover)'" onmouseleave="this.style.background=''">
+                                <td style="padding:10px 14px;">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <div style="width:28px;height:28px;border-radius:6px;background:{{ i_user.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">
                                             {{ i_user.initials }}
                                         </div>
-                                        <span class="small font-weight-bold">{{ i_user.username }}</span>
+                                        <span style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ i_user.username }}</span>
                                     </div>
                                 </td>
                                 {% for field, _ in permission_fields %}
-                                <td class="text-center">
-                                    <div class="form-check form-check-inline m-0">
-                                        <input class="form-check-input" type="checkbox" name="{{ field }}_{{ i_user.id }}" 
-                                            {% if i_user|getattr:field %}checked{% endif %}
-                                            {% if i_user.is_super_admin %}disabled checked{% endif %}>
-                                    </div>
+                                <td style="padding:10px 8px;text-align:center;">
+                                    <input type="checkbox" name="{{ field }}_{{ i_user.id }}"
+                                        {% if i_user|getattr:field %}checked{% endif %}
+                                        {% if i_user.is_super_admin %}disabled checked{% endif %}
+                                        style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
                                 </td>
                                 {% endfor %}
                             </tr>
@@ -114,59 +160,76 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-3 text-end">
-                    <button type="submit" class="btn btn-primary btn-sm px-4">Update Permissions</button>
+                <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save"></i> Update Permissions
+                    </button>
                 </div>
             </form>
         </div>
         {% endif %}
     </div>
-    
-    <div class="col-lg-4">
-        <div class="card mb-4">
-            <h2 class="card-title h5">System Info</h2>
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Version
-                    <span class="badge bg-secondary rounded-pill">v3.0.0</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Environment
-                    <span class="badge bg-info rounded-pill">Production</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Last Updated
-                    <span class="small text-muted">{{ settings.updated_at|date:"M d, Y H:i" }}</span>
-                </li>
-            </ul>
+
+    <!-- Right: Sidebar cards -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <!-- System Info -->
+        <div class="card">
+            <div class="card-header" style="margin-bottom:16px;">
+                <div class="card-title" style="font-size:14px;">
+                    <i class="fas fa-info-circle" style="color:var(--cyan);margin-right:8px;"></i>
+                    System Info
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:13px;color:var(--text-muted);">Version</span>
+                    <span class="badge badge-gray">v3.0.0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:13px;color:var(--text-muted);">Environment</span>
+                    <span class="badge badge-blue">Production</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
+                    <span style="font-size:13px;color:var(--text-muted);">Last Updated</span>
+                    <span style="font-size:12px;color:var(--text-secondary);">{{ settings.updated_at|date:"M d, Y" }}</span>
+                </div>
+            </div>
         </div>
 
+        <!-- Maintenance / Backup -->
         {% if request.user.is_super_admin %}
-        <div class="card border-danger mb-4">
-            <h2 class="card-title h5 text-danger">Maintenance</h2>
-            <p class="small text-muted">Perform critical system maintenance tasks.</p>
-            
-            <div class="mb-4">
-                <h3 class="h6 mb-3">Database Backup</h3>
+        <div class="card" style="border-color:rgba(239,68,68,0.3);">
+            <div class="card-header" style="margin-bottom:16px;">
+                <div class="card-title" style="font-size:14px;color:var(--red);">
+                    <i class="fas fa-shield-alt" style="margin-right:8px;"></i>
+                    Maintenance
+                </div>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Perform critical system maintenance tasks with caution.</p>
+
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Database Backup</div>
                 <form method="post" action="{% url 'inventory_settings' %}">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="export">
-                    <button type="submit" class="btn btn-outline-danger w-100">
-                        <i class="fas fa-download me-2"></i>Export Backup (.json)
+                    <button type="submit" class="btn btn-danger" style="width:100%;justify-content:center;">
+                        <i class="fas fa-download"></i> Export Backup (.json)
                     </button>
                 </form>
             </div>
 
-            <div class="mb-2">
-                <h3 class="h6 mb-3">Restore Database</h3>
+            <div>
+                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Restore Database</div>
                 <form method="post" action="{% url 'inventory_settings' %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="import">
-                    <div class="mb-2">
-                        <input type="file" name="backup_file" class="form-control form-control-sm" accept=".json" required>
+                    <div style="margin-bottom:8px;">
+                        <input type="file" name="backup_file" accept=".json" required
+                            style="width:100%;padding:7px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;outline:none;">
                     </div>
-                    <button type="submit" class="btn btn-danger w-100" onclick="return confirm('WARNING: This will overwrite current data. Are you sure?')">
-                        <i class="fas fa-upload me-2"></i>Upload & Restore
+                    <button type="submit" class="btn btn-danger" style="width:100%;justify-content:center;"
+                        onclick="return confirm('WARNING: This will overwrite current data. Are you absolutely sure?')">
+                        <i class="fas fa-upload"></i> Upload & Restore
                     </button>
                 </form>
             </div>

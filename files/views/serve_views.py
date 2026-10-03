@@ -84,9 +84,7 @@ def download_folder(request, pk):
     
     # Verify project-level user authorization
     if category.project:
-        if not (category.project.members.filter(pk=request.user.pk).exists() or
-                category.project.managers.filter(pk=request.user.pk).exists() or
-                request.user.is_admin or request.user.is_project_manager):
+        if not category.project.is_member(request.user):
             raise Http404
 
     buffer = io.BytesIO()

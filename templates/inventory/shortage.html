@@ -1,197 +1,201 @@
 {% extends 'inventory_base.html' %}
 
-{% block title %}Inventory Shortage{% endblock %}
+{% block title %}Inventory Shortage — IIAP IM{% endblock %}
 
 {% block content %}
-<h1 class="page-title d-flex justify-content-between align-items-center">
-    <span>Inventory Shortage</span>
+<div class="page-header" style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
-        <form method="get" action="{% url 'inventory-shortage-export-csv' %}" style="display:inline;">
-            <button type="submit" class="btn btn-outline-primary me-2">Export as CSV</button>
-        </form>
+        <h1 class="page-title" style="margin-bottom:4px !important;">Inventory Shortage</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Items currently below their configured stock limits and requiring restock.</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="addProductBtn" class="btn btn-secondary btn-sm">
+            <i class="fas fa-plus"></i> Add to List
+        </button>
+        <button id="exportCsvBtn" class="btn btn-secondary btn-sm">
+            <i class="fas fa-file-csv"></i> Export CSV
+        </button>
         <form id="pdfExportForm" method="post" action="{% url 'inventory-shortage-export-pdf' %}" style="display:inline;">
             {% csrf_token %}
             <input type="hidden" name="export_data" id="pdfExportData" />
-            <button type="submit" class="btn btn-outline-danger">Export as PDF</button>
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </button>
         </form>
     </div>
-</h1>
+</div>
 
 <div class="card">
-    <h2 class="section-title mb-4">
-        Items Needing Restock
-    </h2>
-    <div class="table-responsive">
-        <table class="table table-hover">
+    <div class="card-header" style="margin-bottom:20px;">
+        <div class="card-title" style="font-size:16px;">
+            <i class="fas fa-boxes" style="color:var(--red);margin-right:8px;"></i>
+            Items Needing Restock
+        </div>
+    </div>
+
+    <div id="noItemsMsg" style="display:none;text-align:center;padding:60px 20px;">
+        <div style="width:64px;height:64px;background:var(--green-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--green);">
+            <i class="fas fa-check-circle" style="font-size:28px;"></i>
+        </div>
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-size:18px;margin-bottom:8px;color:var(--text-primary);">All Stocked Up!</h3>
+        <p style="color:var(--text-muted);font-size:14px;">No items are currently under their limit. Inventory is healthy.</p>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
             <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>In Quantity</th>
-                    
-                    <th></th>
+                <tr style="border-bottom:2px solid var(--border);">
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Product</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Current Qty</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Purchased Qty</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Restock</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for item in shortage_items %}
-                <tr>
-                    <td><a href="{% url 'product-detail' item.product.id %}" target="_blank">{{ item.product.name }}</a></td>
-                    <td style="text-align:center;">{{ item.current_quantity }}</td>
-                    
-                    <td style="text-align:center;"><span class="checkbox"></span></td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <tbody id="shortageTableBody"></tbody>
         </table>
     </div>
-    {% if not shortage_items %}
-    <div class="text-center py-4">
-        
-        <p class="fs-5">No items are currently under their limit. Inventory is healthy!</p>
+</div>
+
+<!-- Add Product Modal -->
+<div id="addProductModal" style="display:none;position:fixed;z-index:9999;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);">
+    <div style="margin:10% auto;max-width:420px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:0;box-shadow:var(--shadow);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin:0;">
+                <i class="fas fa-plus-circle" style="color:var(--accent);margin-right:8px;"></i>Add Product to List
+            </h5>
+            <button id="closeModalBtn" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);line-height:1;">&times;</button>
+        </div>
+        <div style="padding:20px 24px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Select Product</label>
+            <select id="productSelect"
+                style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+                <option value="">Select…</option>
+                {% for p in products %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="padding:14px 24px 20px;display:flex;justify-content:flex-end;gap:10px;">
+            <button id="closeModalBtn2" class="btn btn-secondary btn-sm">Cancel</button>
+            <button id="addProductConfirmBtn" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Add
+            </button>
+        </div>
     </div>
-    {% endif %}
 </div>
 
 <script id="shortage-items-data" type="application/json">{{ shortage_items|json_script:"shortageItemsJson" }}</script>
 <script id="products-data" type="application/json">{{ products|json_script:"productsJson" }}</script>
 <script>
-// --- Data from backend ---
 const shortageItems = JSON.parse(document.getElementById('shortageItemsJson').textContent);
 const allProducts = JSON.parse(document.getElementById('productsJson').textContent);
-
-// --- LocalStorage Key ---
 const PURCHASE_LIST_KEY = 'manualPurchaseList';
 
-function getManualPurchaseList() {
-    return JSON.parse(localStorage.getItem(PURCHASE_LIST_KEY) || '[]');
-}
-function setManualPurchaseList(list) {
-    localStorage.setItem(PURCHASE_LIST_KEY, JSON.stringify(list));
+function getManualPurchaseList() { return JSON.parse(localStorage.getItem(PURCHASE_LIST_KEY) || '[]'); }
+function setManualPurchaseList(list) { localStorage.setItem(PURCHASE_LIST_KEY, JSON.stringify(list)); }
+
+function makeRow(name, currentQty) {
+    const tr = document.createElement('tr');
+    tr.style.cssText = 'border-bottom:1px solid var(--border);transition:all 0.15s;';
+    tr.onmouseenter = function() { this.style.background = 'var(--bg-card-hover)'; };
+    tr.onmouseleave = function() { this.style.background = ''; };
+    tr.innerHTML = `
+        <td style="padding:12px 14px;font-weight:600;font-size:13px;color:var(--text-primary);">${name}</td>
+        <td style="padding:12px 14px;text-align:center;">
+            ${currentQty !== undefined ? `<span class="badge badge-red" style="min-width:28px;justify-content:center;">${currentQty}</span>` : '<span style="color:var(--text-muted);">—</span>'}
+        </td>
+        <td style="padding:12px 14px;text-align:center;"><span style="color:var(--text-muted);">—</span></td>
+        <td style="padding:12px 14px;text-align:center;">
+            <div style="width:18px;height:18px;border:2px solid var(--border);border-radius:4px;margin:0 auto;cursor:pointer;"
+                onclick="this.style.background=this.style.background?'':'var(--accent)';this.style.borderColor='var(--accent)';"></div>
+        </td>
+    `;
+    return tr;
 }
 
 function renderTable() {
     const manualList = getManualPurchaseList();
-    // Filter out any manual products that are already in shortageItems
-    const manualOnly = manualList.filter(item => !shortageItems.some(x => x.product.id === item.product.id));
+    const manualOnly = manualList.filter(item => !shortageItems.some(x => x.product && x.product.id === item.product.id));
     const tbody = document.getElementById('shortageTableBody');
     tbody.innerHTML = '';
     let hasRows = false;
+
     if (shortageItems.length > 0) {
-        const shortageHeader = document.createElement('tr');
-        shortageHeader.innerHTML = `<td colspan="4" style="background:#f8f9fa;font-weight:bold;">Current Shortage List</td>`;
-        tbody.appendChild(shortageHeader);
+        const header = document.createElement('tr');
+        header.innerHTML = `<td colspan="4" style="padding:8px 14px;background:var(--red-dim);font-size:11px;font-weight:700;color:var(--red);letter-spacing:0.8px;text-transform:uppercase;">Current Shortage</td>`;
+        tbody.appendChild(header);
         shortageItems.forEach(item => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${item.product.name}</td>
-                <td style="text-align:center;">${item.current_quantity !== undefined ? item.current_quantity : ''}</td>
-                <td></td>
-                <td style="text-align:center;"><span class="checkbox"></span></td>
-            `;
-            tbody.appendChild(tr);
+            tbody.appendChild(makeRow(item.product ? item.product.name : item.name, item.current_quantity));
         });
         hasRows = true;
     }
     if (manualOnly.length > 0) {
-        const manualHeader = document.createElement('tr');
-        manualHeader.innerHTML = `<td colspan="4" style="background:#f8f9fa;font-weight:bold;">Manually Added Products</td>`;
-        tbody.appendChild(manualHeader);
+        const header = document.createElement('tr');
+        header.innerHTML = `<td colspan="4" style="padding:8px 14px;background:var(--yellow-dim);font-size:11px;font-weight:700;color:var(--yellow);letter-spacing:0.8px;text-transform:uppercase;">Manually Added</td>`;
+        tbody.appendChild(header);
         manualOnly.forEach(item => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${item.product.name}</td>
-                <td></td>
-                <td></td>
-                <td style="text-align:center;"><span class="checkbox"></span></td>
-            `;
-            tbody.appendChild(tr);
+            tbody.appendChild(makeRow(item.product ? item.product.name : item.name, undefined));
         });
         hasRows = true;
     }
     document.getElementById('noItemsMsg').style.display = hasRows ? 'none' : '';
 }
 
-// --- Add Product Modal Logic ---
 const addProductBtn = document.getElementById('addProductBtn');
 const addProductModal = document.getElementById('addProductModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
+const closeModalBtn2 = document.getElementById('closeModalBtn2');
 const addProductConfirmBtn = document.getElementById('addProductConfirmBtn');
 const productSelect = document.getElementById('productSelect');
 
-addProductBtn.onclick = () => {
-    addProductModal.style.display = 'block';
-};
-closeModalBtn.onclick = () => {
-    addProductModal.style.display = 'none';
-};
+addProductBtn.onclick = () => { addProductModal.style.display = 'block'; };
+closeModalBtn.onclick = () => { addProductModal.style.display = 'none'; };
+closeModalBtn2.onclick = () => { addProductModal.style.display = 'none'; };
 addProductConfirmBtn.onclick = () => {
     const productId = productSelect.value;
     if (!productId) return;
     const product = allProducts.find(p => p.id == productId);
     if (!product) return;
-    let manualList = getManualPurchaseList();
-    if (!manualList.some(x => x.product.id == product.id)) {
-        manualList.push({ product: product });
-        setManualPurchaseList(manualList);
+    let list = getManualPurchaseList();
+    if (!list.some(x => x.product && x.product.id == product.id)) {
+        list.push({ product: product });
+        setManualPurchaseList(list);
         renderTable();
     }
     addProductModal.style.display = 'none';
 };
 
-// --- Export CSV ---
 document.getElementById('exportCsvBtn').onclick = function(e) {
     e.preventDefault();
     const manualList = getManualPurchaseList();
     const combined = [...shortageItems];
     manualList.forEach(item => {
-        if (!combined.some(x => x.product.id === item.product.id)) {
-            combined.push(item);
-        }
+        if (!combined.some(x => x.product && x.product.id === item.product.id)) combined.push(item);
     });
-    let csv = 'Product,In Quantity,Buyed Qty\n';
-    combined.forEach(item => {
-        csv += `${item.product.name},${item.current_quantity !== undefined ? item.current_quantity : ''},\n`;
-    });
+    let csv = 'Product,In Quantity,Bought Qty\n';
+    combined.forEach(item => { csv += `${item.product ? item.product.name : item.name},${item.current_quantity !== undefined ? item.current_quantity : ''},\n`; });
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = 'inventory_shortage.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 };
 
-// --- Export PDF ---
 document.getElementById('pdfExportForm').onsubmit = function() {
     const manualList = getManualPurchaseList();
     const combined = [...shortageItems];
     manualList.forEach(item => {
-        if (!combined.some(x => x.product.id === item.product.id)) {
-            combined.push(item);
-        }
+        if (!combined.some(x => x.product && x.product.id === item.product.id)) combined.push(item);
     });
     document.getElementById('pdfExportData').value = JSON.stringify(combined);
 };
 
-// --- Modal close on outside click ---
 window.onclick = function(event) {
-    if (event.target == addProductModal) {
-        addProductModal.style.display = 'none';
-    }
+    if (event.target == addProductModal) addProductModal.style.display = 'none';
 };
 
-// --- Initial render ---
 renderTable();
 </script>
-<style>
-.modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background: rgba(0,0,0,0.4); }
-.modal-dialog { margin: 10% auto; max-width: 400px; }
-.modal-content { background: #fff; border-radius: 8px; padding: 0; }
-.modal-header, .modal-footer { padding: 1rem; border-bottom: 1px solid #eee; }
-.modal-header { border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-.modal-title { margin: 0; font-size: 1.25rem; }
-.btn-close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
-.modal-body { padding: 1rem; }
-</style>
-{% endblock %} 
+{% endblock %}

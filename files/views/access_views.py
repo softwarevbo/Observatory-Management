@@ -23,11 +23,8 @@ def file_access(request, pk):
     pf = get_object_or_404(ProjectFile, pk=pk)
     
     # Permission verification
-    if not (
-        request.user.is_admin
-        or (pf.project and pf.project.managers.filter(pk=request.user.pk).exists())
-    ):
-        messages.error(request, "Only managers and admins can manage access rights.")
+    if not (pf.project and pf.project.is_manager(request.user)):
+        messages.error(request, "Only project managers can manage access rights.")
         return redirect("files:file_detail", pk=pk)
         
     if request.method == "POST":
@@ -82,19 +79,12 @@ def project_categories_api(request):
     
     if project_id:
         project = get_object_or_404(Project, pk=project_id)
-        if not (
-            request.user.is_admin
-            or project.managers.filter(pk=request.user.pk).exists()
-            or project.members.filter(pk=request.user.pk).exists()
-            or project.project_incharge_id == request.user.pk
-        ):
+        if not project.is_member(request.user):
             return JsonResponse([], safe=False)
         categories = FileCategory.objects.filter(project_id=project_id, is_in_trash=False)
     else:
         # Load directory list from authorized projects
-        categories = FileCategory.objects.filter(is_in_trash=False)
-        if not request.user.is_admin:
-            categories = categories.filter(q_filter)
+        categories = FileCategory.objects.filter(is_in_trash=False).filter(q_filter)
     
     data = []
     for cat in categories.select_related('project'):
@@ -117,11 +107,7 @@ def category_create(request, pk):
     parent_id = request.GET.get("parent_id")
     parent = get_object_or_404(FileCategory, pk=parent_id) if parent_id else None
     
-    if not (
-        project.members.filter(pk=request.user.pk).exists()
-        or project.managers.filter(pk=request.user.pk).exists()
-        or request.user.is_admin
-    ):
+    if not project.is_member(request.user):
         messages.error(request, "No access to create folders.")
         return redirect("files:project_files", pk=project.pk)
     
@@ -168,11 +154,10 @@ def category_edit(request, pk):
     project = cat.project
     
     # Permission verification
-    if not (request.user.is_admin or 
-            getattr(request.user, 'is_project_manager', False) or
-            (project and (project.managers.filter(pk=request.user.pk).exists() or 
-                          project.members.filter(pk=request.user.pk).exists())) or
-            cat.created_by == request.user):
+    if not (
+        (project and project.is_member(request.user))
+        or cat.created_by == request.user
+    ):
         messages.error(request, "No permission to edit this folder.")
         return redirect("files:project_files", pk=project.pk if project else 0)
     

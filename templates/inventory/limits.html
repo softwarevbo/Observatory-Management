@@ -1,197 +1,202 @@
 {% extends 'inventory_base.html' %}
 
-{% block title %}Quantity Limits Management{% endblock %}
+{% block title %}Quantity Limits — IIAP IM{% endblock %}
 
 {% block content %}
-<h1 class="page-title">
-    Quantity Limits Management
-</h1>
-
-<div class="row g-4">
-    <div class="col-lg-6 col-md-12">
-        <div class="card">
-            <div class="text-center mb-4">
-                
-                <h2 class="mb-0">Set Quantity Limit</h2>
-                <p>Configure alerts for product quantities</p>
-            </div>
-            
-            <form method="post" autocomplete="off">
-                {% csrf_token %}
-                <div class="mb-4 position-relative">
-                    <label for="product_search" class="form-label">Product</label>
-                    <input type="text" class="form-control" id="product_search" placeholder="Type to search products..." autocomplete="off">
-                    <input type="hidden" name="product" id="product_id">
-                    <div id="productList" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
-                </div>
-                {% if branches %}
-                <div class="mb-4">
-                    <label for="branch" class="form-label">Branch</label>
-                    <select class="form-select" id="branch" name="branch" required>
-                        <option value="" disabled selected>Select Branch</option>
-                        {% for b in branches %}
-                        <option value="{{ b.id }}">{{ b.name }} ({{ b.code }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
-                <div class="mb-4">
-                    <label for="limit_quantity" class="form-label">Limit Quantity</label>
-                    <input type="number" class="form-control" id="limit_quantity" name="limit_quantity" min="1" placeholder="Enter limit quantity" required>
-                    <small class="form-text text-muted">Alert will be triggered when quantity reaches this limit</small>
-                </div>
-                <div class="mb-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
-                        <label class="form-check-label" for="is_active">
-                            Active Limit
-                        </label>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn btn-secondary w-100 py-3">
-                    Set Limit
-                </button>
-            </form>
-        </div>
+<div class="page-header" style="margin-bottom:28px;">
+    <div class="page-header-left">
+        <h1 class="page-title" style="margin-bottom:4px !important;">Quantity Limits</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Configure per-product stock limits and define a system-wide standard limit.</p>
     </div>
-    
-    <div class="col-lg-6 col-md-12">
-        <div class="card mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <h2 class="section-title mb-0">
-                    Standard Limit
-                </h2>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+    <!-- Set Limit Form -->
+    <div class="card">
+        <div class="card-header" style="margin-bottom:20px;">
+            <div class="card-title" style="font-size:16px;">
+                <i class="fas fa-sliders-h" style="color:var(--accent);margin-right:8px;"></i>
+                Set Product Limit
             </div>
-            {% if standard_limit %}
-            <div class="mb-2">
-                <span class="badge bg-primary">Current Standard Limit: {{ standard_limit }}</span>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">Alert triggers when product quantity reaches the configured limit.</p>
+
+        <form method="post" autocomplete="off">
+            {% csrf_token %}
+            <div style="margin-bottom:16px;position:relative;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Product</label>
+                <input type="text" id="product_search" placeholder="Type to search products…" autocomplete="off"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                <input type="hidden" name="product" id="product_id">
+                <div id="productList" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:1000;max-height:200px;overflow-y:auto;box-shadow:var(--shadow);display:none;"></div>
+            </div>
+
+            {% if branches %}
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Branch</label>
+                <select id="branch" name="branch" required
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+                    <option value="" disabled selected>Select Branch</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}">{{ b.name }} ({{ b.code }})</option>
+                    {% endfor %}
+                </select>
             </div>
             {% endif %}
-            <form method="post" action="{% url 'set-standard-limit' %}" class="row g-3 align-items-center mt-2">
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Limit Quantity</label>
+                <input type="number" id="limit_quantity" name="limit_quantity" min="1" placeholder="e.g. 10" required
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Alert triggers when stock reaches this number.</div>
+            </div>
+
+            <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+                <input type="checkbox" id="is_active" name="is_active" checked style="width:16px;height:16px;accent-color:var(--accent);">
+                <label for="is_active" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">Active Limit</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">
+                <i class="fas fa-save"></i> Set Limit
+            </button>
+        </form>
+    </div>
+
+    <!-- Right column: Standard Limit + Current Limits -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <!-- Standard Limit Card -->
+        <div class="card">
+            <div class="card-header" style="margin-bottom:16px;">
+                <div class="card-title" style="font-size:15px;">
+                    <i class="fas fa-layer-group" style="color:var(--cyan);margin-right:8px;"></i>
+                    System Standard Limit
+                </div>
+            </div>
+            {% if standard_limit %}
+            <div style="margin-bottom:14px;">
+                <span class="badge badge-blue" style="font-size:13px;padding:6px 12px;">
+                    Current: {{ standard_limit }} units
+                </span>
+            </div>
+            {% endif %}
+            <form method="post" action="{% url 'set-standard-limit' %}" style="display:flex;gap:10px;align-items:flex-end;">
                 {% csrf_token %}
-                <div class="col-auto">
-                    <label for="standard_limit" class="col-form-label">Limit Count</label>
+                <div style="flex:1;">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">New Standard Limit</label>
+                    <input type="number" id="standard_limit" name="standard_limit" min="1" required placeholder="e.g. 5"
+                        style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
                 </div>
-                <div class="col-auto">
-                    <input type="number" class="form-control" id="standard_limit" name="standard_limit" min="1" required placeholder="Enter standard limit">
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn btn-primary">
-                        Set Standard Limit
-                    </button>
-                </div>
+                <button type="submit" class="btn btn-primary" style="padding:9px 16px;white-space:nowrap;">Set Limit</button>
             </form>
-            <div class="alert alert-warning-glass mt-3 mb-0" role="alert">
-                
-                All items will be assigned the standard limit except those with specifically configured limits.<br>
-                <strong>Priority:</strong> If a product has a specific limit, it will use that. Otherwise, the standard limit will apply.
+            <div style="margin-top:14px;padding:12px 14px;background:var(--yellow-dim);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);">
+                <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px;">
+                    <i class="fas fa-info-circle"></i> Priority Rule
+                </div>
+                <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
+                    Product-specific limits take priority over the standard limit. Items without specific limits use the standard.
+                </p>
             </div>
         </div>
+
+        <!-- Current Limits Table -->
         <div class="card">
-            <h2 class="section-title">
-                Current Limits
-            </h2>
-            
+            <div class="card-header" style="margin-bottom:16px;">
+                <div class="card-title" style="font-size:15px;">
+                    <i class="fas fa-list-check" style="color:var(--green);margin-right:8px;"></i>
+                    Configured Limits
+                </div>
+                {% if limits %}
+                <span class="badge badge-green">{{ limits|length }}</span>
+                {% endif %}
+            </div>
+
             {% if limits %}
-                <div class="table-wrap">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Serial Number</th>
-                                    <th>Limit</th>
-                                    <th>Status</th>
-                                    <th class="d-none d-md-table-cell">Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for limit in limits %}
-                                <tr>
-                                    <td><strong>{{ limit.product.name }}</strong></td>
-                                    <td><span class="badge bg-info">{{ limit.product.serial_number|default:"-" }}</span></td>
-                                    <td><span class="badge bg-warning">{{ limit.limit_quantity }}</span></td>
-                                    <td>
-                                        {% if limit.is_active %}
-                                            <span class="badge bg-success">Active</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Inactive</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="d-none d-md-table-cell">{{ limit.updated_at|date:'M d, Y H:i' }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border);">
+                            <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Product</th>
+                            <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Serial #</th>
+                            <th style="text-align:center;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Limit</th>
+                            <th style="text-align:center;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for limit in limits %}
+                        <tr style="border-bottom:1px solid var(--border);transition:var(--transition);" onmouseenter="this.style.background='var(--bg-card-hover)'" onmouseleave="this.style.background=''">
+                            <td style="padding:10px 12px;font-weight:600;font-size:13px;color:var(--text-primary);">{{ limit.product.name }}</td>
+                            <td style="padding:10px 12px;">
+                                {% if limit.product.serial_number %}
+                                <span class="badge badge-blue" style="font-size:10px;">{{ limit.product.serial_number }}</span>
+                                {% else %}
+                                <span style="color:var(--text-muted);">—</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding:10px 12px;text-align:center;">
+                                <span class="badge badge-yellow" style="font-size:12px;">{{ limit.limit_quantity }}</span>
+                            </td>
+                            <td style="padding:10px 12px;text-align:center;">
+                                {% if limit.is_active %}
+                                <span class="badge badge-green">Active</span>
+                                {% else %}
+                                <span class="badge badge-gray">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="text-center py-4">
-                    
-                    <p>No quantity limits configured.</p>
-                </div>
+            <div style="text-align:center;padding:30px 20px;">
+                <p style="color:var(--text-muted);font-size:13px;">No product-specific limits configured yet.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<script id="products-data" type="application/json">
-    {{ products|json_script:"productsJson" }}
-</script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const products = JSON.parse(document.getElementById('productsJson').textContent);
-        const input = document.getElementById('product_search');
-        const productList = document.getElementById('productList');
-        const productIdInput = document.getElementById('product_id');
-        
-        input.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            productList.innerHTML = '';
-            
-            if (query.length < 2) {
+document.addEventListener('DOMContentLoaded', function() {
+    const products = JSON.parse(document.getElementById('productsJson').textContent);
+    const input = document.getElementById('product_search');
+    const productList = document.getElementById('productList');
+    const productIdInput = document.getElementById('product_id');
+
+    input.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        productList.innerHTML = '';
+        if (query.length < 2) { productList.style.display = 'none'; return; }
+
+        const filtered = products.filter(p => p.name.toLowerCase().includes(query) || p.serial.toLowerCase().includes(query));
+        if (filtered.length === 0) { productList.style.display = 'none'; return; }
+
+        filtered.forEach(product => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-primary);transition:var(--transition);';
+            item.innerHTML = '<strong>' + product.name + '</strong>' + (product.serial ? '<br><span style="font-size:11px;color:var(--text-muted);">SN: ' + product.serial + '</span>' : '');
+            item.onmouseenter = function() { this.style.background = 'var(--bg-card-hover)'; };
+            item.onmouseleave = function() { this.style.background = ''; };
+            item.addEventListener('click', function() {
+                input.value = product.name;
+                productIdInput.value = product.id;
                 productList.style.display = 'none';
-                return;
-            }
-            
-            const filtered = products.filter(product => 
-                product.name.toLowerCase().includes(query) ||
-                product.serial.toLowerCase().includes(query)
-            );
-            
-            if (filtered.length > 0) {
-                filtered.forEach(product => {
-                    const item = document.createElement('div');
-                    item.className = 'list-group-item list-group-item-action';
-                    item.style.background = 'rgba(255, 255, 255, 0.9)';
-                    item.style.border = '1px solid rgba(255, 255, 255, 0.3)';
-                    item.style.cursor = 'pointer';
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${product.name}</strong>
-                                ${product.serial ? `<br><small class="text-muted">SN: ${product.serial}</small>` : ''}
-                            </div>
-                        </div>
-                    `;
-                    item.addEventListener('click', function() {
-                        input.value = product.name;
-                        productIdInput.value = product.id;
-                        productList.style.display = 'none';
-                    });
-                    productList.appendChild(item);
-                });
-                productList.style.display = 'block';
-            } else {
-                productList.style.display = 'none';
-            }
+            });
+            productList.appendChild(item);
         });
-        
-        document.addEventListener('click', function(e) {
-            if (!input.contains(e.target) && !productList.contains(e.target)) {
-                productList.style.display = 'none';
-            }
-        });
+        productList.style.display = 'block';
     });
+
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !productList.contains(e.target)) {
+            productList.style.display = 'none';
+        }
+    });
+});
 </script>
-{% endblock %} 
+
+<script id="productsJson" type="application/json">{{ products|json_script:"productsJson" }}</script>
+{% endblock %}

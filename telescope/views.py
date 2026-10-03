@@ -20,7 +20,7 @@ from .models import (
 from .forms import (
     TelescopeForm, SlewTargetForm, TelescopeDiscussionForm, TelescopeDiscussionReplyForm,
     InstrumentForm, ObservationTargetForm, MaintenanceTicketForm, ResolveTicketForm,
-    CalibrationLogForm, SiteFeedbackForm, TelescopeUserForm
+    CalibrationLogForm, SiteFeedbackForm, TelescopeUserCreationForm, TelescopeAdminEditForm
 )
 from .platesolver.solver_engine import PlateSolverEngine
 
@@ -28,8 +28,11 @@ from .platesolver.solver_engine import PlateSolverEngine
 def ensure_default_telescopes():
     """
     Checks if default telescope seed instances exist in the database;
-    if none are found, initializes core observatory telescope records.
+    if none are found, initializes core observatory telescope records (VBT, JCBT, CZT).
     """
+    Telescope.objects.filter(name__icontains="Cassegrain").delete()
+    Telescope.objects.filter(name__icontains="Schmidt").delete()
+
     if Telescope.objects.count() == 0:
         Telescope.objects.create(
             id_name="vbt_234",
@@ -97,6 +100,19 @@ def ensure_default_telescopes():
             description="The 1.0m Carl Zeiss Telescope played a historic role in planetary discoveries.",
             history="Established at Kavalur in 1972."
         )
+    else:
+        for t in Telescope.objects.all():
+            if not t.code:
+                if "Vainu" in t.name or "VBT" in t.name:
+                    t.code = "vbt"
+                    t.id_name = "vbt_234"
+                elif "Bhattacharya" in t.name or "JCBT" in t.name:
+                    t.code = "jcbt"
+                    t.id_name = "jcbt_130"
+                elif "Zeiss" in t.name or "CZT" in t.name:
+                    t.code = "czt"
+                    t.id_name = "zeiss_100"
+                t.save()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -193,6 +209,21 @@ def telescope_detail(request, pk=None, code=None):
     }
     template_name = template_map.get(code_lower, 'telescope/telescope_detail.html')
 
+    u = request.user
+    from accounts.rbac import get_canonical_role, ROLE_ROOT, ROLE_TCS_ADMIN
+    role = get_canonical_role(u)
+    is_admin = u.is_superuser or getattr(u, 'is_root', False) or getattr(u, 'is_telescope_admin', False) or role in [ROLE_ROOT, ROLE_TCS_ADMIN] or getattr(u, 'role', '') == 'admin'
+
+    is_assigned = False
+    if is_admin or getattr(u, 'role', '') in ['engineer', 'scientific_officer']:
+        is_assigned = True
+    elif hasattr(u, 'check_telescope_access'):
+        is_assigned = u.check_telescope_access(telescope)
+    elif hasattr(u, 'assigned_telescopes'):
+        is_assigned = u.assigned_telescopes.filter(pk=telescope.pk).exists()
+    else:
+        is_assigned = is_admin
+
     return render(request, template_name, {
         'telescope': telescope,
         'targets': targets,
@@ -201,7 +232,8 @@ def telescope_detail(request, pk=None, code=None):
         'instruments': instruments,
         'discussions': discussions,
         'discussion_form': discussion_form,
-        'can_control': True,
+        'can_control': is_assigned,
+        'is_assigned_observer': is_assigned,
     })
 
 
@@ -259,9 +291,25 @@ def telescope_delete(request, pk):
     return redirect('telescope:dashboard')
 
 
+def _can_user_control_telescope(user, telescope):
+    from accounts.rbac import get_canonical_role, ROLE_ROOT, ROLE_TCS_ADMIN
+    role = get_canonical_role(user)
+    if user.is_superuser or getattr(user, 'is_root', False) or getattr(user, 'is_telescope_admin', False) or role in [ROLE_ROOT, ROLE_TCS_ADMIN] or getattr(user, 'role', '') in ['admin', 'engineer', 'scientific_officer']:
+        return True
+    if hasattr(user, 'check_telescope_access'):
+        return user.check_telescope_access(telescope)
+    if hasattr(user, 'assigned_telescopes'):
+        return user.assigned_telescopes.filter(pk=telescope.pk).exists()
+    return False
+
+
 @login_required
 def slew_telescope(request, pk):
     telescope = get_object_or_404(Telescope, pk=pk)
+    if not _can_user_control_telescope(request.user, telescope):
+        messages.error(request, "Access Denied: You are not authorized to send control commands to this telescope.")
+        return redirect('telescope:telescope_detail', pk=telescope.pk)
+
     if request.method == 'POST':
         form = SlewTargetForm(request.POST)
         if form.is_valid():
@@ -292,6 +340,10 @@ def slew_telescope(request, pk):
 @login_required
 def stop_telescope(request, pk):
     telescope = get_object_or_404(Telescope, pk=pk)
+    if not _can_user_control_telescope(request.user, telescope):
+        messages.error(request, "Access Denied: You are not authorized to send control commands to this telescope.")
+        return redirect('telescope:telescope_detail', pk=telescope.pk)
+
     if request.method == 'POST':
         telescope.status = Telescope.STATUS_IDLE
         telescope.save()
@@ -309,6 +361,10 @@ def stop_telescope(request, pk):
 @login_required
 def park_telescope(request, pk):
     telescope = get_object_or_404(Telescope, pk=pk)
+    if not _can_user_control_telescope(request.user, telescope):
+        messages.error(request, "Access Denied: You are not authorized to send control commands to this telescope.")
+        return redirect('telescope:telescope_detail', pk=telescope.pk)
+
     if request.method == 'POST':
         telescope.status = Telescope.STATUS_IDLE
         telescope.save()
@@ -326,6 +382,10 @@ def park_telescope(request, pk):
 @login_required
 def toggle_dome(request, pk):
     telescope = get_object_or_404(Telescope, pk=pk)
+    if not _can_user_control_telescope(request.user, telescope):
+        messages.error(request, "Access Denied: You are not authorized to send control commands to this telescope.")
+        return redirect('telescope:telescope_detail', pk=telescope.pk)
+
     if telescope.dome_status == 'open' or telescope.dome == 'Open':
         telescope.dome_status = 'closed'
         telescope.dome = 'Closed'
@@ -351,6 +411,10 @@ def toggle_dome(request, pk):
 @login_required
 def update_telemetry(request, pk):
     telescope = get_object_or_404(Telescope, pk=pk)
+    if not _can_user_control_telescope(request.user, telescope):
+        messages.error(request, "Access Denied: You are not authorized to edit telemetry on this telescope.")
+        return redirect('telescope:telescope_detail', pk=telescope.pk)
+
     if request.method == 'POST':
         focus_pos = request.POST.get('focus_position')
         mirror_temp = request.POST.get('primary_mirror_temp')
@@ -398,12 +462,29 @@ def update_telemetry(request, pk):
 
 @login_required
 def discussion_hub(request):
+    user = request.user
+    role = getattr(user, 'role', '')
+    is_specialist = (
+        getattr(user, 'is_superuser', False) or
+        getattr(user, 'is_root', False) or
+        getattr(user, 'is_admin', False) or
+        getattr(user, 'is_engineer', False) or
+        getattr(user, 'is_scientific_officer', False) or
+        role in ['admin', 'engineer', 'scientific_officer', 'ROOT', 'TCS_ADMIN', 'TM_ADMIN']
+    )
+
     telescopes = Telescope.objects.all().order_by('code')
+    if not is_specialist and hasattr(user, 'assigned_telescopes') and user.assigned_telescopes.exists():
+        telescopes = user.assigned_telescopes.all()
+
     selected_telescope_id = request.GET.get('telescope', '')
     selected_category = request.GET.get('category', '')
     search_query = request.GET.get('q', '').strip()
 
     discussions = TelescopeDiscussion.objects.select_related('telescope', 'user').annotate(reply_count=Count('replies'))
+
+    if not is_specialist and hasattr(user, 'assigned_telescopes') and user.assigned_telescopes.exists():
+        discussions = discussions.filter(telescope__in=user.assigned_telescopes.all())
 
     if selected_telescope_id:
         discussions = discussions.filter(telescope_id=selected_telescope_id)
@@ -604,13 +685,63 @@ def target_delete(request, pk):
     return redirect('telescope:target_list')
 
 
+def user_can_access_tab(user, tab):
+    """
+    Checks if a user has authorization to view/edit a specific unified log tab.
+    ROOT superuser, Admins, Engineers, Scientific Officers, and Observers have access to log tabs.
+    """
+    if not user or not user.is_authenticated:
+        return False
+        
+    role = getattr(user, 'role', '')
+    if (getattr(user, 'is_superuser', False) or 
+        getattr(user, 'is_root', False) or 
+        getattr(user, 'is_admin', False) or 
+        getattr(user, 'is_engineer', False) or 
+        getattr(user, 'is_scientific_officer', False) or 
+        role in ['admin', 'engineer', 'scientific_officer', 'observer', 'ROOT', 'TCS_ADMIN', 'TCS_MEMBER', 'TM_ADMIN', 'TM_MEMBER']):
+        
+        if tab in ['overview', 'report']:
+            return True
+        if hasattr(user, 'assigned_telescopes') and user.assigned_telescopes.exists():
+            return user.assigned_telescopes.filter(code__iexact=tab).exists()
+        return True
+        
+    return False
+
+
+def get_first_accessible_tab(user):
+    """Returns the default/first accessible tab for a user."""
+    if (getattr(user, 'is_superuser', False) or 
+        getattr(user, 'is_root', False) or 
+        getattr(user, 'is_admin', False) or 
+        getattr(user, 'is_engineer', False) or 
+        getattr(user, 'is_scientific_officer', False) or 
+        getattr(user, 'role', '') in ['admin', 'engineer', 'scientific_officer', 'ROOT', 'TCS_ADMIN', 'TCS_MEMBER', 'TM_ADMIN', 'TM_MEMBER']):
+        return 'overview'
+        
+    for t in ['vbt', 'jcbt', 'czt']:
+        if hasattr(user, 'assigned_telescopes') and user.assigned_telescopes.filter(code__iexact=t).exists():
+            return t
+            
+    return 'vbt'
+
+
 @login_required
 def unified_log_root(request):
-    return redirect('telescope:unified_log', tab='vbt')
+    target_tab = get_first_accessible_tab(request.user)
+    return redirect('telescope:unified_log', tab=target_tab)
 
 
 @login_required
 def unified_log(request, tab='vbt'):
+    if not user_can_access_tab(request.user, tab):
+        messages.error(request, f"Access denied. You do not have authorization for {tab.upper()} unified log.")
+        fallback_tab = get_first_accessible_tab(request.user)
+        if fallback_tab != tab and user_can_access_tab(request.user, fallback_tab):
+            return redirect('telescope:unified_log', tab=fallback_tab)
+        return redirect('telescope:dashboard')
+
     if request.method == 'POST':
         log_data_str = request.POST.get('log_data', '{}')
         try:
@@ -618,12 +749,21 @@ def unified_log(request, tab='vbt'):
         except json.JSONDecodeError:
             post_data = {}
 
-        date_str = post_data.get('date') or timezone.now().date().isoformat()
+        date_str = None
+        if tab in ['vbt', 'jcbt', 'czt']:
+            date_str = post_data.get(f'{tab}-obsdate') or post_data.get('date')
+        elif tab == 'overview':
+            date_str = post_data.get('date')
+
+        if not date_str:
+            date_str = timezone.now().date().isoformat()
+
         target_tel = tab if tab in ['vbt', 'jcbt', 'czt', 'overview'] else 'vbt'
 
+        # Immutability Check: Existing saved records cannot be modified
         existing_log = UnifiedLog.objects.filter(telescope=target_tel, date=date_str).first()
         if existing_log:
-            messages.error(request, f"Log for {target_tel.upper()} on date {date_str} already exists.")
+            messages.error(request, f"Access Denied: The Unified Log for {target_tel.upper()} on date {date_str} is already saved and locked against edits.")
             return redirect('telescope:unified_log', tab=tab)
 
         UnifiedLog.objects.create(
@@ -632,17 +772,21 @@ def unified_log(request, tab='vbt'):
             data=post_data,
             user=request.user if hasattr(request.user, 'pk') and request.user.pk else None
         )
-        messages.success(request, f"{target_tel.upper()} log for date {date_str} saved.")
+        messages.success(request, f"{target_tel.upper()} log for date {date_str} saved and locked in database successfully.")
         return redirect('telescope:unified_log', tab=tab)
 
     all_logs = UnifiedLog.objects.all()
     logs_data_dict = {}
     for log in all_logs:
-        date_str = str(log.date)
+        date_str = log.date.isoformat() if hasattr(log.date, 'isoformat') else str(log.date)
         if log.telescope in ['vbt', 'jcbt', 'czt']:
-            logs_data_dict[f"vbo4-{date_str}-{log.telescope}"] = log.data
+            key = f"vbo4-{date_str}-{log.telescope}"
+            logs_data_dict[key] = log.data
         elif log.telescope == 'overview':
-            logs_data_dict[f"vbo4-ho-{date_str}"] = log.data.get('ho', log.data)
+            key = f"vbo4-ho-{date_str}"
+            logs_data_dict[key] = log.data.get('ho', log.data)
+
+    logs_json = json.dumps(logs_data_dict)
 
     template_map = {
         'overview': 'telescope/observations/unified_log_overview.html',
@@ -653,16 +797,28 @@ def unified_log(request, tab='vbt'):
     }
     template_name = template_map.get(tab, 'telescope/observations/unified_log_vbt.html')
 
+    user_role = getattr(request.user, 'role', '')
+    is_pure_observer = (user_role == 'observer') and not (
+        getattr(request.user, 'is_superuser', False) or
+        getattr(request.user, 'is_root', False) or
+        getattr(request.user, 'is_admin', False) or
+        getattr(request.user, 'is_engineer', False) or
+        getattr(request.user, 'is_scientific_officer', False)
+    )
+    show_tabbar = not is_pure_observer
+
     return render(request, template_name, {
         'active_tab': tab,
-        'logs_json': json.dumps(logs_data_dict),
-        'show_tabbar': True,
-        'can_access_overview': True,
-        'can_access_vbt': True,
-        'can_access_jcbt': True,
-        'can_access_czt': True,
-        'can_access_report': True,
+        'logs_json': logs_json,
+        'show_tabbar': show_tabbar,
+        'is_observer': is_pure_observer,
+        'can_access_overview': user_can_access_tab(request.user, 'overview'),
+        'can_access_vbt': user_can_access_tab(request.user, 'vbt'),
+        'can_access_jcbt': user_can_access_tab(request.user, 'jcbt'),
+        'can_access_czt': user_can_access_tab(request.user, 'czt'),
+        'can_access_report': user_can_access_tab(request.user, 'report'),
     })
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -901,22 +1057,60 @@ def platesolver_api_sync(request):
 @login_required
 def feedback_view(request):
     user = request.user
+    from accounts.rbac import get_canonical_role, ROLE_ROOT, ROLE_TCS_ADMIN
+    role = get_canonical_role(user)
+    is_admin_user = (
+        user.is_superuser
+        or getattr(user, 'is_root', False)
+        or getattr(user, 'is_telescope_admin', False)
+        or role in [ROLE_ROOT, ROLE_TCS_ADMIN]
+        or getattr(user, 'role', '') == 'admin'
+    )
+
+    is_auth_user = (getattr(user, '_meta', None) and user._meta.model_name == 'user')
+
     if request.method == 'POST':
         form = SiteFeedbackForm(request.POST)
         if form.is_valid():
             fb = form.save(commit=False)
-            fb.user = user if hasattr(user, 'pk') and user.pk else None
+            fb.user = user if is_auth_user else None
+            fb.name = user.get_full_name() or user.username
+            fb.email = getattr(user, 'email', '') or ""
             fb.save()
-            messages.success(request, "Feedback submitted successfully.")
+            messages.success(request, "Thank you! Your feedback has been submitted successfully.")
             return redirect('telescope:feedback')
+        else:
+            messages.error(request, "Failed to submit feedback. Please check the form fields.")
     else:
         form = SiteFeedbackForm()
 
-    feedbacks = SiteFeedback.objects.all().order_by('-created_at')
+    if is_admin_user:
+        feedbacks = SiteFeedback.objects.all().order_by('-created_at')
+    else:
+        # Standard users only see feedback submitted by themselves
+        if is_auth_user:
+            feedbacks = SiteFeedback.objects.filter(user=user).order_by('-created_at')
+        else:
+            feedbacks = SiteFeedback.objects.filter(
+                Q(name__iexact=user.username) | Q(name__iexact=user.get_full_name())
+            ).order_by('-created_at')
+
+    bug_count = feedbacks.filter(category='bug_error').count()
+    open_count = feedbacks.filter(status='new').count()
+    feature_count = feedbacks.filter(category='feature_req').count()
+    ui_count = feedbacks.filter(category='ui_ux').count()
+    hardware_count = feedbacks.filter(category='hardware_error').count()
+
     return render(request, 'telescope/feedback.html', {
         'form': form,
         'feedbacks': feedbacks,
+        'is_admin_user': is_admin_user,
         'total_count': feedbacks.count(),
+        'bug_count': bug_count,
+        'open_count': open_count,
+        'feature_count': feature_count,
+        'ui_count': ui_count,
+        'hardware_count': hardware_count,
         'categories': SiteFeedback.CATEGORY_CHOICES,
     })
 
@@ -941,135 +1135,189 @@ def mark_notifications_read(request):
 # 9. TCS USER MANAGEMENT VIEWS (TCS_ADMIN / TCS_MEMBER hierarchy)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _is_tcs_admin(user):
+    """
+    Returns True if the logged-in user is a TCS admin or global ROOT superuser.
+    Accepts TelescopeUser instances, standard accounts.User instances, and RBAC canonical roles.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    if hasattr(user, 'is_root') and user.is_root:
+        return True
+    from accounts.rbac import get_canonical_role, ROLE_ROOT, ROLE_TCS_ADMIN
+    role = get_canonical_role(user)
+    if role in [ROLE_ROOT, ROLE_TCS_ADMIN]:
+        return True
+    if hasattr(user, '_meta') and user._meta.model_name == 'telescopeuser':
+        return user.is_telescope_admin or user.role == TelescopeUser.ROLE_ADMIN
+    return False
+
+
 @login_required
 def user_list(request):
     """
-    TCS User Management view.
-    Role options are strictly TCS_ADMIN and TCS_MEMBER.
-    ROOT is the global Super Admin across the application and is not a TCS role option.
+    TCS User Management view — categorized user overview by roles matching TCS system design.
+    Accessible by TCS Admins and global ROOT admin.
     """
-    search = request.GET.get('q', '').strip()
-    selected_role = request.GET.get('role', '').strip()
-    users = TelescopeUser.objects.all().order_by('-created_at')
+    if not _is_tcs_admin(request.user):
+        messages.error(request, "Access Denied: Only TCS Administrators and ROOT can manage users.")
+        return redirect('telescope:dashboard')
 
-    if search:
-        users = users.filter(Q(username__icontains=search) | Q(email__icontains=search))
+    q = request.GET.get('q', '').strip()
+    role = request.GET.get('role', '').strip()
+    department = request.GET.get('department', '').strip()
 
-    admin_users = users.filter(models.Q(role='admin') | models.Q(is_telescope_admin=True))
-    observer_users = users.filter(role='operator', is_telescope_admin=False)
+    users = TelescopeUser.objects.all()
 
-    stats = {
-        'total': users.count(),
-        'admins': admin_users.count(),
-        'members': observer_users.count(),
-        'active': users.filter(is_active=True).count(),
-    }
+    if role:
+        users = users.filter(role=role)
+    if department:
+        users = users.filter(department=department)
+    if q:
+        users = users.filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(email__icontains=q) |
+            Q(designation__icontains=q)
+        )
 
-    return render(request, 'telescope/user_list.html', {
+    users = users.order_by('role', '-created_at')
+
+    # Category statistics counts
+    total_users_count = TelescopeUser.objects.count()
+    admin_users_count = TelescopeUser.objects.filter(Q(role='admin') | Q(is_telescope_admin=True)).count()
+    engineer_users_count = TelescopeUser.objects.filter(role='engineer').count()
+    so_users_count = TelescopeUser.objects.filter(role='scientific_officer').count()
+    observer_users_count = TelescopeUser.objects.filter(role='observer').count()
+
+    # Categorized user lists
+    admin_users = users.filter(Q(role='admin') | Q(is_telescope_admin=True))
+    engineer_users = users.filter(role='engineer', is_telescope_admin=False)
+    so_users = users.filter(role='scientific_officer', is_telescope_admin=False)
+    observer_users = users.filter(role='observer', is_telescope_admin=False)
+
+    all_telescopes = Telescope.objects.all()
+
+    context = {
         'users': users,
         'admin_users': admin_users,
+        'engineer_users': engineer_users,
+        'so_users': so_users,
         'observer_users': observer_users,
-        'admin_users_count': admin_users.count(),
-        'observer_users_count': observer_users.count(),
-        'total_users_count': users.count(),
-        'selected_role': selected_role,
-        'stats': stats,
-        'search': search,
-        'q': search,
-    })
+        'selected_role': role,
+        'selected_department': department,
+        'q': q,
+        'total_users_count': total_users_count,
+        'admin_users_count': admin_users_count,
+        'engineer_users_count': engineer_users_count,
+        'so_users_count': so_users_count,
+        'observer_users_count': observer_users_count,
+        'department_choices': TelescopeUser.DEPARTMENT_CHOICES,
+        'role_choices': TelescopeUser.ROLE_CHOICES,
+        'all_telescopes': all_telescopes,
+        'is_tele_admin': True,
+    }
+    return render(request, 'telescope/user_list.html', context)
 
 
 @login_required
 def user_create(request):
     """
-    Creates a TelescopeUser account.
-    Allowed roles: TCS_ADMIN ('admin') and TCS_MEMBER ('operator').
-    ROOT cannot be selected as a TCS user role.
+    Creates a TelescopeUser account using dedicated user creation form matching TCS system architecture.
     """
+    if not _is_tcs_admin(request.user):
+        messages.error(request, "Access Denied: Only TCS Administrators can create users.")
+        return redirect('telescope:dashboard')
+
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '').strip()
-        email = request.POST.get('email', '').strip()
-        selected_role = request.POST.get('role', 'operator').strip()
-        is_tele_admin = (selected_role == 'admin') or (request.POST.get('is_telescope_admin') == 'on')
+        form = TelescopeUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            pwd = form.cleaned_data.get('password1')
+            if pwd:
+                user.set_password(pwd)
+            user.save()
+            form.save_m2m()
 
-        if not username or not password:
-            messages.error(request, "Username and password are required.")
+            messages.success(request, f"User account '{user.username}' ({user.get_role_display()}) created successfully.")
             return redirect('telescope:user_list')
+        else:
+            messages.error(request, "Failed to create user account. Please check the form errors below.")
+    else:
+        form = TelescopeUserCreationForm()
 
-        if TelescopeUser.objects.filter(username=username).exists():
-            messages.error(request, f"Username '{username}' already exists.")
-            return redirect('telescope:user_list')
-
-        # Prevent creating ROOT role inside TCS
-        role_final = "admin" if is_tele_admin else "operator"
-
-        user = TelescopeUser.objects.create(
-            username=username,
-            email=email or None,
-            role=role_final,
-            is_active=request.POST.get('is_active') == 'on',
-            is_telescope_admin=is_tele_admin,
-            can_operate_vbt=request.POST.get('can_operate_vbt') == 'on',
-            can_operate_jcbt=request.POST.get('can_operate_jcbt') == 'on',
-            can_operate_zeiss=request.POST.get('can_operate_zeiss') == 'on',
-            can_operate_cassegrain=request.POST.get('can_operate_cassegrain') == 'on',
-            can_operate_schmidt=request.POST.get('can_operate_schmidt') == 'on',
-            can_command_dome=request.POST.get('can_command_dome') == 'on',
-            can_trigger_exposures=request.POST.get('can_trigger_exposures') == 'on',
-        )
-        user.set_password(password)
-        messages.success(request, f"TCS user '{username}' created successfully.")
-
-    return redirect('telescope:user_list')
+    return render(request, 'telescope/user_form.html', {'form': form, 'action': 'Create New User'})
 
 
 @login_required
 def user_edit(request, pk):
-    user = get_object_or_404(TelescopeUser, pk=pk)
+    """
+    Edits a TelescopeUser account credentials, role assignment, active status, and authorized telescopes.
+    """
+    if not _is_tcs_admin(request.user):
+        messages.error(request, "Access Denied: Only TCS Administrators can edit users.")
+        return redirect('telescope:dashboard')
+
+    target_user = get_object_or_404(TelescopeUser, pk=pk)
     if request.method == 'POST':
-        user.email = request.POST.get('email', '').strip() or None
-        user.is_active = request.POST.get('is_active') == 'on'
-
-        selected_role = request.POST.get('role', user.role).strip()
-        is_admin_check = (selected_role == 'admin') or (request.POST.get('is_telescope_admin') == 'on')
-
-        user.role = "admin" if is_admin_check else "operator"
-        user.is_telescope_admin = is_admin_check
-
-        permission_fields = [
-            'can_operate_vbt', 'can_operate_jcbt', 'can_operate_zeiss',
-            'can_operate_cassegrain', 'can_operate_schmidt',
-            'can_command_dome', 'can_trigger_exposures'
-        ]
-        for field in permission_fields:
-            setattr(user, field, request.POST.get(field) == 'on')
-
-        password = request.POST.get('password', '').strip()
-        if password:
-            user.set_password(password)
-        else:
+        form = TelescopeAdminEditForm(request.POST, instance=target_user)
+        if form.is_valid():
+            user = form.save(commit=False)
+            new_pwd = form.cleaned_data.get('new_password')
+            if new_pwd:
+                user.set_password(new_pwd)
             user.save()
+            form.save_m2m()
 
-        messages.success(request, f"TCS user '{user.username}' updated successfully.")
+            messages.success(request, f"User account '{user.username}' updated successfully.")
+            return redirect('telescope:user_list')
+        else:
+            messages.error(request, "Failed to update user account. Please check the form errors below.")
+    else:
+        form = TelescopeAdminEditForm(instance=target_user)
 
-    return redirect('telescope:user_list')
+    return render(request, 'telescope/user_edit.html', {'form': form, 'target_user': target_user})
 
 
 @login_required
 def user_delete(request, pk):
-    user = get_object_or_404(TelescopeUser, pk=pk)
-    username = user.username
-    user.is_active = False
-    user.save()
-    messages.success(request, f"TCS user '{username}' deactivated.")
-    return redirect('telescope:user_list')
+    """
+    Deletes a TelescopeUser account with confirmation matching TCS system architecture.
+    """
+    if not _is_tcs_admin(request.user):
+        messages.error(request, "Access Denied: Only TCS Administrators can remove users.")
+        return redirect('telescope:dashboard')
+
+    target_user = get_object_or_404(TelescopeUser, pk=pk)
+
+    if request.method == 'POST':
+        if hasattr(request.user, 'pk') and hasattr(target_user, 'pk') and request.user.pk == target_user.pk and getattr(request.user._meta, 'model_name', '') == getattr(target_user._meta, 'model_name', ''):
+            messages.error(request, "You cannot delete your own active administrator account!")
+            return redirect('telescope:user_list')
+
+        username = target_user.username
+        target_user.delete()
+        messages.success(request, f"User account '{username}' deleted successfully.")
+        return redirect('telescope:user_list')
+
+    return render(request, 'telescope/user_confirm_delete.html', {'target_user': target_user})
 
 
 @login_required
 def user_toggle(request, pk):
+    """
+    Toggles active/inactive status for a TelescopeUser. Restricted to TCS Admins only.
+    """
+    if not _is_tcs_admin(request.user):
+        messages.error(request, "Access Denied: Only TCS Administrators can toggle user status.")
+        return redirect('telescope:dashboard')
+
     user = get_object_or_404(TelescopeUser, pk=pk)
     user.is_active = not user.is_active
     user.save()
-    messages.success(request, f"TCS user '{user.username}' status updated.")
+    status_str = "activated" if user.is_active else "deactivated"
+    messages.success(request, f"TCS user '{user.username}' {status_str}.")
     return redirect('telescope:user_list')

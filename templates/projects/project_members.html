@@ -261,10 +261,17 @@
                 {% for m in project.managers.all %}
                 <div class="user-item current-member-row" data-name="{{ m.display_name|lower }} {{ m.username|lower }}">
                     <div class="user-avatar" style="background: {{ m.avatar_color|default:'#4f46e5' }}">
-                        {{ m.initials }}
+                        {% if m.profile_picture %}
+                        <img src="{{ m.profile_picture.url }}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">
+                        {% else %}
+                        {{ m.initials|default:m.username|slice:":2"|upper }}
+                        {% endif %}
                     </div>
                     <div class="user-info">
-                        <span class="user-name">{{ m.display_name }}</span>
+                        <span class="user-name">
+                            {{ m.display_name }}
+                            {% if m == request.user %}<span class="badge badge-primary" style="font-size:9px; margin-left:4px;">(You)</span>{% endif %}
+                        </span>
                         <div class="user-meta">
                             <span class="team-badge">Manager</span>
                             <span>@{{ m.username }}</span>
@@ -284,10 +291,17 @@
                     {% if m.pk in current_member_ids and m not in project.managers.all %}
                     <div class="user-item current-member-row" data-name="{{ m.display_name|lower }} {{ m.username|lower }}">
                         <div class="user-avatar" style="background: {{ m.avatar_color|default:'#4f46e5' }}">
-                            {{ m.initials }}
+                            {% if m.profile_picture %}
+                            <img src="{{ m.profile_picture.url }}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">
+                            {% else %}
+                            {{ m.initials|default:m.username|slice:":2"|upper }}
+                            {% endif %}
                         </div>
                         <div class="user-info">
-                            <span class="user-name">{{ m.display_name }}</span>
+                            <span class="user-name">
+                                {{ m.display_name }}
+                                {% if m == request.user %}<span class="badge badge-primary" style="font-size:9px; margin-left:4px;">(You)</span>{% endif %}
+                            </span>
                             <div class="user-meta">
                                 <span class="team-badge">{{ m.get_team_display }}</span>
                                 <span>@{{ m.username }}</span>

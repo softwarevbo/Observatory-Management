@@ -12,3 +12,5 @@ from accounts.views (e.g. from accounts import views).
 from .auth_views import *
 from .user_management_views import *
 from .profile_views import *
+from .backup_views import *
+

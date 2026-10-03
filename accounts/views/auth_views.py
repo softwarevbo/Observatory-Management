@@ -213,6 +213,8 @@ def inventory_login(request):
 
         return render(request, "accounts/login.html", {"form": LoginForm(request)})
 
+
+
     return redirect("accounts:login")
 
 

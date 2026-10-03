@@ -459,7 +459,7 @@
         </div>
         {% endif %}
 
-        {% if user.is_authenticated and user.is_admin %}
+        {% if is_admin_user %}
         <div style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px;">
             <button type="button" class="btn btn-secondary btn-xs"
                     onclick="toggleAdminRespond('admin-resp-{{ fb.id }}')">

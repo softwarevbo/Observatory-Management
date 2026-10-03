@@ -26,14 +26,10 @@ def project_list(request):
     search = request.GET.get("q", "")
     deletion_requested = request.GET.get("deletion_requested", "")
 
-    # Admins can see all projects in the system
-    if user.is_admin:
-        projects = Project.objects.all()
-    else:
-        # Non-admins can see projects where they are creator, manager, member, or incharge, or public projects
-        projects = Project.objects.filter(
-            Q(created_by=user) | Q(managers=user) | Q(members=user) | Q(project_incharge=user) | Q(visibility="public")
-        ).distinct()
+    # Show projects where user is creator, manager, member, project_incharge, or public projects
+    projects = Project.objects.filter(
+        Q(created_by=user) | Q(managers=user) | Q(members=user) | Q(project_incharge=user) | Q(visibility="public")
+    ).distinct()
 
     # Filter by archive status. Default to showing non-archived projects
     show_archived = request.GET.get("archived", "")
@@ -120,14 +116,7 @@ def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
 
     # Access control: members, managers, incharge, creator, or public
-    if not (
-        request.user.is_admin
-        or project.created_by == request.user
-        or project.members.filter(pk=request.user.pk).exists()
-        or project.managers.filter(pk=request.user.pk).exists()
-        or project.project_incharge == request.user
-        or project.visibility == "public"
-    ):
+    if not project.is_member(request.user):
         messages.error(request, "You do not have access to this project.")
         return redirect("tasks:project_list")
 
@@ -165,8 +154,8 @@ def project_detail(request, pk):
     if type_filter:
         filtered_tasks = filtered_tasks.filter(task_type=type_filter)
 
-    # Bugs Visibility logic: Admins/PMs see all bugs; regular members see only reported/assigned bugs
-    if request.user.is_admin or project.managers.filter(pk=request.user.pk).exists() or request.user.is_project_manager:
+    # Bugs Visibility logic: PMs see all bugs; regular members see only reported/assigned bugs
+    if project.is_manager(request.user):
         bugs = project.bug_reports.filter(is_in_trash=False)
     else:
         # Members only see bugs they reported or bugs assigned to them
@@ -282,9 +271,9 @@ def project_edit(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Permission check: ONLY Project Managers and System Admins can edit project information/description
-    if not (request.user.is_admin or project.is_manager(request.user)):
-        messages.error(request, "Only Project Managers and System Administrators can edit main project information.")
+    # Permission check: ONLY Project Managers for this project can edit project information/description
+    if not project.is_manager(request.user):
+        messages.error(request, "Only Project Managers for this project can edit project information.")
         return redirect("tasks:project_detail", pk=project.pk)
 
     # Cache old members list to compare changes and send notifications afterwards
@@ -333,9 +322,9 @@ def project_settings(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Permission check: ONLY Project Managers and System Admins can access project settings
-    if not (request.user.is_admin or project.is_manager(request.user)):
-        messages.error(request, "Only Project Managers and System Administrators can access project settings.")
+    # Permission check: ONLY Project Managers for this project can access project settings
+    if not project.is_manager(request.user):
+        messages.error(request, "Only Project Managers for this project can access project settings.")
         return redirect("tasks:project_detail", pk=pk)
 
     # Handle settings configuration form submission
@@ -380,10 +369,12 @@ def project_settings(request, pk):
 
 
 @login_required
-@manager_or_admin_required
 def project_members(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
+    if not project.is_manager(request.user):
+        messages.error(request, "Only Project Managers for this project can manage members.")
+        return redirect("tasks:project_detail", pk=pk)
     # Fetch active system users ordered by team and name for template regrouping
     all_users = User.objects.filter(is_active=True, can_access_pm=True).order_by("team", "first_name", "username")
     current_member_ids = set(project.members.values_list("pk", flat=True))
@@ -437,7 +428,6 @@ def project_members(request, pk):
 
 
 @login_required
-@manager_or_admin_required
 def project_delete(request, pk):
     from datetime import timedelta
     from django.utils import timezone
@@ -445,6 +435,9 @@ def project_delete(request, pk):
 
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
+    if not project.is_manager(request.user):
+        messages.error(request, "Only Project Managers for this project can delete the project.")
+        return redirect("tasks:project_detail", pk=pk)
 
     if request.method == "POST":
         # Delete actions require multi-phase confirmations for safety
@@ -550,13 +543,8 @@ def project_task_list(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Secure page: restrict access to admins, members, managers, or incharge users
-    if not (
-        request.user.is_admin
-        or project.members.filter(pk=request.user.pk).exists()
-        or project.managers.filter(pk=request.user.pk).exists()
-        or project.project_incharge == request.user
-    ):
+    # Secure page: restrict access to project members
+    if not project.is_member(request.user):
         messages.error(request, "You do not have access to this project.")
         return redirect("tasks:project_list")
 
@@ -622,13 +610,8 @@ def project_requirement_list(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Secure page: restrict access to authenticated members, managers, or incharge users
-    if not (
-        request.user.is_admin
-        or project.members.filter(pk=request.user.pk).exists()
-        or project.managers.filter(pk=request.user.pk).exists()
-        or project.project_incharge == request.user
-    ):
+    # Secure page: restrict access to project members
+    if not project.is_member(request.user):
         messages.error(request, "You do not have access to this project.")
         return redirect("tasks:project_list")
 
@@ -686,13 +669,8 @@ def project_bug_list(request, pk):
     # Retrieve project or return 404
     project = get_object_or_404(Project, pk=pk)
 
-    # Secure page: restrict access to authenticated members, managers, or incharge users
-    if not (
-        request.user.is_admin
-        or project.members.filter(pk=request.user.pk).exists()
-        or project.managers.filter(pk=request.user.pk).exists()
-        or project.project_incharge == request.user
-    ):
+    # Secure page: restrict access to project members
+    if not project.is_member(request.user):
         messages.error(request, "You do not have access to this project.")
         return redirect("tasks:project_list")
 

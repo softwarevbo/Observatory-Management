@@ -1,8 +1,31 @@
-from django.shortcuts import render, redirect
+import os
+from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import redirect, render
 
 """
 This module contains global core views (such as custom error pages handler).
 """
+
+def startfolder_view(request):
+    """
+    Renders the landing page from startfolder/index.html when accessing root URL.
+    """
+    file_path = settings.BASE_DIR / "startfolder" / "index.html"
+    if file_path.exists():
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return HttpResponse(content, content_type="text/html")
+    return render(request, "404.html", status=404)
+
+def serve_startfolder_asset(request, filename):
+    """
+    Serves static assets (images, logos) located in the startfolder.
+    """
+    file_path = settings.BASE_DIR / "startfolder" / filename
+    if file_path.exists():
+        return FileResponse(open(file_path, "rb"))
+    raise Http404("Asset not found")
 
 def home_redirect_view(request):
     """

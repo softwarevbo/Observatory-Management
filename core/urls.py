@@ -18,8 +18,10 @@ urlpatterns = [
     # 404 test page
     path("404/", lambda request: render(request, "404.html"), name="test-404"),
     
-    # Django Admin site
-    path("admin/", admin.site.urls),
+    # Django Admin site (renamed to Iiap2026/)
+    path("Iiap2026/", admin.site.urls),
+    path("admin/", lambda request: redirect("/Iiap2026/")),
+
     
     # Modular application routes
     path("accounts/", include("accounts.urls", namespace="accounts")),
@@ -52,8 +54,10 @@ urlpatterns = [
 
     path("resource-hub/", include("resource_hub.urls", namespace="resource_hub")),
 
-    # Root dashboard default redirection
-    path("", views.home_redirect_view, name="home"),
+    # Root landing page from startfolder
+    path("", views.startfolder_view, name="home"),
+    path("iia-logo.jpg", views.serve_startfolder_asset, {"filename": "iia-logo.jpg"}),
+    path("background.png", views.serve_startfolder_asset, {"filename": "background.png"}),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Custom 404 handler registration

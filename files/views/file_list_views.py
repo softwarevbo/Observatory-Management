@@ -15,29 +15,28 @@ This module processes primary files and folders listing, sorting, and authorizat
 def check_file_access(pf, user, access_type="view"):
     """
     Validates user credentials against file parameters:
-    - Admins/PMs have access to all items.
     - Creators have full control over their uploaded files.
     - Viewers must belong to linked projects/modules or have explicit overrides.
+    - Unassigned admins cannot access project files.
     """
-    if user.is_admin or getattr(user, 'is_project_manager', False):
+    if not user or not user.is_authenticated:
+        return False
+    if pf.project:
+        if not pf.project.is_member(user):
+            return False
+        if access_type in ["edit", "delete"]:
+            return pf.uploaded_by == user or pf.project.is_manager(user)
         return True
     if pf.uploaded_by == user:
         return True
     if access_type in ["edit", "delete"]:
-        if pf.project:
-            if (pf.project.managers.filter(pk=user.pk).exists() or 
-                pf.project.members.filter(pk=user.pk).exists()):
-                return True
-        if pf.file_type in ["document", "pdf", "code", "text"]:
-            return pf.uploaded_by == user
+        return pf.uploaded_by == user
     if access_type != "view":
         return False
         
     module = pf.module or (pf.task.module if pf.task else None)
     if module:
         return ModuleMember.objects.filter(module=module, user=user).exists()
-    elif pf.project:
-        return pf.project.members.filter(pk=user.pk).exists()
     return False
 
 

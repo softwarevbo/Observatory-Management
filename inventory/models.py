@@ -352,6 +352,10 @@ class InventoryUser(models.Model):
         return False
 
     @property
+    def is_project_manager(self):
+        return False
+
+    @property
     def can_access_pm(self):
         return False
 

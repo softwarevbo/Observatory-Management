@@ -570,6 +570,7 @@
                                     <th style="padding: 12px 14px;">IP Address</th>
                                     <th style="padding: 12px 14px;">Browser / System Details</th>
                                     <th style="padding: 12px 14px;">Session Status</th>
+                                    <th style="padding: 12px 14px; text-align: right;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -600,10 +601,20 @@
                                         <span class="badge badge-secondary" style="color:var(--text-muted); padding: 4px 8px; border-radius: 12px; font-size: 11px;">Authenticated</span>
                                         {% endif %}
                                     </td>
+                                    <td style="padding: 12px 14px; text-align: right; white-space: nowrap;">
+                                        <form method="POST" action="{% url 'accounts:settings' %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="delete_session">
+                                            <input type="hidden" name="session_id" value="{{ item.pk }}">
+                                            <button type="submit" class="btn btn-danger btn-xs" title="Logout Session Remotely">
+                                                <i class="fas fa-right-from-bracket me-1"></i> Logout Session
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="{% if user.is_admin %}5{% else %}4{% endif %}" style="padding: 30px; text-align: center; color: var(--text-muted);">
+                                    <td colspan="{% if user.is_admin %}6{% else %}5{% endif %}" style="padding: 30px; text-align: center; color: var(--text-muted);">
                                         <i class="fas fa-shield-alt" style="font-size: 24px; opacity: 0.4; margin-bottom: 8px; display: block;"></i>
                                         No security login records logged yet.
                                     </td>
@@ -617,10 +628,10 @@
 
             <!-- NOTIFICATIONS PANEL -->
             <div id="panel-notifications" class="settings-panel">
-                <h2 class="settings-section-title">Notifications</h2>
-                <p class="settings-section-desc">Control when and how you want to be notified.</p>
+                <h2 class="settings-section-title">Notifications & Audio Settings</h2>
+                <p class="settings-section-desc">Control email digests, sound muting, and upload custom alert ringtones.</p>
                 
-                <form method="POST" action="{% url 'accounts:settings' %}">
+                <form method="POST" action="{% url 'accounts:settings' %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="update_preferences">
                     
@@ -641,26 +652,28 @@
                         </div>
                     </div>
 
-                    <!-- WEBHOOK INTEGRATIONS (SUGGESTED OPTION) -->
+                    <!-- NOTIFICATION AUDIO & RINGTONE SETTINGS -->
                     <div class="settings-card">
                         <div class="settings-card-header">
-                            <i class="fas fa-network-wired"></i>
-                            <div class="settings-card-title">Slack / Discord Integrations</div>
+                            <i class="fas fa-volume-high"></i>
+                            <div class="settings-card-title">Audio & Ringtone Customization</div>
                         </div>
-                        <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-bottom:16px;">
-                            Post automatic notifications and logs directly to your group channel when projects, releases, or bugs are modified.
-                        </p>
-                        <div class="form-group">
-                            <label>Slack/Discord Incoming Webhook URL</label>
-                            <input type="url" name="webhook_url" id="id_webhook_url" class="form-control" placeholder="https://hooks.slack.com/services/..." onchange="saveLocalPreference('webhook_url', this.value)">
+                        <div class="switch-group">
+                            <div class="switch-label">
+                                <div class="switch-title">Mute Notification Audio</div>
+                                <div class="switch-desc">Silence all incoming notification chimes and alert sounds.</div>
+                            </div>
+                            <label class="switch-control">
+                                <input type="checkbox" name="notification_sound_muted" id="id_sound_muted">
+                                <span class="slider"></span>
+                            </label>
                         </div>
-                        <div class="form-group" style="max-width:320px; margin-bottom:0;">
-                            <label>Notification Digest Frequency</label>
-                            <select name="digest_freq" id="id_digest_freq" class="form-control" onchange="saveLocalPreference('digest_freq', this.value)">
-                                <option value="instant">Instant Realtime Alerts</option>
-                                <option value="daily">Daily Consolidated Digest</option>
-                                <option value="weekly">Weekly Team Overview</option>
-                            </select>
+                        <div class="form-group" style="margin-top:14px;">
+                            <label><i class="fas fa-music me-1"></i> Upload Custom Notification Ringtone</label>
+                            <input type="file" name="ringtone_file" class="form-control" accept="audio/*">
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:5px;">
+                                <i class="fas fa-info-circle"></i> Upload custom MP3, WAV, or OGG audio file for alert chimes.
+                            </div>
                         </div>
                     </div>
 
@@ -933,8 +946,70 @@
                         <button type="submit" class="btn btn-primary">Update System Settings</button>
                     </div>
                 </form>
+
+                <!-- SYSTEM BACKUP & DISASTER RECOVERY CARD -->
+                <div class="settings-card" style="margin-top: 28px; border: 1px solid var(--accent); background: var(--bg-card);">
+                    <div class="settings-card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+                        <i class="fas fa-box-archive" style="color: var(--accent); font-size: 20px;"></i>
+                        <div class="settings-card-title" style="font-size: 16px; font-weight: 700;">System Disaster Recovery & Backup Engine</div>
+                    </div>
+                    <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px;">
+                        Generate zero-data-loss system backups containing model database records and media files across Project Management, Inventory Management, and Telescope Control System.
+                    </p>
+
+                    <!-- EXPORT BACKUP FORM -->
+                    <form method="POST" action="{% url 'accounts:export_backup' %}" style="margin-bottom: 28px;">
+                        {% csrf_token %}
+                        <h4 style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; text-transform: uppercase;">
+                            <i class="fas fa-file-export me-1" style="color: var(--accent);"></i> Select Management Modules & Assets to Export
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; background: var(--bg-card); padding: 16px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px;">
+                            <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" name="include_pm" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                                <span><i class="fas fa-diagram-project me-1" style="color:#c084fc;"></i> Project Management (PM)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" name="include_im" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                                <span><i class="fas fa-boxes-stacked me-1" style="color:#34d399;"></i> Inventory Management (IM)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" name="include_tcs" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                                <span><i class="fas fa-satellite-dish me-1" style="color:#38bdf8;"></i> Telescope Control (TCS)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" name="include_media" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                                <span><i class="fas fa-folder-open me-1" style="color:#fbbf24;"></i> Media & File Attachments</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" name="include_db" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                                <span><i class="fas fa-database me-1" style="color:#f87171;"></i> Full Database Dump</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-download me-1"></i> Export Complete Backup Archive (.zip)
+                        </button>
+                    </form>
+
+                    <!-- IMPORT / RESTORE BACKUP FORM -->
+                    <form method="POST" action="{% url 'accounts:import_backup' %}" enctype="multipart/form-data" style="padding-top: 20px; border-top: 1px dashed var(--border);">
+                        {% csrf_token %}
+                        <h4 style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; text-transform: uppercase;">
+                            <i class="fas fa-file-import me-1" style="color: #34d399;"></i> Import & Restore System Backup
+                        </h4>
+                        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+                            Upload a previously generated backup <code>.zip</code> file to restore all database models and media files with zero data loss.
+                        </p>
+                        <div class="form-group" style="max-width: 480px; margin-bottom: 14px;">
+                            <input type="file" name="backup_file" class="form-control" accept=".zip" required>
+                        </div>
+                        <button type="submit" class="btn btn-secondary" onclick="return confirm('WARNING: Restoring a backup will overwrite existing database records and media files with the backup contents. Are you sure you want to proceed?');">
+                            <i class="fas fa-rotate-left me-1"></i> Restore System State From Backup
+                        </button>
+                    </form>
+                </div>
             </div>
             {% endif %}
+
 
             <!-- FEATURES PANEL -->
             <div id="panel-features" class="settings-panel">

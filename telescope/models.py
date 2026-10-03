@@ -15,22 +15,64 @@ class TelescopeUserManager(models.Manager):
 
 class TelescopeUser(models.Model):
     """
-    Standalone isolated user database table exclusively for Telescope Control System (TCS).
-    Roles in TCS are strictly TCS_ADMIN ('admin') and TCS_MEMBER ('operator').
-    ROOT is the global system super admin and is NOT a TCS role.
+    Standalone user database table exclusively for Telescope Control System (TCS).
+    Supports multi-role access control matching TCS system specifications:
+    - Admin (Observatory / System Manager)
+    - Engineer (Instrument / Maintenance Engineer)
+    - Observer (Astronomical Observer)
+    - Scientific Officer (Research Specialist)
+    ROOT is the global system super admin across PM, IM, and TCS.
     """
+    ROLE_ADMIN = 'admin'
+    ROLE_ENGINEER = 'engineer'
+    ROLE_OBSERVER = 'observer'
+    ROLE_SCIENTIFIC_OFFICER = 'scientific_officer'
+
+    ROLE_CHOICES = [
+        (ROLE_ADMIN, 'Observatory Admin'),
+        (ROLE_ENGINEER, 'Instrument Engineer'),
+        (ROLE_OBSERVER, 'Astronomical Observer'),
+        (ROLE_SCIENTIFIC_OFFICER, 'Scientific Officer'),
+    ]
+
+    DEPARTMENT_CHOICES = [
+        ('optics', 'Optics & Instrumentation'),
+        ('electronics', 'Control Electronics'),
+        ('software', 'Software & Telemetry'),
+        ('astronomy', 'Observational Astronomy'),
+        ('operations', 'Site Operations'),
+    ]
+
     objects = TelescopeUserManager()
     username = models.CharField(max_length=50, unique=True)
     password = models.CharField(max_length=128)
-    role = models.CharField(
-        max_length=50,
-        default="operator",
-        choices=[
-            ("admin", "TCS Admin"),
-            ("operator", "TCS Member"),
-        ],
-    )
+    first_name = models.CharField(max_length=50, blank=True, default="")
+    last_name = models.CharField(max_length=50, blank=True, default="")
     email = models.EmailField(blank=True, null=True)
+    role = models.CharField(
+        max_length=30,
+        default=ROLE_OBSERVER,
+        choices=ROLE_CHOICES,
+        help_text="Primary functional role in the observatory system."
+    )
+    department = models.CharField(
+        max_length=30, choices=DEPARTMENT_CHOICES, default='astronomy', blank=True
+    )
+    designation = models.CharField(max_length=100, blank=True, default="", help_text="Job title or academic rank.")
+    phone = models.CharField(max_length=20, blank=True, default="")
+    avatar_color = models.CharField(max_length=7, default="#4f8ef7")
+    theme_preference = models.CharField(
+        max_length=10,
+        choices=[('dark', 'Dark Observatory Theme'), ('light', 'Light Theme')],
+        default='dark'
+    )
+    assigned_telescopes = models.ManyToManyField(
+        'Telescope',
+        blank=True,
+        related_name='assigned_observers',
+        help_text="Telescopes this observer is authorized to view and control."
+    )
+
     is_active = models.BooleanField(default=True)
     is_telescope_admin = models.BooleanField(default=False)
 
@@ -41,7 +83,10 @@ class TelescopeUser(models.Model):
     can_operate_schmidt = models.BooleanField(default=True)
     can_command_dome = models.BooleanField(default=True)
     can_trigger_exposures = models.BooleanField(default=True)
+
+    last_notif_viewed = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def set_password(self, raw_password):
         self.password = make_password(raw_password)
@@ -50,13 +95,21 @@ class TelescopeUser(models.Model):
     def check_password(self, raw_password):
         return check_password(raw_password, self.password)
 
+    def get_full_name(self):
+        name = f"{self.first_name} {self.last_name}".strip()
+        return name or self.username
+
+    def get_short_name(self):
+        return self.first_name or self.username
+
     def __str__(self):
-        return f"{self.username} ({'TCS Admin' if self.is_admin else 'TCS Member'})"
+        return f"{self.display_name} ({self.get_role_display()})"
 
     class Meta:
         db_table = "telescope_telescopeuser"
         verbose_name = "Telescope User"
         verbose_name_plural = "Telescope Users"
+        ordering = ["username"]
 
     @property
     def canonical_role(self):
@@ -65,48 +118,44 @@ class TelescopeUser(models.Model):
 
     @property
     def display_name(self):
-        return self.username
+        return self.get_full_name() or self.username
 
     @property
     def initials(self):
+        name = f"{self.first_name} {self.last_name}".strip()
+        if name:
+            parts = name.split()
+            return "".join(p[0].upper() for p in parts[:2])
         return self.username[:2].upper()
 
     @property
     def is_admin(self):
-        return self.is_telescope_admin or self.role == "admin"
-
-    @property
-    def is_authenticated(self):
-        return True
-
-    @property
-    def is_anonymous(self):
-        return False
-
-    @property
-    def is_superuser(self):
-        return False
-
-    @property
-    def is_staff(self):
-        return False
+        return self.is_telescope_admin or self.role == self.ROLE_ADMIN
 
     @property
     def is_engineer(self):
-        return self.is_admin
+        return self.role == self.ROLE_ENGINEER or self.is_admin
 
     @property
     def is_observer(self):
-        return True
+        return self.role == self.ROLE_OBSERVER or self.is_admin
 
     @property
     def is_scientific_officer(self):
-        return self.is_admin
+        return self.role == self.ROLE_SCIENTIFIC_OFFICER or self.is_admin
 
-    def can_access_telescope(self, telescope=None):
+    def check_telescope_access(self, telescope=None):
+        if self.is_admin or self.role in [self.ROLE_ENGINEER, self.ROLE_SCIENTIFIC_OFFICER]:
+            return True
+        if telescope and self.role == self.ROLE_OBSERVER:
+            return self.assigned_telescopes.filter(pk=telescope.pk).exists()
         return True
 
     def get_accessible_telescopes(self):
+        if self.is_admin or self.role in [self.ROLE_ENGINEER, self.ROLE_SCIENTIFIC_OFFICER]:
+            return Telescope.objects.all()
+        if self.role == self.ROLE_OBSERVER:
+            return self.assigned_telescopes.all()
         return Telescope.objects.all()
 
     @property
@@ -120,6 +169,10 @@ class TelescopeUser(models.Model):
     @property
     def can_access_pm(self):
         return False
+
+    @property
+    def can_access_telescope(self):
+        return True
 
     @property
     def can_access_inventory(self):

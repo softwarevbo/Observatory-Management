@@ -1,102 +1,120 @@
 {% extends 'inventory_base.html' %}
 {% block title %}Staff Profile — IIAP IM{% endblock %}
-{% block page_title %}Inventory Staff Profile Details{% endblock %}
+{% block page_title %}Inventory Staff Profile{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-3">
-  <!-- Profile Header Card -->
-  <div class="card border-0 shadow-sm p-4 mb-4" style="background:var(--bg-card); border-radius:14px;">
-    <div class="d-flex align-items-center gap-4 flex-wrap">
-      <div>
-        {% include 'partials/user_avatar.html' with avatar_user=profile_user size="80" radius="20px" font_size="28" %}
-      </div>
-      <div class="flex-grow-1">
-        <h3 class="fw-bold mb-1" style="color:var(--text-primary)">{{ profile_user.username }}</h3>
-        <div class="text-muted d-flex gap-3 flex-wrap" style="font-size:13px;">
-          <span><i class="fas fa-envelope text-primary me-1"></i> {{ profile_user.email|default:"No email registered" }}</span>
-          <span><i class="fas fa-shield-alt text-primary me-1"></i> Role: {{ profile_user.role|title }}</span>
-          <span><i class="fas fa-warehouse text-primary me-1"></i> Branch: {% if profile_user.branch %}{{ profile_user.branch.name }}{% else %}Global Warehouse Access{% endif %}</span>
+<div class="page-header" style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1 class="page-title" style="margin-bottom:4px !important;">Staff Profile</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Detailed view of inventory staff member profile and permissions.</p>
+    </div>
+    <a href="{% url 'accounts:inventory_user_list' %}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Back to Staff
+    </a>
+</div>
+
+<!-- Profile Header -->
+<div class="card" style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        {% include 'partials/user_avatar.html' with avatar_user=profile_user size="72" radius="18px" font_size="26" %}
+        <div style="flex:1;min-width:0;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">{{ profile_user.username }}</div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                <span style="font-size:13px;color:var(--text-muted);"><i class="fas fa-envelope" style="color:var(--accent);margin-right:5px;"></i>{{ profile_user.email|default:"No email" }}</span>
+                <span style="font-size:13px;color:var(--text-muted);"><i class="fas fa-shield-alt" style="color:var(--accent);margin-right:5px;"></i>{{ profile_user.role|title }}</span>
+                <span style="font-size:13px;color:var(--text-muted);"><i class="fas fa-warehouse" style="color:var(--accent);margin-right:5px;"></i>{% if profile_user.branch %}{{ profile_user.branch.name }}{% else %}Global Access{% endif %}</span>
+            </div>
         </div>
-      </div>
-      <div>
         {% if profile_user == user %}
-        <a href="{% url 'accounts:inventory_settings' %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-cog me-1"></i> Account Settings</a>
+        <a href="{% url 'accounts:inventory_settings' %}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-cog"></i> My Settings
+        </a>
         {% endif %}
-      </div>
     </div>
-  </div>
+</div>
 
-  <!-- Activity Metrics Cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-6">
-      <div class="card border-0 shadow-sm p-3" style="background:var(--bg-card); border-radius:12px;">
-        <div class="d-flex align-items-center gap-3">
-          <div class="p-3 rounded-3" style="background:rgba(79,142,247,0.1); color:var(--accent); font-size:22px;"><i class="fas fa-sliders-h"></i></div>
-          <div>
-            <div style="font-size:24px; font-weight:700; color:var(--text-primary)">{{ stats.adjustments_count }}</div>
-            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Stock Adjustments Created</div>
-          </div>
+<!-- Activity Stats -->
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px;">
+    <div class="stat-card" style="border-left:4px solid var(--accent);">
+        <div class="stat-icon" style="background:var(--accent-glow);color:var(--accent);">
+            <i class="fas fa-sliders-h"></i>
         </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card border-0 shadow-sm p-3" style="background:var(--bg-card); border-radius:12px;">
-        <div class="d-flex align-items-center gap-3">
-          <div class="p-3 rounded-3" style="background:rgba(16,185,129,0.1); color:#10b981; font-size:22px;"><i class="fas fa-tools"></i></div>
-          <div>
-            <div style="font-size:24px; font-weight:700; color:var(--text-primary)">{{ stats.rentals_count }}</div>
-            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Tools & Equipment Rentals</div>
-          </div>
+        <div>
+            <div class="stat-value">{{ stats.adjustments_count }}</div>
+            <div class="stat-label">Stock Adjustments Created</div>
         </div>
-      </div>
     </div>
-  </div>
+    <div class="stat-card" style="border-left:4px solid var(--green);">
+        <div class="stat-icon" style="background:var(--green-dim);color:var(--green);">
+            <i class="fas fa-tools"></i>
+        </div>
+        <div>
+            <div class="stat-value">{{ stats.rentals_count }}</div>
+            <div class="stat-label">Equipment Rentals</div>
+        </div>
+    </div>
+</div>
 
-  <!-- Granular Permissions Matrix -->
-  <div class="card border-0 shadow-sm p-4" style="background:var(--bg-card); border-radius:14px;">
-    <h5 class="fw-bold mb-3" style="color:var(--text-primary)"><i class="fas fa-key text-primary me-2"></i>Inventory Staff Authorization Matrix</h5>
-    <div class="row g-3">
-      <div class="col-md-4">
-        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
-          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Stock Adjustments Access</div>
-          {% if profile_user.can_access_adjustments_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
-          {% if profile_user.can_manage_adjustments %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
+<!-- Permission Matrix -->
+<div class="card">
+    <div class="card-header" style="margin-bottom:20px;">
+        <div class="card-title" style="font-size:16px;">
+            <i class="fas fa-key" style="color:var(--yellow);margin-right:8px;"></i>
+            Authorization Matrix
         </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
-          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Serial Number Tracking</div>
-          {% if profile_user.can_access_serials_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
-          {% if profile_user.can_manage_serials %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
-          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Reorder Point Limits</div>
-          {% if profile_user.can_access_limits_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
-          {% if profile_user.can_manage_limits %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
-          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Rental Items & Tools</div>
-          {% if profile_user.can_access_rentals_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
-          {% if profile_user.can_manage_rentals %}<span class="badge bg-primary ms-1">Management Active</span>{% endif %}
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
-          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Shortage Exports</div>
-          {% if profile_user.can_access_shortage_page %}<span class="badge bg-success">View Enabled</span>{% else %}<span class="badge bg-secondary">View Disabled</span>{% endif %}
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded-3 border" style="background:var(--bg-primary);">
-          <div class="fw-bold mb-2" style="font-size:13px; color:var(--text-primary);">Global Branch View</div>
-          {% if profile_user.can_view_all_branches_inventory %}<span class="badge bg-info">All Branches</span>{% else %}<span class="badge bg-secondary">Assigned Branch Only</span>{% endif %}
-        </div>
-      </div>
     </div>
-  </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+        {% for label, view_perm, manage_perm in permission_display %}
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">{{ label }}</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if view_perm %}<span class="badge badge-green" style="width:fit-content;"><i class="fas fa-eye" style="font-size:9px;"></i> View Enabled</span>{% else %}<span class="badge badge-gray" style="width:fit-content;"><i class="fas fa-eye-slash" style="font-size:9px;"></i> View Disabled</span>{% endif %}
+                {% if manage_perm %}<span class="badge badge-blue" style="width:fit-content;"><i class="fas fa-wrench" style="font-size:9px;"></i> Management Active</span>{% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <!-- Fallback: show raw boolean fields -->
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Stock Adjustments</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if profile_user.can_access_adjustments_page %}<span class="badge badge-green" style="width:fit-content;">View Enabled</span>{% else %}<span class="badge badge-gray" style="width:fit-content;">View Disabled</span>{% endif %}
+                {% if profile_user.can_manage_adjustments %}<span class="badge badge-blue" style="width:fit-content;">Management Active</span>{% endif %}
+            </div>
+        </div>
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Serial Number Tracking</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if profile_user.can_access_serials_page %}<span class="badge badge-green" style="width:fit-content;">View Enabled</span>{% else %}<span class="badge badge-gray" style="width:fit-content;">View Disabled</span>{% endif %}
+                {% if profile_user.can_manage_serials %}<span class="badge badge-blue" style="width:fit-content;">Management Active</span>{% endif %}
+            </div>
+        </div>
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Reorder Point Limits</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if profile_user.can_access_limits_page %}<span class="badge badge-green" style="width:fit-content;">View Enabled</span>{% else %}<span class="badge badge-gray" style="width:fit-content;">View Disabled</span>{% endif %}
+                {% if profile_user.can_manage_limits %}<span class="badge badge-blue" style="width:fit-content;">Management Active</span>{% endif %}
+            </div>
+        </div>
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Rental Items & Tools</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if profile_user.can_access_rentals_page %}<span class="badge badge-green" style="width:fit-content;">View Enabled</span>{% else %}<span class="badge badge-gray" style="width:fit-content;">View Disabled</span>{% endif %}
+                {% if profile_user.can_manage_rentals %}<span class="badge badge-blue" style="width:fit-content;">Management Active</span>{% endif %}
+            </div>
+        </div>
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Shortage Exports</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if profile_user.can_access_shortage_page %}<span class="badge badge-green" style="width:fit-content;">View Enabled</span>{% else %}<span class="badge badge-gray" style="width:fit-content;">View Disabled</span>{% endif %}
+            </div>
+        </div>
+        <div style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Global Branch View</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                {% if profile_user.can_view_all_branches_inventory %}<span class="badge badge-cyan" style="width:fit-content;">All Branches</span>{% else %}<span class="badge badge-gray" style="width:fit-content;">Assigned Branch Only</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}

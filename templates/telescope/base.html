@@ -649,8 +649,8 @@
         <div class="topbar-title">
             {% block topbar_title %}Telescope Control System (TCS){% endblock %}
         </div>
-        <div class="topbar-meta">
-            <span>IIA VBO OBSERVATORY</span>
+        <div class="topbar-meta" id="live-clock" style="font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-muted);">
+            Loading UTC…
         </div>
         <div class="topbar-actions">
             <div class="status-pill online">SYSTEM ONLINE</div>
@@ -674,6 +674,40 @@
         {% block content %}{% endblock %}
     </div>
 </div>
+
+<script>
+    function updateClock() {
+        const now = new Date();
+        const utc = now.toUTCString().replace('GMT', 'UTC');
+        const el = document.getElementById('live-clock');
+        if (el) el.textContent = utc;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Auto-dismiss telescope system notifications after 2 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.messages-container .alert, .alert');
+        if (alerts.length > 0) {
+            setTimeout(function() {
+                alerts.forEach(function(alert) {
+                    alert.style.transition = 'opacity 0.5s ease, transform 0.5s ease, max-height 0.5s ease, margin 0.5s ease, padding 0.5s ease';
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-10px)';
+                    alert.style.maxHeight = '0px';
+                    alert.style.marginTop = '0px';
+                    alert.style.marginBottom = '0px';
+                    alert.style.paddingTop = '0px';
+                    alert.style.paddingBottom = '0px';
+                    alert.style.overflow = 'hidden';
+                    setTimeout(function() {
+                        if (alert.parentNode) alert.remove();
+                    }, 500);
+                });
+            }, 2000);
+        }
+    });
+</script>
 
 {% block extra_js %}{% endblock %}
 </body>

@@ -66,11 +66,10 @@ def category_delete(request, pk):
     project = cat.project
     
     # Permission verification
-    if not (request.user.is_admin or 
-            getattr(request.user, 'is_project_manager', False) or
-            (project and (project.managers.filter(pk=request.user.pk).exists() or 
-                          project.members.filter(pk=request.user.pk).exists())) or
-            cat.created_by == request.user):
+    if not (
+        (project and project.is_member(request.user))
+        or cat.created_by == request.user
+    ):
         messages.error(request, "No permission to delete this folder.")
         if project:
             return redirect("files:project_files", pk=project.pk)
@@ -135,10 +134,8 @@ def move_item(request):
 
     # Permission verification
     can_move = False
-    if request.user.is_admin or getattr(request.user, 'is_project_manager', False):
-        can_move = True
-    elif project and (project.managers.filter(pk=request.user.pk).exists() or project.members.filter(pk=request.user.pk).exists()):
-        can_move = True
+    if project:
+        can_move = project.is_member(request.user)
     elif item_type == "file" and item.uploaded_by == request.user:
         can_move = True
     elif item_type == "folder" and item.created_by == request.user:
@@ -247,10 +244,8 @@ def manage_resource(request):
     
     # Permission verification
     can_manage = False
-    if request.user.is_admin or request.user.is_project_manager:
-        can_manage = True
-    elif project and (project.managers.filter(pk=request.user.pk).exists() or project.members.filter(pk=request.user.pk).exists()):
-        can_manage = True
+    if project:
+        can_manage = project.is_member(request.user)
     elif item_type == "file" and item.uploaded_by == request.user:
         can_manage = True
     elif item_type == "folder" and item.created_by == request.user:
@@ -321,10 +316,8 @@ def bulk_file_action(request):
             for pf in files:
                 project = pf.project
                 can_manage = False
-                if request.user.is_admin or getattr(request.user, 'is_project_manager', False):
-                    can_manage = True
-                elif project and (project.managers.filter(pk=request.user.pk).exists() or project.members.filter(pk=request.user.pk).exists()):
-                    can_manage = True
+                if project:
+                    can_manage = project.is_member(request.user)
                 elif pf.uploaded_by == request.user:
                     can_manage = True
                 
@@ -337,10 +330,8 @@ def bulk_file_action(request):
             for cat in folders:
                 project = cat.project
                 can_manage = False
-                if request.user.is_admin or getattr(request.user, 'is_project_manager', False):
-                    can_manage = True
-                elif project and (project.managers.filter(pk=request.user.pk).exists() or project.members.filter(pk=request.user.pk).exists()):
-                    can_manage = True
+                if project:
+                    can_manage = project.is_member(request.user)
                 elif cat.created_by == request.user:
                     can_manage = True
                 

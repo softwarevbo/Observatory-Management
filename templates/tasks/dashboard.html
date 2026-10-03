@@ -63,9 +63,12 @@
 </div>
 
 {% if due_today or overdue_tasks %}
-<div class="card" style="border-left: 4px solid var(--red); margin-bottom: 24px;">
-    <div class="card-header" style="padding: 12px 20px 8px 20px;">
+<div class="card" id="attention-required-card" style="border-left: 4px solid var(--red); margin-bottom: 24px;">
+    <div class="card-header" style="padding: 12px 20px 8px 20px; display: flex; align-items: center; justify-content: space-between;">
         <div class="card-title" style="color: var(--red); font-size: 14px;"><i class="fas fa-exclamation-circle"></i> Attention Required</div>
+        <button type="button" class="btn btn-secondary btn-xs" onclick="document.getElementById('attention-required-card').style.display='none';" title="Dismiss alert" style="padding: 3px 8px; cursor: pointer;">
+            <i class="fas fa-xmark"></i> Close
+        </button>
     </div>
     <div style="padding: 0 20px 16px 20px; display: flex; flex-direction: column; gap: 8px;">
         {% for task in due_today %}

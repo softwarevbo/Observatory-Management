@@ -1,227 +1,182 @@
 {% extends 'inventory_base.html' %}
 
-{% block title %}Inventory Adjustments{% endblock %}
+{% block title %}Inventory Adjustments — IIAP IM{% endblock %}
 
 {% block content %}
-<h1 class="page-title">
-    Inventory Adjustments
-</h1>
-
-<div class="row g-4">
-    <div class="col-lg-6 col-md-12">
-        <div class="card">
-            <div class="text-center mb-4">
-                
-                <h2 class="mb-0">Adjust Inventory</h2>
-                <p>Modify stock levels manually</p>
-            </div>
-            
-            <form method="post" autocomplete="off">
-                {% csrf_token %}
-                <div class="mb-4 position-relative">
-                    <label for="product_search" class="form-label">Product</label>
-                    <input type="text" class="form-control" id="product_search" placeholder="Type to search products..." autocomplete="off">
-                    <input type="hidden" name="product" id="product_id">
-                    <div id="productList" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
-                </div>
-                {% if branches %}
-                <div class="mb-4">
-                    <label for="branch" class="form-label">Branch</label>
-                    <select class="form-select" id="branch" name="branch" required>
-                        <option value="" disabled {% if not current_branch_id %}selected{% endif %}>Select Branch</option>
-                        {% for b in branches %}
-                        <option value="{{ b.id }}" {% if current_branch_id == b.id|stringformat:"i" %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
-                <div class="mb-4">
-                    <label for="adjustment_type" class="form-label">Adjustment Type</label>
-                    <select class="form-select" id="adjustment_type" name="adjustment_type" required>
-                        <option value="">Select Type</option>
-                        <option value="increase">Increase</option>
-                        <option value="decrease">Decrease</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label for="quantity" class="form-label">Quantity</label>
-                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" placeholder="Enter quantity" required>
-                </div>
-                <div class="mb-4">
-                    <label for="reason" class="form-label">Reason</label>
-                    <input type="text" class="form-control" id="reason" name="reason" placeholder="Enter adjustment reason" required>
-                </div>
-                <button type="submit" class="btn btn btn-secondary w-100 py-3">
-                    Add Adjustment
-                </button>
-            </form>
-        </div>
+<div class="page-header" style="margin-bottom:28px;">
+    <div class="page-header-left">
+        <h1 class="page-title" style="margin-bottom:4px !important;">Inventory Adjustments</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Manually modify stock levels and review recent adjustment history.</p>
     </div>
-    
-    <div class="col-lg-6 col-md-12">
-        <div class="card">
-            <h2 class="section-title">
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <!-- Adjust Form -->
+    <div class="card">
+        <div class="card-header" style="margin-bottom:20px;">
+            <div class="card-title" style="font-size:16px;">
+                <i class="fas fa-sliders-h" style="color:var(--accent);margin-right:8px;"></i>
+                Adjust Stock Level
+            </div>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">Configure stock increases or decreases with reason tracking.</p>
+
+        <form method="post" autocomplete="off">
+            {% csrf_token %}
+            <div style="margin-bottom:16px;position:relative;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Product</label>
+                <input type="text" id="product_search" placeholder="Type to search products…" autocomplete="off"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                <input type="hidden" name="product" id="product_id">
+                <div id="productList" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:1000;max-height:200px;overflow-y:auto;box-shadow:var(--shadow);display:none;"></div>
+            </div>
+
+            {% if branches %}
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Branch</label>
+                <select id="branch" name="branch" required
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+                    <option value="" disabled {% if not current_branch_id %}selected{% endif %}>Select Branch</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if current_branch_id == b.id|stringformat:"i" %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Adjustment Type</label>
+                <select id="adjustment_type" name="adjustment_type" required
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+                    <option value="">Select Type</option>
+                    <option value="increase">⬆ Increase</option>
+                    <option value="decrease">⬇ Decrease</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Quantity</label>
+                <input type="number" id="quantity" name="quantity" min="1" placeholder="Enter quantity" required
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Reason</label>
+                <input type="text" id="reason" name="reason" placeholder="Enter adjustment reason" required
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">
+                <i class="fas fa-check-circle"></i> Apply Adjustment
+            </button>
+        </form>
+    </div>
+
+    <!-- Recent Adjustments -->
+    <div class="card">
+        <div class="card-header" style="margin-bottom:20px;">
+            <div class="card-title" style="font-size:16px;">
+                <i class="fas fa-history" style="color:var(--purple);margin-right:8px;"></i>
                 Recent Adjustments
-            </h2>
-            
+            </div>
             {% if adjustments %}
-                <div class="table-wrap">
-                    <div class="table-responsive" style="overflow-x: auto;">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Serial Number</th>
-                                    <th>Type</th>
-                                    <th>Quantity</th>
-                                    <th class="d-none d-md-table-cell">Date</th>
-                                    <th class="d-none d-lg-table-cell">Reason</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for adj in adjustments %}
-                                <tr>
-                                    <td><strong>{{ adj.product.name }}</strong></td>
-                                    <td><span class="badge bg-info">{{ adj.product.serial_number|default:"-" }}</span></td>
-                                    <td>
-                                        {% if adj.adjustment_type == 'increase' %}
-                                            <span class="badge bg-success">+{{ adj.quantity }}</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">-{{ adj.quantity }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ adj.quantity }}</td>
-                                    <td class="d-none d-md-table-cell">{{ adj.timestamp|date:'M d, Y H:i' }}</td>
-                                    <td class="d-none d-lg-table-cell">{{ adj.reason|truncatechars:30 }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <!-- Pagination Controls -->
-                {% include 'pagination.html' %}
-            {% else %}
-                <div class="text-center py-4">
-                    
-                    <p>No inventory adjustments found.</p>
-                </div>
+            <span class="badge badge-purple">{{ adjustments|length }} records</span>
             {% endif %}
         </div>
+
+        {% if adjustments %}
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--border);">
+                        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Product</th>
+                        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Serial #</th>
+                        <th style="text-align:center;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Type</th>
+                        <th style="text-align:center;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Qty</th>
+                        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for adj in adjustments %}
+                    <tr style="border-bottom:1px solid var(--border);transition:var(--transition);" onmouseenter="this.style.background='var(--bg-card-hover)'" onmouseleave="this.style.background=''">
+                        <td style="padding:10px 12px;font-weight:600;color:var(--text-primary);font-size:13px;">{{ adj.product.name }}</td>
+                        <td style="padding:10px 12px;">
+                            {% if adj.product.serial_number %}
+                            <span class="badge badge-blue" style="font-size:10px;">{{ adj.product.serial_number }}</span>
+                            {% else %}
+                            <span style="color:var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 12px;text-align:center;">
+                            {% if adj.adjustment_type == 'increase' %}
+                            <span class="badge badge-green"><i class="fas fa-arrow-up" style="font-size:9px;"></i> +{{ adj.quantity }}</span>
+                            {% else %}
+                            <span class="badge badge-red"><i class="fas fa-arrow-down" style="font-size:9px;"></i> -{{ adj.quantity }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-primary);">{{ adj.quantity }}</td>
+                        <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);">{{ adj.timestamp|date:'M d, Y' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'pagination.html' %}
+        {% else %}
+        <div style="text-align:center;padding:50px 20px;">
+            <div style="width:56px;height:56px;background:var(--bg-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--text-muted);">
+                <i class="fas fa-clipboard-list" style="font-size:22px;"></i>
+            </div>
+            <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin-bottom:8px;color:var(--text-primary);">No Adjustments Yet</h3>
+            <p style="color:var(--text-muted);font-size:13px;">Use the form on the left to create the first stock adjustment.</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const products = [
-            {% for product in products %}
-                {id: {{ product.id }}, name: "{{ product.name|escapejs }}", serial: "{{ product.serial_number|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ];
-        const input = document.getElementById('product_search');
-        const productList = document.getElementById('productList');
-        const productIdInput = document.getElementById('product_id');
-        
-        input.addEventListener('input', function() {
-            const val = this.value.toLowerCase();
-            productList.innerHTML = '';
-            if (val.length === 0) return;
-            
-            const matches = products.filter(function(p) { 
-                return p.name.toLowerCase().includes(val) || p.serial.toLowerCase().includes(val); 
-            });
-            
-            matches.forEach(function(p) {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'list-group-item list-group-item-action';
-                item.style.background = 'rgba(255, 255, 255, 0.3)';
-                item.style.border = '1px solid rgba(255, 255, 255, 0.4)';
-                item.style.color = 'var(--text-primary)';
-                item.style.backdropFilter = 'blur(16px)';
-                item.style.webkitBackdropFilter = 'blur(16px)';
-                item.innerHTML = '<strong>' + p.name + '</strong>' + (p.serial ? '<br><small>SN: ' + p.serial + '</small>' : '');
-                item.onclick = function() {
-                    input.value = p.name;
-                    productIdInput.value = p.id;
-                    productList.innerHTML = '';
-                };
-                productList.appendChild(item);
-            });
+document.addEventListener('DOMContentLoaded', function() {
+    const products = [
+        {% for product in products %}
+        {id: {{ product.id }}, name: "{{ product.name|escapejs }}", serial: "{{ product.serial_number|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    const input = document.getElementById('product_search');
+    const productList = document.getElementById('productList');
+    const productIdInput = document.getElementById('product_id');
+
+    input.addEventListener('input', function() {
+        const val = this.value.toLowerCase();
+        productList.innerHTML = '';
+        if (val.length === 0) { productList.style.display = 'none'; return; }
+
+        const matches = products.filter(p => p.name.toLowerCase().includes(val) || p.serial.toLowerCase().includes(val));
+        if (matches.length === 0) { productList.style.display = 'none'; return; }
+
+        matches.forEach(p => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-primary);transition:var(--transition);';
+            item.innerHTML = '<strong>' + p.name + '</strong>' + (p.serial ? '<br><span style="font-size:11px;color:var(--text-muted);">SN: ' + p.serial + '</span>' : '');
+            item.onmouseenter = function() { this.style.background = 'var(--bg-card-hover)'; };
+            item.onmouseleave = function() { this.style.background = ''; };
+            item.onclick = function() {
+                input.value = p.name;
+                productIdInput.value = p.id;
+                productList.style.display = 'none';
+            };
+            productList.appendChild(item);
         });
-        
-        document.addEventListener('click', function(e) {
-            if (!input.contains(e.target) && !productList.contains(e.target)) {
-                productList.innerHTML = '';
-            }
-        });
+        productList.style.display = 'block';
     });
+
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !productList.contains(e.target)) {
+            productList.style.display = 'none';
+        }
+    });
+});
 </script>
-
-<style>
-/* Mobile responsive adjustments */
-@media (max-width: 768px) {
-    .card, .card {
-        padding: 1.5rem !important;
-    }
-    
-    .fa-3x {
-        font-size: 2.5rem;
-    }
-    
-    h2 {
-        font-size: 1.5rem;
-    }
-    
-    .btn {
-        padding: 0.75rem 1rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .card, .card {
-        padding: 1rem !important;
-    }
-    
-    .fa-3x {
-        font-size: 2rem;
-    }
-    
-    h2 {
-        font-size: 1.3rem;
-    }
-    
-    .btn {
-        padding: 0.6rem 0.8rem;
-        font-size: 0.9rem;
-    }
-    
-    .table-responsive {
-        font-size: 0.9rem;
-    }
-    
-    .table th, .table td {
-        padding: 0.5rem 0.3rem;
-    }
-}
-
-/* Add horizontal scroll bar for .table-responsive always visible */
-.table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: #b3b3b3 #f5f5f5;
-}
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #b3b3b3;
-    border-radius: 4px;
-}
-.table-responsive::-webkit-scrollbar-track {
-    background: #f5f5f5;
-    border-radius: 4px;
-}
-</style>
 {% endblock %}

@@ -17,8 +17,7 @@ It includes:
 @login_required
 def profile_view(request):
     """
-    Renders the logged-in user's Project Management profile page.
-    Retrieves assigned tasks and related projects to show a quick dashboard summary.
+    Renders the logged-in user's profile page based on their active portal/role.
     """
     u = request.user
     if hasattr(u, "_meta"):
@@ -26,6 +25,12 @@ def profile_view(request):
             return redirect("accounts:telescope_profile")
         elif u._meta.model_name == "inventoryuser":
             return redirect("accounts:inventory_profile")
+
+    from accounts.rbac import get_canonical_role, ROLE_TCS_ADMIN, ROLE_TCS_MEMBER
+    role = get_canonical_role(u)
+    referer = request.META.get('HTTP_REFERER', '')
+    if role in [ROLE_TCS_ADMIN, ROLE_TCS_MEMBER] or 'telescope' in referer or 'telescopecontrol' in referer:
+        return redirect("accounts:telescope_profile")
 
     from tasks.models import Project, Task
 
@@ -148,6 +153,15 @@ def settings_view(request):
             user.save()
             messages.success(request, "Preferences updated successfully.")
             return redirect("/accounts/settings/#preferences")
+
+        # ─── ACTION: Remote Session Logout ───
+        elif action == "delete_session":
+            from accounts.models import UserLoginHistory
+            session_id = request.POST.get("session_id")
+            if session_id:
+                UserLoginHistory.objects.filter(pk=session_id).delete()
+                messages.success(request, "Session logged out remotely.")
+            return redirect("/accounts/settings/#login_history")
 
         # ─── ACTION: Report System Issue ───
         elif action == "report_issue":
@@ -293,19 +307,73 @@ def inventory_settings_view(request):
 @login_required
 def telescope_profile_view(request):
     """
-    Renders profile statistics and authorization parameters for Telescope Operators.
+    Renders profile statistics, self-service settings edit form, and authorization parameters for TCS users.
+    Supports both standard User accounts and TelescopeUser model instances.
     """
-    from telescope.models import Telescope
+    from telescope.models import Telescope, TelescopeUser
+    from accounts.rbac import get_canonical_role, ROLE_ROOT, ROLE_TCS_ADMIN
+    
     u = request.user
-    is_tele_admin = u.is_superuser or getattr(u, 'is_telescope_admin', False)
-    telescopes = Telescope.objects.all()
+    role = get_canonical_role(u)
+    is_tele_admin = u.is_superuser or getattr(u, 'is_root', False) or getattr(u, 'is_telescope_admin', False) or role in [ROLE_ROOT, ROLE_TCS_ADMIN]
+
+    if request.method == "POST":
+        action = request.POST.get("action", "update_profile")
+        if action == "update_profile":
+            first_name = request.POST.get("first_name", u.first_name).strip()
+            last_name = request.POST.get("last_name", u.last_name).strip()
+            email = request.POST.get("email", u.email).strip()
+            phone = request.POST.get("phone", getattr(u, "phone", "")).strip()
+            department = request.POST.get("department", getattr(u, "department", "astronomy")).strip()
+            designation = request.POST.get("designation", getattr(u, "designation", "")).strip()
+            theme_preference = request.POST.get("theme_preference", getattr(u, "theme_preference", "dark")).strip()
+            avatar_color = request.POST.get("avatar_color", getattr(u, "avatar_color", "#4f8ef7")).strip()
+
+            if hasattr(u, "first_name"): u.first_name = first_name
+            if hasattr(u, "last_name"): u.last_name = last_name
+            if hasattr(u, "email"): u.email = email
+            if hasattr(u, "phone"): u.phone = phone
+            if hasattr(u, "department"): u.department = department
+            if hasattr(u, "designation"): u.designation = designation
+            if hasattr(u, "theme_preference"): u.theme_preference = theme_preference
+            if hasattr(u, "avatar_color"): u.avatar_color = avatar_color
+
+            new_pw = request.POST.get("new_password", "").strip()
+            if new_pw:
+                u.set_password(new_pw)
+                update_session_auth_hash(request, u)
+
+            u.save()
+            messages.success(request, "Your TCS user profile settings have been updated successfully.")
+            return redirect("accounts:telescope_profile")
+
+    if hasattr(u, 'get_accessible_telescopes'):
+        telescopes = u.get_accessible_telescopes()
+    elif hasattr(u, 'assigned_telescopes') and getattr(u, 'role', '') == 'observer' and not is_tele_admin:
+        telescopes = u.assigned_telescopes.all()
+    else:
+        telescopes = Telescope.objects.all()
+
+    accessible_codes = [t.code.lower() for t in telescopes] if telescopes else []
+
+    department_choices = getattr(TelescopeUser, 'DEPARTMENT_CHOICES', [
+        ('optics', 'Optics & Instrumentation'),
+        ('electronics', 'Control Electronics'),
+        ('software', 'Software & Telemetry'),
+        ('astronomy', 'Observational Astronomy'),
+        ('operations', 'Site Operations'),
+    ])
+
     return render(
         request,
         "accounts/telescope_profile.html",
         {
             "profile_user": u,
+            "user_obj": u,
             "is_tele_admin": is_tele_admin,
             "telescopes": telescopes,
+            "accessible_codes": accessible_codes,
+            "department_choices": department_choices,
         }
     )
 
@@ -354,3 +422,6 @@ def telescope_settings_view(request):
             "profile_user": u,
         }
     )
+
+
+

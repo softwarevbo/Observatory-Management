@@ -121,7 +121,7 @@
                 <a href="{% url 'telescope:user_list' %}" class="btn btn-secondary">Cancel</a>
             </div>
             {% if target_user.pk != user.pk %}
-            <a href="{% url 'accounts:user_delete' target_user.pk %}" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt"></i> Delete Account</a>
+            <a href="{% url 'telescope:user_delete' target_user.pk %}" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt"></i> Delete Account</a>
             {% endif %}
         </div>
     </form>

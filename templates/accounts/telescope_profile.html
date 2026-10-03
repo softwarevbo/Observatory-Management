@@ -1,312 +1,380 @@
 {% extends 'telescope/base.html' %}
-{% block title %}Telescope Operator Profile — VBO{% endblock %}
-{% block tele_title %}Operator Profile{% endblock %}
+{% block title %}My Profile — Telescope Control System{% endblock %}
+{% block topbar_title %}<i class="fas fa-circle-user" style="color:var(--accent);margin-right:8px;"></i>Account Profile{% endblock %}
+{% block nav_profile %}active{% endblock %}
 
-{% block tele_css %}
+{% block extra_style %}
 <style>
-  .profile-layout {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 24px;
-    align-items: start;
-    padding: 0 10px;
+  .profile-page-hdr {
+    margin-bottom: 24px;
   }
-  @media (max-width: 900px) {
-    .profile-layout {
+  .profile-page-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .profile-page-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .profile-grid-top {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1024px) {
+    .profile-grid-top {
       grid-template-columns: 1fr;
     }
   }
-  
-  .profile-card {
+
+  .pcard {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: var(--radius);
     padding: 24px;
-    box-shadow: var(--shadow);
-    transition: var(--transition);
-    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
   }
-  .profile-card:hover {
-    border-color: var(--border-light);
-  }
-  .avatar-ring {
-    width: 90px;
-    height: 90px;
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 36px;
-    font-weight: 800;
-    color: white;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-    margin: 0 auto 16px;
-    position: relative;
-    overflow: hidden;
-  }
-  .detail-list {
-    padding-left: 0;
-    margin-bottom: 0;
-    list-style: none;
-  }
-  .detail-list li {
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
+
+  .pcard-hdr {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 13.5px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
   }
-  .detail-list li:last-child {
-    border-bottom: none;
-  }
-  .detail-label {
-    color: var(--text-muted);
-    font-weight: 500;
+  .pcard-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  .detail-val {
+
+  .avatar-hero-ring {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 800;
+    color: white;
+    font-family: 'Space Grotesk', sans-serif;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+
+  .summary-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .summary-stat-lbl {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .summary-stat-val {
     color: var(--text-primary);
     font-weight: 600;
   }
-  
+
+  .form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 640px) {
+    .form-row-2col { grid-template-columns: 1fr; }
+  }
+
   .tele-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
-    margin-top: 16px;
   }
   .tele-card-item {
     padding: 16px;
-    border-radius: 12px;
-    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
     border: 1px solid var(--border);
     transition: var(--transition);
   }
   .tele-card-item:hover {
     border-color: var(--accent);
   }
-  
+
   .perm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
+    gap: 14px;
   }
   .perm-item {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: var(--radius-sm);
+    padding: 14px;
     display: flex;
     align-items: center;
-    gap: 14px;
-    transition: var(--transition);
-  }
-  .perm-item:hover {
-    border-color: var(--accent);
-    background: var(--accent-glow);
+    gap: 12px;
   }
   .perm-icon {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 15px;
     flex-shrink: 0;
   }
   .perm-active {
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(16, 185, 129, 0.12);
     color: var(--green);
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.3);
   }
   .perm-inactive {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(239, 68, 68, 0.12);
     color: var(--red);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-  }
-  .tele-status-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
+    border: 1px solid rgba(239, 68, 68, 0.3);
   }
 </style>
 {% endblock %}
 
-{% block tele_content %}
-<div class="profile-layout">
-  <!-- LEFT PANEL: PROFILE SUMMARY -->
-  <div>
-    <div class="profile-card text-center" style="text-align: center;">
-      <div class="avatar-ring" style="background: {{ profile_user.avatar_color|default:'#a855f7' }};">
-        {% if profile_user.profile_picture %}
-          <img src="{{ profile_user.profile_picture.url }}" style="width: 100%; height: 100%; object-fit: cover;">
-        {% else %}
-          {{ profile_user.initials }}
-        {% endif %}
-      </div>
-      <h4 class="mb-1" style="font-weight: 700; font-family: 'Space Grotesk', sans-serif; margin-bottom: 4px;">{{ profile_user.display_name }}</h4>
-      <p class="text-muted small" style="margin-bottom: 12px; font-size: 12px;">@{{ profile_user.username }}</p>
-      
-      <span class="badge px-3 py-2" style="border-radius: 8px; font-size: 12px; background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent); font-weight: 600; text-transform: uppercase;">
-        {% if is_tele_admin %}Telescope Administrator{% else %}Telescope Operator{% endif %}
-      </span>
+{% block content %}
+<div class="profile-page-hdr">
+  <div class="profile-page-title">
+    <i class="fas fa-circle-user" style="color:var(--accent);"></i>
+    My Account Profile
+  </div>
+  <div class="profile-page-subtitle">
+    {% if profile_user.get_role_display %}{{ profile_user.get_role_display }}{% elif is_tele_admin %}Observatory Admin{% else %}TCS Operator{% endif %}
+    · {% if profile_user.get_department_display %}{{ profile_user.get_department_display }}{% else %}{{ profile_user.department|title|default:"Observational Astronomy" }}{% endif %}
+  </div>
+</div>
+
+<div class="profile-grid-top">
+  <!-- LEFT COLUMN: PROFILE SUMMARY -->
+  <div class="pcard">
+    <div class="pcard-hdr">
+      <div class="pcard-title"><i class="fas fa-id-badge text-accent"></i>Profile Summary</div>
     </div>
 
-    <div class="profile-card">
-      <h5 class="mb-3" style="font-weight: 700; font-family: 'Space Grotesk', sans-serif; font-size: 16px; margin-bottom: 14px;">
-        <i class="fas fa-id-card text-accent me-2"></i>Operator Details
-      </h5>
-      <ul class="detail-list">
-        <li>
-          <span class="detail-label"><i class="fas fa-briefcase text-muted"></i> Designation</span>
-          <span class="detail-val">{{ profile_user.designation|default:"Operator" }}</span>
-        </li>
-        <li>
-          <span class="detail-label"><i class="fas fa-envelope text-muted"></i> Email</span>
-          <span class="detail-val" style="word-break: break-all;">{{ profile_user.email }}</span>
-        </li>
-        <li>
-          <span class="detail-label"><i class="fas fa-phone text-muted"></i> Phone</span>
-          <span class="detail-val">{{ profile_user.phone|default:"N/A" }}</span>
-        </li>
-        <li>
-          <span class="detail-label"><i class="fas fa-calendar-alt text-muted"></i> Joined</span>
-          <span class="detail-val">{{ profile_user.date_joined|date:"d M Y" }}</span>
-        </li>
-      </ul>
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px; padding:16px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm);">
+      <div class="avatar-hero-ring" style="background: {{ profile_user.avatar_color|default:'#8b5cf6' }};">
+        {{ profile_user.initials|default:profile_user.username|slice:":2"|upper }}
+      </div>
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; color:var(--text-primary);">
+          {{ profile_user.display_name|default:profile_user.get_full_name|default:profile_user.username }}
+        </div>
+        <div style="font-size:13px; color:var(--text-muted);">@{{ profile_user.username }}</div>
+        <div style="margin-top:6px;">
+          <span class="badge {% if is_tele_admin or profile_user.role == 'admin' or profile_user.role == 'ROOT' %}badge-purple{% elif profile_user.role == 'engineer' %}badge-cyan{% else %}badge-blue{% endif %}">
+            {% if profile_user.get_role_display %}{{ profile_user.get_role_display }}{% elif is_tele_admin %}Observatory Admin{% else %}Astronomical Observer{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-stat-row">
+      <span class="summary-stat-lbl"><i class="fas fa-envelope me-1"></i> Email</span>
+      <span class="summary-stat-val">{{ profile_user.email|default:"Not set" }}</span>
+    </div>
+    <div class="summary-stat-row">
+      <span class="summary-stat-lbl"><i class="fas fa-building me-1"></i> Department</span>
+      <span class="summary-stat-val">
+        {% if profile_user.get_department_display %}{{ profile_user.get_department_display }}{% else %}{{ profile_user.department|title|default:"Observational Astronomy" }}{% endif %}
+      </span>
+    </div>
+    <div class="summary-stat-row">
+      <span class="summary-stat-lbl"><i class="fas fa-briefcase me-1"></i> Designation</span>
+      <span class="summary-stat-val">{{ profile_user.designation|default:"Operator / Scientist" }}</span>
+    </div>
+    <div class="summary-stat-row">
+      <span class="summary-stat-lbl"><i class="fas fa-phone me-1"></i> Phone</span>
+      <span class="summary-stat-val">{{ profile_user.phone|default:"Not listed" }}</span>
+    </div>
+    <div class="summary-stat-row">
+      <span class="summary-stat-lbl"><i class="fas fa-palette me-1"></i> Theme</span>
+      <span class="badge {% if profile_user.theme_preference == 'light' %}badge-yellow{% else %}badge-purple{% endif %}">
+        {{ profile_user.theme_preference|default:"dark"|title }}
+      </span>
+    </div>
+    <div class="summary-stat-row">
+      <span class="summary-stat-lbl"><i class="fas fa-calendar-alt me-1"></i> Member Since</span>
+      <span class="summary-stat-val mono">
+        {% if profile_user.date_joined %}{{ profile_user.date_joined|date:"d M Y" }}{% else %}{{ profile_user.created_at|date:"d M Y" }}{% endif %}
+      </span>
     </div>
   </div>
 
-  <!-- RIGHT PANEL: INSTRUMENTATION & PERMISSIONS -->
-  <div>
-    <!-- ACTIVE TELESCOPES -->
-    <div class="profile-card">
-      <h5 style="font-weight: 700; font-family: 'Space Grotesk', sans-serif; font-size: 16px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <i class="fas fa-satellite-dish text-accent"></i>
-        <span>Active Telescopes under Facility</span>
-      </h5>
-      <p class="text-muted small" style="margin-bottom: 16px;">You have access permissions to monitor and control the following instrumentation:</p>
-      
-      <div class="tele-grid">
-        {% for t in telescopes %}
-        <div class="tele-card-item">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <h6 style="margin: 0; font-weight: bold; font-size: 14px;">{{ t.name }}</h6>
-            <span class="tele-status-indicator {% if t.status == 'observing' %}bg-success-dim text-success{% elif t.status == 'idle' %}bg-info-dim text-info{% else %}bg-warning-dim text-warning{% endif %}" style="padding: 4px 8px; border-radius: 8px;">
-              <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block;"></span>
-              {{ t.get_status_display }}
-            </span>
-          </div>
-          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">
-            <strong style="color: var(--text-secondary);">Aperture:</strong> {{ t.aperture }}
-          </div>
-          <div style="font-size: 12px; color: var(--text-muted);">
-            <strong style="color: var(--text-secondary);">Dome:</strong> {{ t.dome }}
-          </div>
+  <!-- RIGHT COLUMN: EDIT PROFILE SETTINGS -->
+  <div class="pcard">
+    <div class="pcard-hdr">
+      <div class="pcard-title"><i class="fas fa-pen text-accent"></i>Edit Profile Settings</div>
+    </div>
+
+    <form method="post" action="{% url 'accounts:telescope_profile' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_profile">
+
+      <div class="form-row-2col mb-3">
+        <div class="form-group mb-0">
+          <label class="form-label">First Name</label>
+          <input type="text" name="first_name" class="form-control" value="{{ profile_user.first_name|default:'' }}" placeholder="e.g. Vainu">
         </div>
-        {% empty %}
-        <div class="text-center text-muted py-4 w-100" style="text-align: center; padding: 20px 0;">
-          <i class="fas fa-box-open d-block mb-2" style="font-size: 24px; display: block; margin-bottom: 8px;"></i>
-          No telescopes configured in the system database.
+        <div class="form-group mb-0">
+          <label class="form-label">Last Name</label>
+          <input type="text" name="last_name" class="form-control" value="{{ profile_user.last_name|default:'' }}" placeholder="e.g. Bappu">
         </div>
-        {% endfor %}
+      </div>
+
+      <div class="form-row-2col mb-3">
+        <div class="form-group mb-0">
+          <label class="form-label">Email Address</label>
+          <input type="email" name="email" class="form-control" value="{{ profile_user.email|default:'' }}" placeholder="user@iiap.res.in">
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label">Phone Number</label>
+          <input type="text" name="phone" class="form-control" value="{{ profile_user.phone|default:'' }}" placeholder="+91 9876543210">
+        </div>
+      </div>
+
+      <div class="form-row-2col mb-3">
+        <div class="form-group mb-0">
+          <label class="form-label">Department / Team</label>
+          <select name="department" class="form-select">
+            {% for code, label in department_choices %}
+              <option value="{{ code }}" {% if profile_user.department == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label">Designation / Title</label>
+          <input type="text" name="designation" class="form-control" value="{{ profile_user.designation|default:'' }}" placeholder="e.g. Senior Astronomical Observer">
+        </div>
+      </div>
+
+      <div class="form-row-2col mb-3">
+        <div class="form-group mb-0">
+          <label class="form-label">Theme Preference</label>
+          <select name="theme_preference" class="form-select">
+            <option value="dark" {% if profile_user.theme_preference == 'dark' %}selected{% endif %}>Dark Observatory Theme</option>
+            <option value="light" {% if profile_user.theme_preference == 'light' %}selected{% endif %}>Light Theme</option>
+          </select>
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label">Avatar Accent Color</label>
+          <input type="color" name="avatar_color" class="form-control form-control-color w-100" value="{{ profile_user.avatar_color|default:'#8b5cf6' }}">
+        </div>
+      </div>
+
+      <div class="form-group mb-4">
+        <label class="form-label">Change Password <span class="text-muted">(Optional)</span></label>
+        <input type="password" name="new_password" class="form-control" placeholder="Leave blank to keep existing password">
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save me-1"></i> Save Profile Settings
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- BOTTOM SECTION: INSTRUMENTATION & OPERATING AUTHORIZATIONS -->
+<div class="pcard mb-4">
+  <div class="pcard-hdr">
+    <div class="pcard-title"><i class="fas fa-satellite-dish text-accent"></i>Active Telescopes under Facility</div>
+  </div>
+  <p class="text-muted small mb-3">Telescopes and instrumentation available in system configuration:</p>
+
+  <div class="tele-grid">
+    {% for t in telescopes %}
+    <div class="tele-card-item">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <h6 style="margin: 0; font-weight: 700; font-size: 14px; color: var(--text-primary);">{{ t.name }}</h6>
+        <span class="badge {% if t.status == 'observing' or t.status == 'tracking' or t.status == 'online' %}badge-green{% elif t.status == 'idle' %}badge-purple{% else %}badge-yellow{% endif %}">
+          {{ t.get_status_display }}
+        </span>
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">
+        <strong style="color: var(--text-primary);">Aperture:</strong> {{ t.aperture }}
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted);">
+        <strong style="color: var(--text-primary);">Dome State:</strong> {{ t.dome|default:"Operational" }}
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted py-4 w-100" style="grid-column: 1 / -1;">
+      <i class="fas fa-info-circle mb-2" style="font-size: 20px;"></i><br>
+      No assigned telescopes found for your observer profile.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="pcard">
+  <div class="pcard-hdr">
+    <div class="pcard-title"><i class="fas fa-shield-alt text-accent"></i>Hardware Operating Authorizations</div>
+  </div>
+  <p class="text-muted small mb-3">Permissions assigned for control room hardware operations:</p>
+
+  <div class="perm-grid">
+    <div class="perm-item">
+      <div class="perm-icon {% if is_tele_admin or 'vbt' in accessible_codes and profile_user.can_operate_vbt %}perm-active{% else %}perm-inactive{% endif %}">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Vainu Bappu (VBT)</div>
+        <div style="font-size: 11px; color: var(--text-muted);">2.34m Primary Reflector</div>
       </div>
     </div>
 
-    <!-- HARDWARE OPERATING AUTHORIZATIONS -->
-    <div class="profile-card">
-      <h5 style="font-weight: 700; font-family: 'Space Grotesk', sans-serif; font-size: 16px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <i class="fas fa-shield-alt text-accent"></i>
-        <span>Hardware Operating Authorizations</span>
-      </h5>
-      <p class="text-muted small" style="margin-bottom: 16px;">The following permissions dictate your control room operations on local equipment:</p>
-      
-      <div class="perm-grid">
-        <!-- VBT -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_operate_vbt %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">Vainu Bappu (VBT)</div>
-            <div style="font-size: 11px; color: var(--text-muted);">2.34m primary reflector</div>
-          </div>
-        </div>
+    <div class="perm-item">
+      <div class="perm-icon {% if is_tele_admin or 'jcbt' in accessible_codes and profile_user.can_operate_jcbt %}perm-active{% else %}perm-inactive{% endif %}">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Kavalur 2.3m (JCBT)</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Operator Control Access</div>
+      </div>
+    </div>
 
-        <!-- JCBT -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_operate_jcbt %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">Kavalur 2.3m (JCBT)</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Operator control access</div>
-          </div>
-        </div>
+    <div class="perm-item">
+      <div class="perm-icon {% if is_tele_admin or 'czt' in accessible_codes and profile_user.can_operate_zeiss %}perm-active{% else %}perm-inactive{% endif %}">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Zeiss 1m (CZT)</div>
+        <div style="font-size: 11px; color: var(--text-muted);">1-Meter Reflector</div>
+      </div>
+    </div>
 
-        <!-- Zeiss -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_operate_zeiss %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">Zeiss 1m</div>
-            <div style="font-size: 11px; color: var(--text-muted);">1-meter reflector scope</div>
-          </div>
-        </div>
-
-        <!-- Cassegrain -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_operate_cassegrain %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">Cassegrain 75cm</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Auxiliary optical system</div>
-          </div>
-        </div>
-
-        <!-- Schmidt -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_operate_schmidt %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">Schmidt 45cm</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Wide field sky survey</div>
-          </div>
-        </div>
-
-        <!-- Dome -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_command_dome %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">Dome Command</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Open, rotate & shut dome</div>
-          </div>
-        </div>
-
-        <!-- Exposures -->
-        <div class="perm-item">
-          <div class="perm-icon {% if profile_user.can_trigger_exposures %}perm-active{% else %}perm-inactive{% endif %}">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <div style="font-size: 13px; font-weight: 700;">CCD Exposures</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Trigger CCD readout</div>
-          </div>
-        </div>
+    <div class="perm-item">
+      <div class="perm-icon {% if is_tele_admin or profile_user.can_command_dome %}perm-active{% else %}perm-inactive{% endif %}">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Dome Shutter Command</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Open, rotate & shut dome</div>
       </div>
     </div>
   </div>

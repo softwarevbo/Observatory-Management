@@ -145,8 +145,7 @@ class Project(models.Model):
         if not user or not user.is_authenticated:
             return False
         return (
-            user.is_admin
-            or self.created_by == user
+            self.created_by == user
             or self.managers.filter(pk=user.pk).exists()
         )
 
@@ -154,8 +153,7 @@ class Project(models.Model):
         if not user or not user.is_authenticated:
             return False
         return (
-            user.is_admin
-            or self.is_manager(user)
+            self.is_manager(user)
             or (self.project_incharge and self.project_incharge == user)
             or self.incharges.filter(pk=user.pk).exists()
         )
@@ -164,8 +162,7 @@ class Project(models.Model):
         if not user or not user.is_authenticated:
             return False
         return (
-            user.is_admin
-            or self.is_manager(user)
+            self.is_manager(user)
             or self.is_incharge(user)
             or self.members.filter(pk=user.pk).exists()
             or self.visibility == "public"

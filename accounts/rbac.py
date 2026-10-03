@@ -97,6 +97,22 @@ def get_canonical_role(user: Any) -> Optional[str]:
     if not getattr(user, "is_authenticated", False):
         return None
 
+    # Handle dedicated model instances explicitly
+    if hasattr(user, "_meta"):
+        model_name = user._meta.model_name
+        if model_name == "telescopeuser":
+            role = getattr(user, "role", "") or ""
+            if role in ["admin", "TCS_ADMIN", "TM_ADMIN"] or getattr(user, "is_telescope_admin", False):
+                return ROLE_TCS_ADMIN
+            return ROLE_TCS_MEMBER
+        if model_name == "inventoryuser":
+            role = getattr(user, "role", "") or ""
+            if role in ["super_admin", "ROOT"]:
+                return ROLE_ROOT
+            if role in ["branch_admin", "IM_ADMIN"]:
+                return ROLE_IM_ADMIN
+            return ROLE_IM_MEMBER
+
     # Check superuser flag first -> ROOT
     if getattr(user, "is_superuser", False):
         return ROLE_ROOT
@@ -211,8 +227,9 @@ def can_manage_target_user(admin_user: Any, target_user: Any) -> bool:
     """
     Enforces role hierarchy and user management permissions:
     - ROOT can manage all users.
+    - Non-ROOT admins (PM_ADMIN, TM_ADMIN, IM_ADMIN) CANNOT view/edit credentials or reset password of ROOT superadmins.
     - PM_ADMIN can manage PM_MEMBER only.
-    - TM_ADMIN can manage TM_MEMBER only.
+    - TM_ADMIN / TCS_ADMIN can manage TM_MEMBER / TCS_MEMBER only.
     - IM_ADMIN can manage IM_MEMBER only.
     - Members cannot manage any users.
     """
@@ -222,14 +239,28 @@ def can_manage_target_user(admin_user: Any, target_user: Any) -> bool:
     if not admin_role or not target_role:
         return False
 
-    if admin_role == ROLE_ROOT:
+    is_target_root = (
+        target_role == ROLE_ROOT
+        or getattr(target_user, "is_superuser", False)
+        or getattr(target_user, "role", "") in ["ROOT", "super_admin"]
+    )
+    is_admin_root = (
+        admin_role == ROLE_ROOT
+        or getattr(admin_user, "is_superuser", False)
+        or getattr(admin_user, "role", "") in ["ROOT", "super_admin"]
+    )
+
+    if is_target_root:
+        return is_admin_root
+
+    if is_admin_root:
         return True
 
     if admin_role == ROLE_PM_ADMIN:
         return target_role == ROLE_PM_MEMBER
 
-    if admin_role == ROLE_TM_ADMIN:
-        return target_role == ROLE_TM_MEMBER
+    if admin_role in [ROLE_TCS_ADMIN, ROLE_TM_ADMIN]:
+        return target_role in [ROLE_TCS_MEMBER, ROLE_TM_MEMBER]
 
     if admin_role == ROLE_IM_ADMIN:
         return target_role == ROLE_IM_MEMBER
@@ -289,9 +320,11 @@ def get_default_redirect_for_role(user: Any) -> str:
 
     if canonical_role in {ROLE_ROOT, ROLE_PM_ADMIN, ROLE_PM_MEMBER}:
         return "/projectmanagement/dashboard/"
+
     elif canonical_role in {ROLE_TM_ADMIN, ROLE_TM_MEMBER}:
         return "/telescopecontrol/"
     elif canonical_role in {ROLE_IM_ADMIN, ROLE_IM_MEMBER}:
         return "/inventorymanagement/dashboard/"
 
     return "/projectmanagement/dashboard/"
+

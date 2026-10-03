@@ -69,7 +69,10 @@
                         {% else %}<span class="badge badge-gray" style="font-size:10px;"><i class="fas fa-lock"></i> Private</span>{% endif %}
                         {% if file.version > 1 %}<span class="badge badge-blue" style="font-size:10px;">v{{ file.version }}</span>{% endif %}
                     </div>
-                    {% if file.description %}<p style="font-size:13px;color:var(--text-muted);">{{ file.description }}</p>{% endif %}
+                    <div style="margin-top:10px; padding:10px 14px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-sm);">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:4px;"><i class="fas fa-align-left me-1"></i> File Description</span>
+                        <span style="font-size:13px; color:var(--text-primary); white-space:pre-line;">{{ file.description|default:"No description provided for this file." }}</span>
+                    </div>
                 </div>
             </div>
         </div>

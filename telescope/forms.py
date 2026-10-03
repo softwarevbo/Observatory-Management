@@ -98,6 +98,20 @@ class ObservationTargetForm(forms.ModelForm):
 
 
 class MaintenanceTicketForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.contrib.auth import get_user_model
+        from .models import TelescopeUser
+        User = get_user_model()
+        
+        # Filter assigned_engineer queryset to only include TCS engineers/staff and superusers (excluding PM users)
+        tcs_user_pks = list(TelescopeUser.objects.values_list('pk', flat=True))
+        tcs_engineers = User.objects.filter(role__in=['TCS_ADMIN', 'TCS_MEMBER', 'ROOT', 'engineer', 'admin', 'scientific_officer', 'observer'])
+        if not tcs_engineers.exists():
+            tcs_engineers = User.objects.filter(is_superuser=True)
+            
+        self.fields['assigned_engineer'].queryset = tcs_engineers
+
     class Meta:
         model = MaintenanceTicket
         fields = ['title', 'description', 'severity', 'instrument', 'telescope', 'assigned_engineer']
@@ -154,33 +168,75 @@ class SiteFeedbackForm(forms.ModelForm):
         }
 
 
-class TelescopeUserForm(forms.ModelForm):
-    """
-    Form for TCS Admin user management.
-    Role options are strictly TCS_ADMIN ('admin') and TCS_MEMBER ('operator').
-    ROOT is excluded from TCS user roles.
-    """
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False)
+class TelescopeUserCreationForm(forms.ModelForm):
+    password1 = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Password"
+    )
+    password2 = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Confirm Password"
+    )
 
     class Meta:
         model = TelescopeUser
-        fields = [
-            'username', 'email', 'role', 'is_active', 'is_telescope_admin',
-            'can_operate_vbt', 'can_operate_jcbt', 'can_operate_zeiss',
-            'can_operate_cassegrain', 'can_operate_schmidt',
-            'can_command_dome', 'can_trigger_exposures'
-        ]
+        fields = ('username', 'email', 'first_name', 'last_name', 'role', 'department', 'designation', 'phone', 'assigned_telescopes')
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'role': forms.Select(attrs={'class': 'form-select'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'is_telescope_admin': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_operate_vbt': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_operate_jcbt': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_operate_zeiss': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_operate_cassegrain': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_operate_schmidt': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_command_dome': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'can_trigger_exposures': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'department': forms.Select(attrs={'class': 'form-select'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'assigned_telescopes': forms.CheckboxSelectMultiple(),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        p1 = cleaned_data.get('password1')
+        p2 = cleaned_data.get('password2')
+        if p1 and p2 and p1 != p2:
+            self.add_error('password2', "Passwords do not match.")
+        return cleaned_data
+
+
+class TelescopeAdminEditForm(forms.ModelForm):
+    new_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Leave blank to keep unchanged'}),
+        help_text="Optional: Reset user's password."
+    )
+
+    class Meta:
+        model = TelescopeUser
+        fields = ('username', 'email', 'first_name', 'last_name', 'role', 'department', 'designation', 'phone', 'is_active', 'assigned_telescopes')
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'role': forms.Select(attrs={'class': 'form-select'}),
+            'department': forms.Select(attrs={'class': 'form-select'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'assigned_telescopes': forms.CheckboxSelectMultiple(),
+        }
+
+
+class SiteFeedbackForm(forms.ModelForm):
+    class Meta:
+        model = SiteFeedback
+        fields = ['category', 'subject', 'message', 'name', 'email', 'is_public']
+        widgets = {
+            'category': forms.Select(attrs={'class': 'form-select'}),
+            'subject': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Brief title of bug, issue, or feedback'}),
+            'message': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Describe the bug, error details, steps to reproduce, or feedback...'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Your Name (optional)'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Contact Email (optional)'}),
+            'is_public': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+

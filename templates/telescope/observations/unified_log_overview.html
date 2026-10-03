@@ -1,1 +1,734 @@
-{% extends 'telescope/observations/unified_log.html' %}
+{% extends 'telescope/base.html' %}
+
+{% block title %}Unified Log - Overview{% endblock %}
+{% block topbar_title %}Unified Log Overview{% endblock %}
+{% block nav_unified_log %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UNIFIED LOG OVERVIEW — BASE GUI DESIGN SYSTEM INTEGRATION
+   ═══════════════════════════════════════════════════════════════ */
+
+.log-tabbar {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  gap: 6px !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 6px 10px !important;
+  margin-bottom: 24px !important;
+  box-shadow: var(--shadow-sm) !important;
+  width: 100% !important;
+}
+
+.log-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 16px !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  transition: var(--transition) !important;
+  border: 1px solid transparent !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+}
+
+.log-tab:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-card-hover) !important;
+}
+
+.log-tab.active-overview {
+  color: var(--purple) !important;
+  background: var(--purple-dim) !important;
+  border-color: rgba(139, 92, 246, 0.3) !important;
+}
+
+.log-badge {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 2px 7px !important;
+  border-radius: 10px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.log-tab.active-overview .log-badge {
+  background: var(--purple) !important;
+  color: #fff !important;
+  border-color: var(--purple) !important;
+}
+
+/* Banner Header */
+.ov-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+.ov-banner-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.ov-banner-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ov-date-picker {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: var(--transition);
+}
+.ov-date-picker:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.ov-banner-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.ov-stat-item {
+  text-align: center;
+}
+.ov-stat-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+.ov-stat-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+.ov-stat-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+}
+
+/* Telescope Cards Grid */
+.ov-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1024px) {
+  .ov-cards-grid { grid-template-columns: 1fr; }
+}
+.ov-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.ov-card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+.ov-card-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+}
+.ov-card-topbar.vbt { background: var(--accent); }
+.ov-card-topbar.jcbt { background: var(--green); }
+.ov-card-topbar.czt { background: var(--yellow); }
+
+.ov-card-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ov-card-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.ov-card-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  min-height: 18px;
+}
+.ov-hrs-box {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.ov-hrs-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ov-hrs-lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ov-sky-box {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+  min-height: 36px;
+}
+.ov-sky-box strong { color: var(--text-secondary); }
+.ov-sky-box span { color: var(--text-primary); }
+
+.ov-domes-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.ov-dome-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--bg-primary);
+}
+.ov-dome-pill.open { border-color: rgba(16,185,129,0.3); color: var(--green); background: var(--green-dim); }
+.ov-dome-pill.closed { border-color: rgba(239,68,68,0.3); color: var(--red); background: var(--red-dim); }
+
+.ov-card-foot {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: right;
+  margin-top: auto;
+}
+
+/* Head Office Remarks Box */
+.ho-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+.ho-box-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.ho-box-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ho-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .ho-grid { grid-template-columns: 1fr; }
+}
+.ho-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+}
+.ho-card-hdr {
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ho-card-hdr.vbt { color: var(--accent); }
+.ho-card-hdr.jcbt { color: var(--green); }
+.ho-card-hdr.czt { color: var(--yellow); }
+
+.ho-card textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: vertical;
+  min-height: 75px;
+  outline: none;
+  line-height: 1.5;
+}
+.ho-card textarea::placeholder { color: var(--text-muted); }
+
+/* Bottom Grid */
+.ov-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .ov-bottom-grid { grid-template-columns: 1fr; }
+}
+.ov-panel-sec {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.ov-sec-hdr {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.met-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.met-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.met-title.vbt { color: var(--accent); }
+.met-title.jcbt { color: var(--green); }
+.met-title.czt { color: var(--yellow); }
+
+.met-row {
+  display: flex;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.met-row:last-child { border-bottom: none; }
+.met-row .ut { color: var(--text-muted); width: 28px; }
+.met-row .hum { color: var(--text-primary); width: 42px; }
+.met-row .tmp { color: var(--text-primary); }
+
+.mic-btn {
+  position: absolute; right: 8px; bottom: 8px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-primary); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: var(--transition);
+  color: var(--text-muted); font-size: 12px;
+}
+.mic-btn:hover { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+.mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); animation: pulse 1s infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if show_tabbar %}
+<!-- LOG TABBAR -->
+<div class="log-tabbar">
+  {% if can_access_overview %}
+  <a href="{% url 'telescope:unified_log' 'overview' %}" class="log-tab active-overview" id="tab-overview"><i class="fas fa-chart-pie"></i> Overview</a>
+  {% endif %}
+  {% if can_access_vbt %}
+  <a href="{% url 'telescope:unified_log' 'vbt' %}" class="log-tab" id="tab-vbt"><i class="fas fa-binoculars"></i> 2.3m VBT <span class="log-badge" id="vbt-thr">—</span></a>
+  {% endif %}
+  {% if can_access_jcbt %}
+  <a href="{% url 'telescope:unified_log' 'jcbt' %}" class="log-tab" id="tab-jcbt"><i class="fas fa-binoculars"></i> 1.3m JCBT <span class="log-badge" id="jcbt-thr">—</span></a>
+  {% endif %}
+  {% if can_access_czt %}
+  <a href="{% url 'telescope:unified_log' 'czt' %}" class="log-tab" id="tab-czt"><i class="fas fa-binoculars"></i> 1.0m CZT <span class="log-badge" id="czt-thr">—</span></a>
+  {% endif %}
+  {% if can_access_report %}
+  <a href="{% url 'telescope:unified_log' 'report' %}" class="log-tab" id="tab-report"><i class="fas fa-file-alt"></i> Monthly Report <span class="log-badge" id="report-thr">0 nights</span></a>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+    if (typeof window !== 'undefined') {
+        const serverLogs = {{ logs_json|safe }};
+        for (const key in serverLogs) {
+            localStorage.setItem(key, JSON.stringify(serverLogs[key]));
+        }
+    }
+</script>
+
+<!-- BANNER -->
+<div class="ov-banner">
+  <div>
+    <div class="ov-banner-sub"><i class="fas fa-building"></i> VBO Observatory · Night Summary</div>
+    <div class="ov-banner-title">
+      <span id="ov-night">— select a night —</span>
+      <input type="date" id="dpick" class="ov-date-picker" onchange="loadFromPick()">
+    </div>
+  </div>
+  <div class="ov-banner-stats">
+    <div class="ov-stat-item">
+      <div class="ov-stat-val" id="ov-total">—</div>
+      <div class="ov-stat-lbl">Total Hours</div>
+    </div>
+    <div class="ov-stat-divider"></div>
+    <div class="ov-stat-item">
+      <div class="ov-stat-val" id="ov-active" style="color: var(--green);">—</div>
+      <div class="ov-stat-lbl">Active Telescopes</div>
+    </div>
+  </div>
+</div>
+
+<!-- CARDS GRID -->
+<div class="ov-cards-grid">
+  <a href="{% url 'telescope:unified_log' 'vbt' %}" class="ov-card">
+    <div class="ov-card-topbar vbt"></div>
+    <div class="ov-card-hdr">
+      <span class="badge badge-blue">2.3m VBT</span>
+      <span class="badge badge-gray" id="ov-vbt-status">Not started</span>
+      <span class="badge" id="ov-vbt-perf"></span>
+    </div>
+    <div class="ov-card-title">Vainu Bappu Telescope</div>
+    <div class="ov-card-sub" id="ov-vbt-inst">—</div>
+    <div class="ov-hrs-box">
+      <div class="ov-hrs-val" id="ov-vbt-hrs">—</div>
+      <div class="ov-hrs-lbl">hrs observed</div>
+    </div>
+    <div class="ov-sky-box" id="ov-vbt-sky"><strong>Sky:</strong> <span>—</span></div>
+    <div class="ov-domes-row" id="ov-vbt-domes"></div>
+    <div class="ov-card-foot">Open VBT Log <i class="fas fa-arrow-right"></i></div>
+  </a>
+
+  <a href="{% url 'telescope:unified_log' 'jcbt' %}" class="ov-card">
+    <div class="ov-card-topbar jcbt"></div>
+    <div class="ov-card-hdr">
+      <span class="badge badge-green">1.3m JCBT</span>
+      <span class="badge badge-gray" id="ov-jcbt-status">Not started</span>
+      <span class="badge" id="ov-jcbt-perf"></span>
+    </div>
+    <div class="ov-card-title">J C Bhattacharyya Telescope</div>
+    <div class="ov-card-sub" id="ov-jcbt-inst">—</div>
+    <div class="ov-hrs-box">
+      <div class="ov-hrs-val" id="ov-jcbt-hrs">—</div>
+      <div class="ov-hrs-lbl">hrs observed</div>
+    </div>
+    <div class="ov-sky-box" id="ov-jcbt-sky"><strong>Sky:</strong> <span>—</span></div>
+    <div class="ov-domes-row" id="ov-jcbt-domes"></div>
+    <div class="ov-card-foot" style="color: var(--green);">Open JCBT Log <i class="fas fa-arrow-right"></i></div>
+  </a>
+
+  <a href="{% url 'telescope:unified_log' 'czt' %}" class="ov-card">
+    <div class="ov-card-topbar czt"></div>
+    <div class="ov-card-hdr">
+      <span class="badge badge-yellow">1.0m CZT</span>
+      <span class="badge badge-gray" id="ov-czt-status">Not started</span>
+      <span class="badge" id="ov-czt-perf"></span>
+    </div>
+    <div class="ov-card-title">Carl Zeiss Telescope</div>
+    <div class="ov-card-sub" id="ov-czt-inst">—</div>
+    <div class="ov-hrs-box">
+      <div class="ov-hrs-val" id="ov-czt-hrs">—</div>
+      <div class="ov-hrs-lbl">hrs observed</div>
+    </div>
+    <div class="ov-sky-box" id="ov-czt-sky"><strong>Sky:</strong> <span>—</span></div>
+    <div class="ov-domes-row" id="ov-czt-domes"></div>
+    <div class="ov-card-foot" style="color: var(--yellow);">Open CZT Log <i class="fas fa-arrow-right"></i></div>
+  </a>
+</div>
+
+<!-- HEAD OFFICE REMARKS BOX -->
+<div class="ho-box">
+  <div class="ho-box-hdr">
+    <div class="ho-box-title"><i class="fas fa-comments"></i> Head Office Remarks (IIA Bangalore)</div>
+    <button class="btn btn-primary btn-sm" onclick="submitHO()"><i class="fas fa-save"></i> Save HO Remarks</button>
+  </div>
+  <div class="ho-grid">
+    <div class="ho-card">
+      <div class="ho-card-hdr vbt">VBT Remarks</div>
+      <textarea id="ho-vbt" placeholder="Remarks / acknowledgement for tonight's VBT run…" oninput="saveHO()"></textarea>
+      <button class="mic-btn" type="button" onclick="startMic('ho-vbt')" title="Speak">🎙</button>
+    </div>
+    <div class="ho-card">
+      <div class="ho-card-hdr jcbt">JCBT Remarks</div>
+      <textarea id="ho-jcbt" placeholder="Remarks / acknowledgement for tonight's JCBT run…" oninput="saveHO()"></textarea>
+      <button class="mic-btn" type="button" onclick="startMic('ho-jcbt')" title="Speak">🎙</button>
+    </div>
+    <div class="ho-card">
+      <div class="ho-card-hdr czt">CZT Remarks</div>
+      <textarea id="ho-czt" placeholder="Remarks / acknowledgement for tonight's CZT run…" oninput="saveHO()"></textarea>
+      <button class="mic-btn" type="button" onclick="startMic('ho-czt')" title="Speak">🎙</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM GRID -->
+<div class="ov-bottom-grid">
+  <div class="ov-panel-sec">
+    <div class="ov-sec-hdr"><i class="fas fa-thermometer-half"></i> Meteorology Summary (UT | RH% | T°C)</div>
+    <div class="met-mini-grid">
+      <div><div class="met-title vbt">2.3m VBT</div><div id="ov-met-vbt"></div></div>
+      <div><div class="met-title jcbt">1.3m JCBT</div><div id="ov-met-jcbt"></div></div>
+      <div><div class="met-title czt">1.0m CZT</div><div id="ov-met-czt"></div></div>
+    </div>
+  </div>
+
+  <div class="ov-panel-sec">
+    <div class="ov-sec-hdr"><i class="fas fa-history"></i> Recent Activity</div>
+    <div id="act-list" style="font-size: 12px; color: var(--text-muted); font-style: italic;">No activity logged yet for tonight.</div>
+  </div>
+</div>
+
+<form method="POST" id="django-form" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="log_data" id="log_data_input">
+</form>
+
+<script>
+const TELS = ['vbt', 'jcbt', 'czt'];
+const SLOTS = ['18:00–21:00', '21:00–00:00', '00:00–03:00', '03:00–06:00'];
+const MUT = ['13', '15', '17', '19', '21', '23'];
+const DS = ['none', 'open', 'closed'], DL = ['—', 'OPEN', 'CLOSED'];
+
+const SK = (d, t) => `vbo4-${d}-${t}`;
+const HOSK = d => `vbo4-ho-${d}`;
+let currentDate = null;
+
+function nightStr(date) {
+  if (!date) return '—';
+  const d = new Date(date + 'T12:00:00');
+  const nd = new Date(d); nd.setDate(d.getDate() + 1);
+  const fmt = dt => dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return `${fmt(d)} / ${fmt(nd)}`;
+}
+
+function loadDate(date) {
+  currentDate = date;
+  document.getElementById('dpick').value = date;
+  const ns = nightStr(date);
+  document.getElementById('ov-night').textContent = ns;
+
+  loadHO(date);
+  refreshAllOv();
+}
+
+function loadFromPick() {
+  const v = document.getElementById('dpick').value;
+  if (v) loadDate(v);
+}
+
+function saveHO() {
+  if (!currentDate) return;
+  const ho = {
+    vbt: document.getElementById('ho-vbt').value,
+    jcbt: document.getElementById('ho-jcbt').value,
+    czt: document.getElementById('ho-czt').value
+  };
+  localStorage.setItem(HOSK(currentDate), JSON.stringify(ho));
+}
+
+function loadHO(date) {
+  const dbLogs = {{ logs_json|safe }};
+  const key = `vbo4-ho-${date}`;
+  const raw = dbLogs[key] ? JSON.stringify(dbLogs[key]) : localStorage.getItem(HOSK(date));
+  const ho = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+  ['vbt', 'jcbt', 'czt'].forEach(t => {
+    const el = document.getElementById('ho-' + t);
+    if (el) el.value = ho[t] || '';
+  });
+}
+
+function submitHO() {
+  saveHO();
+  const ho = {
+    vbt: document.getElementById('ho-vbt').value,
+    jcbt: document.getElementById('ho-jcbt').value,
+    czt: document.getElementById('ho-czt').value,
+    ho: {
+      vbt: document.getElementById('ho-vbt').value,
+      jcbt: document.getElementById('ho-jcbt').value,
+      czt: document.getElementById('ho-czt').value
+    },
+    date: currentDate
+  };
+  document.getElementById('log_data_input').value = JSON.stringify(ho);
+  document.getElementById('django-form').submit();
+}
+
+function refreshOv(tel) {
+  const dbLogs = {{ logs_json|safe }};
+  const key = `vbo4-${currentDate}-${tel}`;
+  const raw = dbLogs[key] ? JSON.stringify(dbLogs[key]) : localStorage.getItem(SK(currentDate, tel));
+  let o = {};
+  if (raw) { try { o = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {} }
+
+  const tot = parseFloat(o.total) || 0;
+  document.getElementById('ov-' + tel + '-hrs').textContent = tot > 0 ? tot.toFixed(1) : '—';
+  document.getElementById('ov-' + tel + '-inst').textContent = o.instrument || '—';
+
+  const hasData = tot > 0 || o.mode || o.team || o.spec || o.photo;
+  const st = document.getElementById('ov-' + tel + '-status');
+  if (!hasData) { st.textContent = 'Not started'; st.className = 'badge badge-gray'; }
+  else if (raw) { st.textContent = 'Complete'; st.className = 'badge badge-blue'; }
+  else { st.textContent = 'In progress'; st.className = 'badge badge-green'; }
+
+  const perf = o.perf || '';
+  const pb = document.getElementById('ov-' + tel + '-perf');
+  pb.textContent = perf;
+  pb.className = 'badge ' + (perf === 'Good' ? 'badge-green' : perf === 'Satisfactory' ? 'badge-yellow' : perf === 'Poor' ? 'badge-red' : '');
+
+  let sky = '—';
+  for (let i = 1; i <= 4; i++) {
+    const v = (o['sky' + i] || '').trim();
+    if (v) { sky = v.slice(0, 70) + (v.length > 70 ? '…' : ''); break; }
+  }
+  document.getElementById('ov-' + tel + '-sky').innerHTML = `<strong>Sky:</strong> <span>${sky}</span>`;
+
+  const dc = document.getElementById('ov-' + tel + '-domes');
+  const domes = o.domes || ['none', 'none', 'none', 'none'];
+  dc.innerHTML = SLOTS.map((_, i) => {
+    const st = domes[i] || 'none';
+    const sh = ['18-21', '21-00', '00-03', '03-06'][i];
+    return `<span class="ov-dome-pill ${st === 'open' ? 'open' : st === 'closed' ? 'closed' : ''}">${sh} ${DL[DS.indexOf(st)]}</span>`;
+  }).join('');
+
+  const mc = document.getElementById('ov-met-' + tel);
+  const meteo = o.meteo || [];
+  const rows = MUT.map((ut, i) => {
+    const d = meteo[i] || {};
+    const h = d.hum || '', t = d.temp || '';
+    if (!h && !t) return null;
+    return `<div class="met-row"><span class="ut">${ut}h</span><span class="hum">${h || '—'}%</span><span class="tmp">${t || '—'}°</span></div>`;
+  }).filter(Boolean);
+  mc.innerHTML = rows.length ? rows.join('') : '<div style="font-size:11px;color:var(--text-muted);font-style:italic;padding:3px 0">No data</div>';
+}
+
+function refreshAllOv() {
+  let th = 0, ac = 0;
+  TELS.forEach(t => {
+    refreshOv(t);
+    const raw = localStorage.getItem(SK(currentDate, t));
+    if (raw) {
+      try {
+        const o = JSON.parse(raw);
+        const tv = parseFloat(o.total) || 0;
+        th += tv; if (tv > 0) ac++;
+      } catch (e) {}
+    }
+  });
+  document.getElementById('ov-total').textContent = th > 0 ? th.toFixed(1) + 'h' : '—';
+  document.getElementById('ov-active').textContent = ac || '—';
+}
+
+// Speech recognition
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null, activeMicBtn = null, activeFieldId = null;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-IN';
+  recognition.onresult = function(event) {
+    const el = document.getElementById(activeFieldId); if (!el) return;
+    let final = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) final += event.results[i][0].transcript;
+    }
+    if (final) {
+      const cur = el.value; el.value = cur + (cur && !cur.endsWith(' ') ? ' ' : '') + final;
+    }
+  };
+}
+
+function startMic(fieldId) {
+  if (!recognition) return alert('Speech recognition not supported in this browser.');
+  if (activeFieldId === fieldId && activeMicBtn) { stopMic(); return; }
+  if (activeMicBtn) stopMic();
+
+  activeFieldId = fieldId;
+  activeMicBtn = document.querySelector(`button.mic-btn[onclick="startMic('${fieldId}')"]`);
+  if (activeMicBtn) activeMicBtn.classList.add('recording');
+
+  const el = document.getElementById(fieldId); if (el) el.focus();
+  try { recognition.start(); } catch(e) {}
+}
+
+function stopMic() {
+  if (activeMicBtn) { activeMicBtn.classList.remove('recording'); activeMicBtn = null; }
+  activeFieldId = null;
+  try { recognition.stop(); } catch(e) {}
+}
+
+(function() {
+  const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const p = n => String(n).padStart(2, '0');
+  loadDate(`${ist.getFullYear()}-${p(ist.getMonth() + 1)}-${p(ist.getDate())}`);
+})();
+</script>
+{% endblock %}

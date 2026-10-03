@@ -1,176 +1,129 @@
 {% extends 'inventory_base.html' %}
 
-{% block title %}Alerts Management{% endblock %}
+{% block title %}Alerts Management — IIAP IM{% endblock %}
 
 {% block content %}
-<h1 class="page-title">
-    Alerts Management
-</h1>
-
-<div class="row g-4">
-    <div class="col-12">
-        <div class="card">
-            <h2 class="section-title">
-                System Alerts
-            </h2>
-            
-            {% if alerts %}
-                <div class="table-wrap">
-                    <div class="table-responsive" style="overflow-x: auto;">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Serial Number</th>
-                                    <th>Alert Type</th>
-                                    <th>Current Qty</th>
-                                    <th>Limit Qty</th>
-                                    <th>Message</th>
-                                    <th>Status</th>
-                                    <th class="d-none d-md-table-cell">Created</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for alert in alerts %}
-                                <tr>
-                                    <td>
-                                        <a href="{% url 'product-detail' alert.product.id %}" class="text-decoration-none product-link">
-                                            <strong class="text-primary">{{ alert.product.name }}</strong>
-                                            
-                                        </a>
-                                    </td>
-                                    <td><span class="badge bg-info">{{ alert.product.serial_number|default:"-" }}</span></td>
-                                    <td>
-                                        {% if alert.alert_type == 'low_stock' %}
-                                            <span class="badge bg-warning">Low Stock</span>
-                                        {% elif alert.alert_type == 'out_of_stock' %}
-                                            <span class="badge bg-danger">Out of Stock</span>
-                                        {% elif alert.alert_type == 'limit_reached' %}
-                                            <span class="badge bg-danger">Limit Reached</span>
-                                        {% endif %}
-                                    </td>
-                                    <td><span class="badge bg-primary">{{ alert.current_quantity }}</span></td>
-                                    <td><span class="badge bg-secondary">{{ alert.limit_quantity|default:"-" }}</span></td>
-                                    <td>
-                                        <small class="text-muted">{{ alert.message|truncatechars:50 }}</small>
-                                    </td>
-                                    <td>
-                                        {% if alert.status == 'active' %}
-                                            <span class="badge bg-danger">Active</span>
-                                        {% elif alert.status == 'acknowledged' %}
-                                            <span class="badge bg-warning">Acknowledged</span>
-                                        {% elif alert.status == 'resolved' %}
-                                            <span class="badge bg-success">Resolved</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="d-none d-md-table-cell">{{ alert.created_at|date:'M d, Y H:i' }}</td>
-                                    <td>
-                                        {% if alert.status == 'active' %}
-                                            <form method="post" style="display: inline;">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="alert_id" value="{{ alert.id }}">
-                                                <button type="submit" name="action" value="acknowledge" class="btn btn btn-secondary btn-sm">
-                                                    Acknowledge
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                        {% if alert.status != 'resolved' %}
-                                            <form method="post" style="display: inline;">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="alert_id" value="{{ alert.id }}">
-                                                <button type="submit" name="action" value="resolve" class="btn btn btn-success btn-sm">
-                                                    Resolve
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <!-- Pagination Controls -->
-                {% include 'pagination.html' %}
-            {% else %}
-                <div class="text-center py-4">
-                    
-                    <p>No alerts found.</p>
-                </div>
-            {% endif %}
-        </div>
+<div class="page-header" style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1 class="page-title" style="margin-bottom:4px !important;">Alerts Management</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Monitor and manage stock alerts across all inventory items.</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <span class="badge badge-red" style="font-size:13px;padding:6px 12px;">
+            <i class="fas fa-bell"></i> {{ alerts|length }} Active Alerts
+        </span>
     </div>
 </div>
 
-<!-- Alert Details Modal -->
-<div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px);">
-            <div class="modal-header">
-                <h5 class="modal-title" id="alertModalLabel">Alert Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="alertDetails"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
+<div class="card">
+    <div class="card-header" style="margin-bottom:20px;">
+        <div class="card-title" style="font-size:16px;">
+            <i class="fas fa-exclamation-triangle" style="color:var(--yellow);margin-right:8px;"></i>
+            System Alerts
         </div>
     </div>
+
+    {% if alerts %}
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:2px solid var(--border);">
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Product</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Serial #</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Alert Type</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Curr Qty</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Limit</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Message</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Status</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Created</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr style="border-bottom:1px solid var(--border);transition:var(--transition);" onmouseenter="this.style.background='var(--bg-card-hover)'" onmouseleave="this.style.background=''">
+                    <td style="padding:12px 14px;">
+                        <a href="{% url 'product-detail' alert.product.id %}" class="alert-product-link">
+                            <strong style="color:var(--text-primary);font-size:13px;">{{ alert.product.name }}</strong>
+                        </a>
+                    </td>
+                    <td style="padding:12px 14px;">
+                        <span class="badge badge-blue" style="font-size:10px;">{{ alert.product.serial_number|default:"—" }}</span>
+                    </td>
+                    <td style="padding:12px 14px;">
+                        {% if alert.alert_type == 'low_stock' %}
+                        <span class="badge badge-yellow"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i> Low Stock</span>
+                        {% elif alert.alert_type == 'out_of_stock' %}
+                        <span class="badge badge-red"><i class="fas fa-times-circle" style="font-size:9px;"></i> Out of Stock</span>
+                        {% elif alert.alert_type == 'limit_reached' %}
+                        <span class="badge badge-red"><i class="fas fa-ban" style="font-size:9px;"></i> Limit Reached</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <span class="badge badge-blue" style="font-size:12px;min-width:28px;justify-content:center;">{{ alert.current_quantity }}</span>
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <span class="badge badge-gray" style="font-size:12px;min-width:28px;justify-content:center;">{{ alert.limit_quantity|default:"—" }}</span>
+                    </td>
+                    <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ alert.message }}">
+                        {{ alert.message|truncatechars:40 }}
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        {% if alert.status == 'active' %}
+                        <span class="badge badge-red">Active</span>
+                        {% elif alert.status == 'acknowledged' %}
+                        <span class="badge badge-yellow">Acknowledged</span>
+                        {% elif alert.status == 'resolved' %}
+                        <span class="badge badge-green">Resolved</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);">{{ alert.created_at|date:'M d, Y' }}</td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <div style="display:flex;gap:6px;justify-content:center;">
+                            {% if alert.status == 'active' %}
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                                <button type="submit" name="action" value="acknowledge" class="btn btn-secondary btn-sm">Ack</button>
+                            </form>
+                            {% endif %}
+                            {% if alert.status != 'resolved' %}
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                                <button type="submit" name="action" value="resolve" class="btn btn-success btn-sm">Resolve</button>
+                            </form>
+                            {% endif %}
+                            {% if alert.status == 'resolved' %}
+                            <span style="font-size:12px;color:var(--green);"><i class="fas fa-check-circle"></i> Done</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'pagination.html' %}
+    {% else %}
+    <div style="text-align:center;padding:70px 20px;">
+        <div style="width:64px;height:64px;background:var(--green-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--green);">
+            <i class="fas fa-shield-check" style="font-size:28px;"></i>
+        </div>
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-size:18px;margin-bottom:8px;color:var(--text-primary);">All Clear</h3>
+        <p style="color:var(--text-muted);font-size:14px;">No active alerts. Inventory is in good health.</p>
+    </div>
+    {% endif %}
 </div>
+
+<style>
+.alert-product-link { text-decoration: none; transition: var(--transition); }
+.alert-product-link:hover strong { color: var(--accent) !important; }
+</style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Auto-refresh alerts every 30 seconds
-        setInterval(function() {
-            location.reload();
-        }, 30000);
-        
-        // Add click handlers for alert details
-        document.querySelectorAll('.alert-details').forEach(function(element) {
-            element.addEventListener('click', function() {
-                const alertId = this.dataset.alertId;
-                // You can implement AJAX call here to get alert details
-                // For now, we'll just show a simple message
-                document.getElementById('alertDetails').innerHTML = `
-                    <p>Loading alert details...</p>
-                `;
-                new bootstrap.Modal(document.getElementById('alertModal')).show();
-            });
-        });
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    setInterval(function() { location.reload(); }, 60000);
+});
 </script>
-
-<!-- Add horizontal scroll bar for .table-responsive always visible -->
-<style>
-.table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: #b3b3b3 #f5f5f5;
-}
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #b3b3b3;
-    border-radius: 4px;
-}
-.table-responsive::-webkit-scrollbar-track {
-    background: #f5f5f5;
-    border-radius: 4px;
-}
-.product-link {
-    transition: all 0.3s ease;
-    border-radius: 0.5rem;
-    padding: 0.2rem 0.5rem;
-}
-.product-link:hover {
-    background: rgba(102, 126, 234, 0.08);
-    color: #764ba2 !important;
-    text-decoration: underline;
-}
-</style>
-{% endblock %} 
+{% endblock %}

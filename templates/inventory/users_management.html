@@ -1,169 +1,279 @@
 {% extends 'inventory_base.html' %}
 
-{% block title %}Inventory Users Management{% endblock %}
+{% block title %}Inventory Users Management — IIAP IM{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="openCreateModal()">
+    <i class="fas fa-user-plus"></i> Add User
+</button>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <h1 class="page-title mb-0">Inventory Users Management</h1>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">Add Inventory User</button>
+<div class="page-header" style="margin-bottom:28px;">
+    <div class="page-header-left">
+        <h1 class="page-title" style="margin-bottom:4px !important;">Users Management</h1>
+        <p style="color:var(--text-muted);font-size:14px;">Manage inventory system users, roles, branches, and access permissions.</p>
+    </div>
 </div>
 
-<div class="card">
-    <form method="get" class="row g-2 mb-3">
-        <div class="col-md-4"><input type="text" class="form-control" name="q" placeholder="Search username/email" value="{{ search }}"></div>
-        <div class="col-md-3">
-            <select class="form-select" name="role">
-                <option value="">All Roles</option>
-                <option value="super_admin" {% if role_filter == 'super_admin' %}selected{% endif %}>Super Admin</option>
-                <option value="branch_admin" {% if role_filter == 'branch_admin' %}selected{% endif %}>Branch Admin</option>
-                <option value="staff" {% if role_filter == 'staff' %}selected{% endif %}>Staff</option>
-            </select>
+<!-- Filter Bar -->
+<div class="card" style="margin-bottom:24px;">
+    <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+        <div style="flex:1;min-width:220px;position:relative;">
+            <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;"></i>
+            <input type="text" name="q" placeholder="Search username or email…" value="{{ search }}"
+                style="width:100%;padding:9px 12px 9px 36px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition);"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
         </div>
-        <div class="col-md-3">
-            <select class="form-select" name="status">
-                <option value="">All Status</option>
-                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
-                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
-            </select>
-        </div>
-        <div class="col-md-2"><button class="btn btn-secondary w-100" type="submit">Filter</button></div>
+        <select name="role" onchange="this.form.submit()"
+            style="padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;min-width:140px;">
+            <option value="">All Roles</option>
+            <option value="super_admin" {% if role_filter == 'super_admin' %}selected{% endif %}>Super Admin</option>
+            <option value="branch_admin" {% if role_filter == 'branch_admin' %}selected{% endif %}>Branch Admin</option>
+            <option value="staff" {% if role_filter == 'staff' %}selected{% endif %}>Staff</option>
+        </select>
+        <select name="status" onchange="this.form.submit()"
+            style="padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;min-width:130px;">
+            <option value="">All Status</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">
+            <i class="fas fa-filter"></i> Filter
+        </button>
+        {% if search or role_filter or status_filter %}
+        <a href="{% url 'inventory-users-management' %}" class="btn btn-secondary btn-icon" title="Clear Filters">
+            <i class="fas fa-times"></i>
+        </a>
+        {% endif %}
     </form>
+</div>
 
-    <div class="table-responsive">
-        <table class="table table-hover">
+<!-- Users Table -->
+<div class="card">
+    <div class="card-header" style="margin-bottom:20px;">
+        <div class="card-title" style="font-size:16px;">
+            <i class="fas fa-users" style="color:var(--accent);margin-right:8px;"></i>
+            Inventory Staff
+        </div>
+        <span class="badge badge-blue">{{ users|length }} users</span>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
             <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Branch</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
+                <tr style="border-bottom:2px solid var(--border);">
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Username</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Email</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Role</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Branch</th>
+                    <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Status</th>
+                    <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Created</th>
+                    <th style="text-align:right;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for u in users %}
-                <tr>
-                    <td>{{ u.username }}</td>
-                    <td>{{ u.email|default:"-" }}</td>
-                    <td class="text-capitalize">{{ u.get_role_display }}</td>
-                    <td>{{ u.branch.name|default:"Global (All)" }}</td>
-                    <td>
-                        {% if u.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-danger">Inactive</span>{% endif %}
+                <tr style="border-bottom:1px solid var(--border);transition:var(--transition);" onmouseenter="this.style.background='var(--bg-card-hover)'" onmouseleave="this.style.background=''">
+                    <td style="padding:12px 14px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:{{ u.avatar_color|default:'var(--accent)' }};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">{{ u.initials|default:u.username|first|upper }}</div>
+                            <span style="font-weight:600;font-size:13px;color:var(--text-primary);">{{ u.username }}</span>
+                        </div>
                     </td>
-                    <td>{{ u.created_at|date:"M d, Y H:i" }}</td>
-                    <td class="d-flex gap-1">
-                        <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#editUserModal{{ u.id }}">Edit</button>
-                        <a href="{% url 'inventory-user-permissions' u.id %}" class="btn btn-sm btn-outline-primary">Permissions</a>
-                        <form method="post">{% csrf_token %}
-                            <input type="hidden" name="action" value="toggle_active">
-                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                            <button class="btn btn-sm btn-warning" type="submit">Toggle</button>
-                        </form>
-                        {% if request.user.is_super_admin %}
-                        <form method="post" onsubmit="return confirm('Delete this user?')">{% csrf_token %}
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                            <button class="btn btn-sm btn-danger" type="submit">Delete</button>
-                        </form>
+                    <td style="padding:12px 14px;font-size:13px;color:var(--text-muted);">{{ u.email|default:"—" }}</td>
+                    <td style="padding:12px 14px;">
+                        {% if u.role == 'super_admin' %}
+                        <span class="badge badge-red">Super Admin</span>
+                        {% elif u.role == 'branch_admin' %}
+                        <span class="badge badge-yellow">Branch Admin</span>
+                        {% else %}
+                        <span class="badge badge-gray">Staff</span>
                         {% endif %}
                     </td>
-                </tr>
-
-                <div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <form method="post">
+                    <td style="padding:12px 14px;">
+                        {% if u.branch %}
+                        <span class="badge badge-cyan"><i class="fas fa-building" style="font-size:9px;margin-right:3px;"></i>{{ u.branch.name }}</span>
+                        {% else %}
+                        <span style="font-size:12px;color:var(--text-muted);">Global (All)</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        {% if u.is_active %}
+                        <span class="badge badge-green">Active</span>
+                        {% else %}
+                        <span class="badge badge-red">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);">{{ u.created_at|date:"M d, Y" }}</td>
+                    <td style="padding:12px 14px;text-align:right;">
+                        <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;">
+                            <button class="btn btn-secondary btn-sm" onclick="openEditModal('{{ u.id }}','{{ u.username|escapejs }}','{{ u.email|default:\"\" |escapejs }}','{{ u.role }}','{{ u.branch.id|default:\"\" }}','{{ u.is_active|yesno:\"true,false\" }}')" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <a href="{% url 'inventory-user-permissions' u.id %}" class="btn btn-secondary btn-sm" title="Permissions">
+                                <i class="fas fa-key"></i>
+                            </a>
+                            <form method="post" style="display:inline;">
                                 {% csrf_token %}
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Edit {{ u.username }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <input type="hidden" name="action" value="update">
-                                    <input type="hidden" name="user_id" value="{{ u.id }}">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control mb-2" name="email" value="{{ u.email }}">
-                                    <label class="form-label">Role</label>
-                                    <select class="form-select mb-2" name="role">
-                                        <option value="super_admin" {% if u.role == 'super_admin' %}selected{% endif %}>Super Admin</option>
-                                        <option value="branch_admin" {% if u.role == 'branch_admin' %}selected{% endif %}>Branch Admin</option>
-                                        <option value="staff" {% if u.role == 'staff' %}selected{% endif %}>Staff</option>
-                                    </select>
-                                    <label class="form-label">Branch</label>
-                                    <select class="form-select mb-2" name="branch">
-                                        <option value="">Global (No Branch)</option>
-                                        {% for b in branches %}
-                                        <option value="{{ b.id }}" {% if u.branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <label class="form-label">New Password (optional)</label>
-                                    <input type="password" class="form-control mb-2" name="password">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="is_active" {% if u.is_active %}checked{% endif %}>
-                                        <label class="form-check-label">Active</label>
-                                    </div>
-                                    <hr>
-                                    <div class="d-grid mb-2">
-                                        <a href="{% url 'inventory-user-permissions' u.id %}" class="btn btn-outline-primary">
-                                            <i class="fas fa-user-shield me-2"></i> Manage Granular Permissions
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-                                    <button class="btn btn-primary" type="submit">Save</button>
-                                </div>
+                                <input type="hidden" name="action" value="toggle_active">
+                                <input type="hidden" name="user_id" value="{{ u.id }}">
+                                <button type="submit" class="btn btn-secondary btn-sm" title="Toggle Active">
+                                    <i class="fas fa-power-off"></i>
+                                </button>
                             </form>
+                            {% if request.user.is_super_admin %}
+                            <form method="post" style="display:inline;" onsubmit="return confirm('Delete {{ u.username }}? This cannot be undone.')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="user_id" value="{{ u.id }}">
+                                <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
                         </div>
-                    </div>
-                </div>
+                    </td>
+                </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted">No inventory users found.</td></tr>
+                <tr>
+                    <td colspan="7" style="text-align:center;padding:60px 20px;">
+                        <div style="width:56px;height:56px;background:var(--bg-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--text-muted);">
+                            <i class="fas fa-users" style="font-size:22px;"></i>
+                        </div>
+                        <p style="color:var(--text-muted);font-size:14px;margin:0;">No inventory users found matching your filters.</p>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
 
-<div class="modal fade" id="createUserModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="post">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Inventory User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Edit User Modal (per user — rendered inline) -->
+{% for u in users %}
+<div id="editModal{{ u.id }}" style="display:none;position:fixed;z-index:9999;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);">
+    <div style="margin:5% auto;max-width:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin:0;">
+                <i class="fas fa-user-edit" style="color:var(--yellow);margin-right:8px;"></i>Edit {{ u.username }}
+            </h5>
+            <button onclick="document.getElementById('editModal{{ u.id }}').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);">&times;</button>
+        </div>
+        <form method="post" style="padding:20px 24px;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update">
+            <input type="hidden" name="user_id" value="{{ u.id }}">
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Email</label>
+                <input type="email" name="email" value="{{ u.email }}"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Role</label>
+                    <select name="role" style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+                        <option value="super_admin" {% if u.role == 'super_admin' %}selected{% endif %}>Super Admin</option>
+                        <option value="branch_admin" {% if u.role == 'branch_admin' %}selected{% endif %}>Branch Admin</option>
+                        <option value="staff" {% if u.role == 'staff' %}selected{% endif %}>Staff</option>
+                    </select>
                 </div>
-                <div class="modal-body">
-                    <input type="hidden" name="action" value="create">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control mb-2" name="username" required>
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control mb-2" name="email">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control mb-2" name="password" required>
-                    <label class="form-label">Role</label>
-                    <select class="form-select mb-2" name="role">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Branch</label>
+                    <select name="branch" style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+                        <option value="">Global (No Branch)</option>
+                        {% for b in branches %}
+                        <option value="{{ b.id }}" {% if u.branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">New Password (optional)</label>
+                <input type="password" name="password" placeholder="Leave blank to keep current"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <input type="checkbox" name="is_active" id="active{{ u.id }}" {% if u.is_active %}checked{% endif %} style="width:16px;height:16px;accent-color:var(--accent);">
+                <label for="active{{ u.id }}" style="font-size:13px;color:var(--text-secondary);cursor:pointer;">Account Active</label>
+            </div>
+            <div style="padding-top:14px;border-top:1px solid var(--border);margin-bottom:16px;">
+                <a href="{% url 'inventory-user-permissions' u.id %}" class="btn btn-secondary" style="width:100%;justify-content:center;">
+                    <i class="fas fa-user-shield"></i> Manage Granular Permissions
+                </a>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('editModal{{ u.id }}').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Create User Modal -->
+<div id="createModal" style="display:none;position:fixed;z-index:9999;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);">
+    <div style="margin:5% auto;max-width:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin:0;">
+                <i class="fas fa-user-plus" style="color:var(--accent);margin-right:8px;"></i>Create Inventory User
+            </h5>
+            <button onclick="document.getElementById('createModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);">&times;</button>
+        </div>
+        <form method="post" style="padding:20px 24px;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Username *</label>
+                <input type="text" name="username" required placeholder="e.g. inv_staff1"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Email</label>
+                <input type="email" name="email" placeholder="staff@observatory.res.in"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Password *</label>
+                <input type="password" name="password" required placeholder="Min. 6 characters"
+                    style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Role *</label>
+                    <select name="role" style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
                         <option value="staff">Staff</option>
                         <option value="branch_admin">Branch Admin</option>
                         <option value="super_admin">Super Admin</option>
                     </select>
-                    <label class="form-label">Branch</label>
-                    <select class="form-select mb-2" name="branch">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Branch</label>
+                    <select name="branch" style="width:100%;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:14px;outline:none;">
                         <option value="">Global (No Branch)</option>
                         {% for b in branches %}
                         <option value="{{ b.id }}">{{ b.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary" type="submit">Create</button>
-                </div>
-            </form>
-        </div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('createModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Create User</button>
+            </div>
+        </form>
     </div>
 </div>
+
+<script>
+function openCreateModal() { document.getElementById('createModal').style.display = 'block'; }
+function openEditModal(id) { document.getElementById('editModal' + id).style.display = 'block'; }
+
+window.onclick = function(event) {
+    if (event.target.id === 'createModal') document.getElementById('createModal').style.display = 'none';
+    document.querySelectorAll('[id^="editModal"]').forEach(function(m) {
+        if (event.target === m) m.style.display = 'none';
+    });
+};
+</script>
 {% endblock %}

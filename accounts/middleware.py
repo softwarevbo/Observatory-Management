@@ -41,7 +41,12 @@ class RBACAccessMiddleware:
     def __call__(self, request):
         path = request.path
 
-        # Exempt paths (Static, media, favicon, error pages, auth entry points)
+        # Exempt paths (Static, media, favicon, error pages, auth entry points, root landing page)
+        exempt_paths = [
+            "/",
+            "/iia-logo.jpg",
+            "/background.png",
+        ]
         exempt_prefixes = [
             "/static/",
             "/media/",
@@ -54,12 +59,13 @@ class RBACAccessMiddleware:
             "/accounts/logout/",
         ]
 
-        if any(path.startswith(prefix) for prefix in exempt_prefixes):
+        if path in exempt_paths or any(path.startswith(prefix) for prefix in exempt_prefixes):
             return self.get_response(request)
 
         # Allow Django admin for superusers/staff
-        if path.startswith("/admin/"):
+        if path.startswith("/admin/") or path.startswith("/Iiap2026/"):
             return self.get_response(request)
+
 
         # Check standard user authentication
         is_pm_user = (
@@ -241,7 +247,7 @@ class RBACAccessMiddleware:
             "/audit-logs/",
             "/trash/",
         ]
-        is_pm_route = path == "/" or any(path.startswith(prefix) for prefix in pm_routes)
+        is_pm_route = any(path.startswith(prefix) for prefix in pm_routes)
 
         if is_pm_route:
             if not has_permission(user, PERMISSION_PROJECT_ACCESS):

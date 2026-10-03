@@ -58,17 +58,38 @@
 
 <!-- ADMIN QUICK MANAGEMENT ACTIONS -->
 <div class="card" style="margin-bottom:24px;">
-    <div class="card-header">
-        <div class="card-title"><i class="fas fa-sliders"></i>Administrative Controls</div>
+    <div class="card-header" style="margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <div class="card-title" style="font-family:'Space Grotesk',sans-serif; font-size:15px; font-weight:700;"><i class="fas fa-sliders text-accent me-2"></i>Administrative Controls</div>
     </div>
-    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap:12px;">
-        <a href="{% url 'telescope:user_list' %}" class="action-card"><i class="fas fa-users-cog"></i>TCS Users</a>
-        <a href="{% url 'telescope:user_create' %}" class="action-card"><i class="fas fa-user-plus"></i>Create TCS User</a>
-        <a href="{% url 'telescope:telescope_list' %}" class="action-card"><i class="fas fa-binoculars"></i>Telescope List</a>
-        <a href="{% url 'telescope:instrument_list' %}" class="action-card"><i class="fas fa-microscope"></i>Instrument List</a>
-        <a href="{% url 'telescope:target_list' %}" class="action-card"><i class="fas fa-crosshairs"></i>Target Catalog</a>
-        <a href="{% url 'telescope:feedback' %}" class="action-card"><i class="fas fa-heart-pulse"></i>Site Feedback</a>
-        <a href="/admin/" class="action-card" target="_blank"><i class="fas fa-shield-halved"></i>Django Admin</a>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap:14px;">
+        <a href="{% url 'telescope:user_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-users-cog" style="font-size:22px; color:var(--purple);"></i>
+            <span style="font-size:12px; font-weight:600;">TCS Users</span>
+        </a>
+        <a href="{% url 'telescope:user_create' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-user-plus" style="font-size:22px; color:var(--green);"></i>
+            <span style="font-size:12px; font-weight:600;">Create TCS User</span>
+        </a>
+        <a href="{% url 'telescope:telescope_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-binoculars" style="font-size:22px; color:var(--accent);"></i>
+            <span style="font-size:12px; font-weight:600;">Telescope List</span>
+        </a>
+        <a href="{% url 'telescope:instrument_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-microscope" style="font-size:22px; color:var(--cyan);"></i>
+            <span style="font-size:12px; font-weight:600;">Instrument List</span>
+        </a>
+        <a href="{% url 'telescope:target_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-crosshairs" style="font-size:22px; color:var(--yellow);"></i>
+            <span style="font-size:12px; font-weight:600;">Target Catalog</span>
+        </a>
+        <a href="{% url 'telescope:feedback' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-heart-pulse" style="font-size:22px; color:var(--orange);"></i>
+            <span style="font-size:12px; font-weight:600;">Site Feedback</span>
+        </a>
+        <a href="/admin/" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);" target="_blank">
+            <i class="fas fa-shield-halved" style="font-size:22px; color:var(--red);"></i>
+            <span style="font-size:12px; font-weight:600;">Django Admin</span>
+        </a>
     </div>
 </div>
 
@@ -132,21 +153,30 @@
 
 <!-- QUICK ACTIONS -->
 <div class="card" style="margin-bottom:24px;">
-    <div class="card-header">
-        <div class="card-title"><i class="fas fa-bolt"></i>Quick Actions</div>
+    <div class="card-header" style="margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <div class="card-title" style="font-family:'Space Grotesk',sans-serif; font-size:15px; font-weight:700;"><i class="fas fa-bolt text-accent me-2"></i>Quick Actions</div>
     </div>
-    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap:12px;">
-        <a href="{% url 'telescope:telescope_list' %}" class="action-card"><i class="fas fa-binoculars"></i>Telescopes</a>
-        <a href="{% url 'telescope:instrument_list' %}" class="action-card"><i class="fas fa-microscope"></i>Instruments</a>
-        <a href="{% url 'telescope:target_list' %}" class="action-card"><i class="fas fa-crosshairs"></i>Targets</a>
-        {% if user.role == 'engineer' %}
-        <a href="{% url 'telescope:ticket_create' %}" class="action-card"><i class="fas fa-plus-circle"></i>New Ticket</a>
-        <a href="{% url 'telescope:ticket_list' %}" class="action-card"><i class="fas fa-screwdriver-wrench"></i>Work Orders</a>
-        {% endif %}
-        {% if user.role == 'observer' or user.role == 'scientific_officer' %}
-        <a href="{% url 'telescope:calibration_list' %}" class="action-card"><i class="fas fa-sliders"></i>Calibrations</a>
-        <a href="{% url 'telescope:unified_log_root' %}" class="action-card"><i class="fas fa-book"></i>Unified Log</a>
-        {% endif %}
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:14px;">
+        <a href="{% url 'telescope:telescope_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-binoculars" style="font-size:22px; color:var(--accent);"></i>
+            <span style="font-size:12px; font-weight:600; text-decoration:none;">Telescopes</span>
+        </a>
+        <a href="{% url 'telescope:instrument_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-microscope" style="font-size:22px; color:var(--purple);"></i>
+            <span style="font-size:12px; font-weight:600; text-decoration:none;">Instruments</span>
+        </a>
+        <a href="{% url 'telescope:target_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-crosshairs" style="font-size:22px; color:var(--cyan);"></i>
+            <span style="font-size:12px; font-weight:600; text-decoration:none;">Targets</span>
+        </a>
+        <a href="{% url 'telescope:calibration_list' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-sliders" style="font-size:22px; color:var(--yellow);"></i>
+            <span style="font-size:12px; font-weight:600; text-decoration:none;">Calibrations</span>
+        </a>
+        <a href="{% url 'telescope:unified_log_root' %}" class="action-card" style="text-decoration:none; padding:18px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius-sm); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:var(--transition); color:var(--text-primary);">
+            <i class="fas fa-book" style="font-size:22px; color:var(--green);"></i>
+            <span style="font-size:12px; font-weight:600; text-decoration:none;">Unified Log</span>
+        </a>
     </div>
 </div>
 

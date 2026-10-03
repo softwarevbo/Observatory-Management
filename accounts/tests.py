@@ -60,11 +60,9 @@ class TelescopeUserManagementTest(TestCase):
         data = {
             "username": "operator2",
             "email": "operator2@observatory.res.in",
-            "password": "pass1234",
+            "password1": "pass1234",
+            "password2": "pass1234",
             "role": "observer",
-            "is_active": "on",
-            "can_operate_vbt": "on",
-            "can_operate_jcbt": "on",
         }
         
         response = self.client.post(url, data)
@@ -72,10 +70,7 @@ class TelescopeUserManagementTest(TestCase):
         
         from telescope.models import TelescopeUser
         u = TelescopeUser.objects.get(username="operator2")
-        self.assertTrue(u.can_access_telescope)
-        self.assertTrue(u.can_operate_vbt)
-        self.assertTrue(u.can_operate_jcbt)
-        self.assertFalse(u.can_operate_zeiss)
+        self.assertEqual(u.role, "observer")
 
     def test_telescope_user_edit(self):
         """
@@ -86,10 +81,8 @@ class TelescopeUserManagementTest(TestCase):
         data = {
             "username": "operator1",
             "email": "updated_operator@observatory.res.in",
-            "password": "",
+            "new_password": "",
             "role": "observer",
-            "can_operate_vbt": "on",
-            "can_command_dome": "on",
         }
         
         response = self.client.post(url, data)
@@ -97,8 +90,6 @@ class TelescopeUserManagementTest(TestCase):
         
         self.tele_user.refresh_from_db()
         self.assertEqual(self.tele_user.email, "updated_operator@observatory.res.in")
-        self.assertTrue(self.tele_user.can_operate_vbt)
-        self.assertTrue(self.tele_user.can_command_dome)
 
     def test_telescope_user_toggle(self):
         """
@@ -118,11 +109,11 @@ class TelescopeUserManagementTest(TestCase):
         Tests deleting/deactivating a TCS user account.
         """
         url = reverse("telescope:user_delete", args=[self.tele_user.pk])
-        response = self.client.get(url)
+        response = self.client.post(url)
         self.assertRedirects(response, reverse("telescope:user_list"))
         
-        self.tele_user.refresh_from_db()
-        self.assertFalse(self.tele_user.is_active)
+        from telescope.models import TelescopeUser
+        self.assertFalse(TelescopeUser.objects.filter(pk=self.tele_user.pk).exists())
 
 
 class UserFormPermissionsTest(TestCase):
@@ -400,6 +391,8 @@ class RBACTestCase(TestCase):
         self.assertEqual(res.url, "/inventorymanagement/dashboard/")
         self.client.logout()
 
+
+
         # Denied: PM_ADMIN, TM_ADMIN
         res = self.client.post(url, {"username": "pm_admin", "password": "password123"})
         self.assertEqual(res.status_code, 200)
@@ -453,6 +446,31 @@ class RBACTestCase(TestCase):
         self.assertTrue(can_assign_role(self.root_user, "PM_ADMIN"))
         self.assertTrue(can_assign_role(self.root_user, "TM_ADMIN"))
         self.assertTrue(can_assign_role(self.root_user, "IM_ADMIN"))
+
+    def test_backup_export_access(self):
+        url = reverse("accounts:export_backup")
+
+        # Non-ROOT user access denied
+        self.client.login(username="pm_member", password="password123")
+        res = self.client.post(url, {"include_pm": "on"})
+        self.assertEqual(res.status_code, 302)
+        self.client.logout()
+
+        # ROOT user can export backup zip
+        self.client.login(username="root_admin", password="password123")
+        res = self.client.post(url, {
+            "include_pm": "on",
+            "include_im": "on",
+            "include_tcs": "on",
+            "include_media": "on",
+            "include_db": "on",
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res["Content-Type"], "application/zip")
+        self.client.logout()
+
+
+
 
 
 

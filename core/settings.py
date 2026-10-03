@@ -1,45 +1,23 @@
 """
-IIAP OM - Core Settings
+IIAP OM - Core Settings (AWS / Cloud Ready)
 """
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-import os
-import secrets
-import socket
+# Security Settings
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-IIAP-pm-change-this-in-production-!@#$%^&*()")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
-if not SECRET_KEY:
-    # Use fallback secure key or generate a unique random one on start
-    SECRET_KEY = "django-insecure-IIAP-pm-change-this-in-production-!@#$%^&*()"
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]
-for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(","):
-    host = host.strip()
-    if host:
-        ALLOWED_HOSTS.append(host)
+# Host configuration (Default to allow all in dev, override via env in AWS production)
+# ALLOWED_HOSTS = ["54.xxx.xxx.xxx", "yourdomain.com", "localhost", "127.0.0.1"]
 
-try:
-    for family, _, _, _, sockaddr in socket.getaddrinfo(socket.gethostname(), None, type=socket.SOCK_STREAM):
-        ip = sockaddr[0]
-        if ip and ip not in ALLOWED_HOSTS:
-            ALLOWED_HOSTS.append(ip)
-    for family, _, _, _, sockaddr in socket.getaddrinfo("localhost", None, type=socket.SOCK_STREAM):
-        ip = sockaddr[0]
-        if ip and ip not in ALLOWED_HOSTS:
-            ALLOWED_HOSTS.append(ip)
-except Exception:
-    pass
+ALLOWED_HOSTS = ["127.0.0.1"]
 
-# Allow local development access from other devices on the same network.
-ALLOWED_HOSTS.append("*")
-
+# Application definition
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -48,7 +26,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Custom apps
+    # Core & Management Apps
     "accounts",
     "tasks",
     "notes",
@@ -60,7 +38,6 @@ INSTALLED_APPS = [
     "finance",
     "telescope",
     "resource_hub",
-
     # Inventory Apps
     "inventory",
     "products",
@@ -73,10 +50,6 @@ INSTALLED_APPS = [
     "channels",
 ]
 
-INTERNAL_IPS = [
-    "127.0.0.1",
-]
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -87,11 +60,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "accounts.middleware.InventoryAccessMiddleware",
 ]
-
-# Debug toolbar disabled as requested
-# if DEBUG:
-#     INSTALLED_APPS.append("debug_toolbar")
-#     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
 
 ROOT_URLCONF = "core.urls"
 
@@ -126,6 +94,7 @@ CHANNEL_LAYERS = {
     },
 }
 
+# Database Settings
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -136,72 +105,85 @@ DATABASES = {
     }
 }
 
+# ------------------------------------------------------------------------------
+# AWS RDS / PostgreSQL Configuration (Uncomment this block when deploying to AWS)
+# Required Package: pip install psycopg2-binary
+# ------------------------------------------------------------------------------
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": os.environ.get("DB_NAME", "iiap_db"),
+#         "USER": os.environ.get("DB_USER", "postgres"),
+#         "PASSWORD": os.environ.get("DB_PASSWORD", "your_aws_db_password"),
+#         "HOST": os.environ.get("DB_HOST", "your-rds-endpoint.xxxxxx.us-east-1.rds.amazonaws.com"), # or AWS EC2 IP if Postgres runs on EC2
+#         "PORT": os.environ.get("DB_PORT", "5432"),
+#         "OPTIONS": {
+#             "connect_timeout": 10,
+#         },
+#     }
+# }
+
+# Password Validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Internationalization
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
 
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = "/static/"
-# Ensure static directory exists to prevent W004 warning
 (BASE_DIR / "static").mkdir(exist_ok=True)
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 AUTH_USER_MODEL = "accounts.User"
 
+# Authentication URLs
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
-# Message storage
+# Sessions and Messages
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 14400  # Session expires after 4 hours of inactivity
+
+# ==============================================================================
+# AWS CLOUD - CSRF TRUSTED ORIGINS CONFIGURATION
+# ==============================================================================
+# Option A: Set via environment variable CSRF_TRUSTED_ORIGINS="http://54.x.x.x,http://yourdomain.com"
+# Option B: Or replace the list below directly with your AWS Public IP / Domain, e.g.:
+# CSRF_TRUSTED_ORIGINS = [
+#     "http://YOUR_AWS_EC2_PUBLIC_IP",
+#     "http://YOUR_AWS_EC2_PUBLIC_IP:8000",
+#     "https://yourdomain.com",
+# ]
+# ==============================================================================
+csrf_origins_env = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://127.0.0.1:8000,http://localhost:8000,http://0.0.0.0:8000,http://localhost,http://127.0.0.1"
+)
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_env.split(",") if origin.strip()]
 
 # File Upload Settings
 DATA_UPLOAD_MAX_NUMBER_FILES = None
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10GB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10GB
 
-# Dynamic CSRF Trusted Origins for local network and development
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000",
-    "http://localhost:8000",
-    "http://0.0.0.0:8000",
-    "http://localhost",
-    "http://127.0.0.1",
-]
-
-try:
-    seen = set(CSRF_TRUSTED_ORIGINS)
-    for family, _, _, _, sockaddr in socket.getaddrinfo(socket.gethostname(), None, type=socket.SOCK_STREAM):
-        ip = sockaddr[0]
-        if ip:
-            for origin in [f"http://{ip}:8000", f"http://{ip}"]:
-                if origin not in seen:
-                    CSRF_TRUSTED_ORIGINS.append(origin)
-                    seen.add(origin)
-except Exception:
-    pass
-
 # Security Enhancements
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_AGE = 14400 # Session expires after 4 hours of inactivity
-
-

@@ -12,12 +12,24 @@ from notifications.models import Notification
 from ..utils.query_utils import get_visible_tasks_qs
 
 
+from django.shortcuts import redirect, render
+
 @login_required
 def dashboard(request):
     user = request.user
     today = timezone.now().date()
 
-    if user.is_admin:
+    if hasattr(user, "_meta") and user._meta.model_name == "telescopeuser":
+        return redirect("telescope:dashboard")
+    if hasattr(user, "_meta") and user._meta.model_name == "inventoryuser":
+        return redirect("inventory:dashboard")
+
+    if getattr(user, "can_access_telescope", False) and not getattr(user, "can_access_pm", True):
+        return redirect("telescope:dashboard")
+    if getattr(user, "can_access_inventory", False) and not getattr(user, "can_access_pm", True):
+        return redirect("inventory:dashboard")
+
+    if getattr(user, "is_admin", False):
         db_size = 0
         db_path = settings.DATABASES["default"].get("NAME")
         if db_path and os.path.exists(db_path):
@@ -61,7 +73,7 @@ def dashboard(request):
         )
 
     # For PM and regular users
-    if user.is_project_manager:
+    if getattr(user, "is_project_manager", False):
         projects = Project.objects.filter(
             Q(managers=user) | Q(members=user) | Q(project_incharge=user),
             is_archived=False

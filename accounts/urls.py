@@ -27,6 +27,7 @@ urlpatterns = [
     
     # Global logout route
     path("logout/", views.logout_view, name="logout"),
+
     
     # ─── User Management (Admin only) ──────────────────────────────────────────
     path("users/", views.user_list, name="user_list"),
@@ -90,8 +91,13 @@ urlpatterns = [
     path("settings/", views.settings_view, name="settings"),
     
     # Specialized profile pages and settings for sub-app portals
-    path("inventory/profile/", views.inventory_user_profile, name="inventory_profile"),
+    path("inventory/profile/", views.inventory_profile_view, name="inventory_profile"),
     path("inventory/settings/", views.inventory_settings_view, name="inventory_settings"),
-    path("telescope/profile/", views.telescope_user_profile, name="telescope_profile"),
+    path("telescope/profile/", views.telescope_profile_view, name="telescope_profile"),
     path("telescope/settings/", views.telescope_settings_view, name="telescope_settings"),
+
+    # ─── System Backup & Disaster Recovery Routes ────────────────────────────────
+    path("backup/export/", views.export_backup_view, name="export_backup"),
+    path("backup/import/", views.import_backup_view, name="import_backup"),
 ]
+

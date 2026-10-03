@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · NLOT · National Large Optical Telescope</title>
+  <link rel="icon" href="iia-logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --navy-900: #0f1b2c;
+      --navy-800: #1a2a3e;
+      --navy-700: #1e3a5f;
+      --sky: #5ba3d0;
+      --sky-bright: #7dcfff;
+      --c-science: #5ba3d0;
+      --c-synergy: #55ae7a;
+      --c-impact: #e0953a;
+      --text: #1e2d3d;
+      --text-dim: #5d7388;
+      --border: #d0d9e3;
+      --field: #f4f6f9;
+      --red: #be3535;
+      --green: #1e7e45;
+      --sans: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      --mono: "DM Mono", ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--navy-900) url("background.png") center 65% / cover no-repeat fixed;
+      position: relative;
+    }
+
+    /* Navy overlay keeps text readable and ties the photo to the IIA navy colours */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(100deg, rgba(15, 27, 44, 0.94) 0%, rgba(26, 42, 62, 0.78) 45%, rgba(30, 58, 95, 0.30) 100%);
+      pointer-events: none;
+    }
+
+    body > * { position: relative; }
+
+    /* ---------- Top bar (IIA navy theme) ---------- */
+    .topbar {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      background: linear-gradient(135deg, var(--navy-800), var(--navy-700));
+      box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 10;
+    }
+
+    .brand {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 24px;
+    }
+
+    .brand img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      flex-shrink: 0;
+    }
+
+    .brand-name { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.95); line-height: 1.25; }
+    .brand-inst {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      line-height: 1.5;
+    }
+
+    .clock-block {
+      margin-left: auto;
+      height: 100%;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #clock { font-family: var(--mono); font-size: 16px; font-weight: 500; letter-spacing: 0.06em; color: var(--sky-bright); }
+    .clock-sub { font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4); }
+
+    /* ---------- Main ---------- */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(340px, 440px);
+      gap: clamp(32px, 6vw, 96px);
+      align-items: center;
+      padding: 40px clamp(24px, 7vw, 120px);
+    }
+
+    /* Left: observatory information */
+    .intro { color: #fff; max-width: 560px; }
+    .intro .org { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sky-bright); margin-bottom: 14px; }
+    .intro h1 { font-size: clamp(2rem, 3.6vw, 3rem); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+    .intro .lead { margin-top: 16px; font-size: 1rem; line-height: 1.65; color: rgba(255, 255, 255, 0.78); max-width: 48ch; }
+
+    .facts { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 14px 40px; }
+    .fact-val { font-family: var(--mono); font-size: 1.9rem; font-weight: 500; color: var(--sky-bright); line-height: 1; }
+    .fact-lbl { margin-top: 6px; font-size: 0.82rem; color: rgba(255, 255, 255, 0.7); max-width: 20ch; line-height: 1.4; }
+
+    .pillars { margin-top: 30px; display: grid; gap: 10px; max-width: 480px; }
+    .pillar {
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-left: 4px solid var(--c);
+      border-radius: 6px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .pillar.science { --c: var(--c-science); }
+    .pillar.synergy { --c: var(--c-synergy); }
+    .pillar.impact { --c: var(--c-impact); }
+    .pillar-title { font-size: 0.95rem; font-weight: 600; color: #fff; }
+    .pillar-text { margin-top: 2px; font-size: 0.86rem; color: rgba(255, 255, 255, 0.75); line-height: 1.45; }
+
+    /* Right: login card */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 34px 32px 26px;
+      box-shadow: 0 24px 60px rgba(3, 8, 20, 0.5);
+      border-top: 4px solid var(--sky);
+    }
+    .card h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: #0d1f2d; }
+    .card .sub { margin: 6px 0 24px; font-size: 0.9rem; color: var(--text-dim); line-height: 1.5; }
+
+    .field { margin-bottom: 16px; }
+    .field label { display: block; margin-bottom: 6px; font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      font: inherit;
+      font-size: 0.95rem;
+      color: var(--text);
+      background: var(--field);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .input-wrap input::placeholder { color: #9aacbc; }
+    .input-wrap input:focus { border-color: var(--navy-700); background: #fff; box-shadow: 0 0 0 3px rgba(91, 163, 208, 0.3); }
+    .input-wrap.has-toggle input { padding-right: 64px; }
+    .field.invalid input { border-color: var(--red); }
+
+    .error-msg { display: none; margin-top: 5px; font-size: 0.78rem; color: var(--red); }
+    .field.invalid .error-msg { display: block; }
+
+    .toggle-pw {
+      position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+      padding: 6px 9px; font: inherit; font-size: 0.78rem; font-weight: 600;
+      color: var(--navy-700); background: none; border: 0; border-radius: 4px; cursor: pointer;
+    }
+    .toggle-pw:hover { background: rgba(30, 58, 95, 0.08); }
+
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 0 20px; font-size: 0.85rem; }
+    .remember { display: flex; align-items: center; gap: 8px; color: var(--text-dim); cursor: pointer; user-select: none; }
+    .remember input { width: 16px; height: 16px; accent-color: var(--navy-700); cursor: pointer; }
+
+    .link-btn { font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--navy-700); background: none; border: 0; cursor: pointer; }
+    .link-btn:hover { text-decoration: underline; color: #1a6fa8; }
+
+    .btn-primary {
+      width: 100%; height: 48px; font: inherit; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em;
+      color: #fff; background: linear-gradient(135deg, var(--navy-800), var(--navy-700));
+      border: 0; border-radius: 6px; cursor: pointer;
+      box-shadow: 0 6px 16px rgba(30, 58, 95, 0.35);
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover { filter: brightness(1.15); }
+    .btn-primary:active { transform: translateY(1px); }
+    .btn-primary:disabled { opacity: 0.65; cursor: wait; }
+
+    .status { min-height: 20px; margin-top: 12px; font-size: 0.85rem; text-align: center; color: var(--text-dim); }
+    .status.error { color: var(--red); }
+    .status.success { color: var(--green); }
+
+    .forgot-row {
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8ecf1;
+      display: flex; justify-content: center; gap: 24px;
+    }
+
+    /* ---------- Footer ---------- */
+    footer {
+      padding: 14px 24px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      background: rgba(15, 27, 44, 0.85);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* ---------- Bottom-right "Other" button ---------- */
+    .other {
+      position: fixed; right: 18px; bottom: 54px; z-index: 20;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+    }
+    .other-btn {
+      padding: 8px 16px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #fff; background: rgba(26, 42, 62, 0.85); border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 999px; cursor: pointer;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .other-btn:hover, .other-btn[aria-expanded="true"] { background: var(--navy-700); border-color: var(--sky-bright); }
+
+    .other-menu {
+      display: none; min-width: 200px; padding: 6px; list-style: none;
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 16px 40px rgba(3, 8, 20, 0.4);
+    }
+    .other-menu.open { display: block; }
+    .other-menu button {
+      width: 100%; padding: 10px 12px; font: inherit; font-size: 0.86rem; text-align: left;
+      color: var(--text); background: none; border: 0; border-radius: 6px; cursor: pointer;
+    }
+    .other-menu button:hover { background: #e8f3fb; color: var(--navy-700); }
+
+    /* ---------- Modal ---------- */
+    .overlay {
+      position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center;
+      padding: 20px; background: rgba(8, 14, 28, 0.72);
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      position: relative; width: 100%; max-width: 410px; padding: 30px 28px 24px;
+      background: #fff; border-radius: 12px; border-top: 4px solid var(--sky);
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+    }
+    .modal h2 { font-size: 1.25rem; font-weight: 700; color: #0d1f2d; }
+    .modal p { margin: 8px 0 18px; font-size: 0.9rem; line-height: 1.5; color: var(--text-dim); }
+    .modal-close {
+      position: absolute; top: 10px; right: 12px; width: 32px; height: 32px;
+      font-size: 1.4rem; line-height: 1; color: var(--text-dim); background: none; border: 0; border-radius: 6px; cursor: pointer;
+    }
+    .modal-close:hover { background: var(--field); color: var(--text); }
+
+    /* ---------- Focus + responsive ---------- */
+    button:focus-visible, .remember input:focus-visible { outline: 2px solid var(--navy-700); outline-offset: 2px; }
+    .topbar button:focus-visible, .other-btn:focus-visible { outline-color: var(--sky-bright); }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; gap: 28px; padding: 28px 20px 40px; justify-items: center; }
+      .intro { max-width: 440px; width: 100%; }
+      .card { width: 100%; max-width: 440px; }
+      body::before { background: linear-gradient(180deg, rgba(15, 27, 44, 0.88), rgba(26, 42, 62, 0.8)); }
+    }
+    @media (max-width: 560px) {
+      .brand { padding: 0 14px; gap: 10px; }
+      .brand-name { font-size: 13px; }
+      .brand-inst { font-size: 8px; }
+      .clock-block { padding: 0 14px; }
+      #clock { font-size: 13px; }
+      .pillars, .facts { display: none; }
+      .card { padding: 28px 22px 22px; }
+      .forgot-row { flex-direction: column; align-items: center; gap: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="iia-logo.jpg" alt="Indian Institute of Astrophysics logo">
+      <div>
+        <div class="brand-name">National Large Optical Telescope</div>
+        <div class="brand-inst">Indian Institute of Astrophysics</div>
+      </div>
+    </div>
+    <div class="clock-block">
+      <div id="clock">--:--:--</div>
+      <div class="clock-sub">IST</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div class="org">NLOT · National Large Optical-Infrared Telescope</div>
+      <h1>India's Big Eye to the Universe</h1>
+      <p class="lead">NLOT is India's next-generation flagship ground-based telescope, planned for the Indian Astronomical Observatory at Hanle, Ladakh. It will observe the sky in both optical and infrared light.</p>
+
+      <div class="facts">
+        <div><div class="fact-val">13.7 m</div><div class="fact-lbl">National Large Optical Telescope</div></div>
+        <div><div class="fact-val">~15&times;</div><div class="fact-lbl">collecting area of India's 4 m class telescopes</div></div>
+      </div>
+
+      <div class="pillars">
+        <div class="pillar science"><div class="pillar-title">Science Frontier</div><div class="pillar-text">Exploring planets, galaxies, and cosmic evolution.</div></div>
+        <div class="pillar synergy"><div class="pillar-title">Global Synergy</div><div class="pillar-text">Follow-up for JWST, LSST, SKA, and GW events.</div></div>
+        <div class="pillar impact"><div class="pillar-title">National Impact</div><div class="pillar-text">Technology development and leadership.</div></div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="signinTitle">
+      <h2 id="signinTitle">Sign in</h2>
+      <p class="sub">Use your NLOT username and password.</p>
+
+      <form id="loginForm" novalidate>
+        <div class="field" id="userField">
+          <label for="username">Username</label>
+          <div class="input-wrap">
+            <input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" autofocus>
+          </div>
+          <div class="error-msg">Enter your username.</div>
+        </div>
+
+        <div class="field" id="passField">
+          <label for="password">Password</label>
+          <div class="input-wrap has-toggle">
+            <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
+            <button type="button" class="toggle-pw" id="togglePw" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <div class="error-msg">Enter your password.</div>
+        </div>
+
+        <div class="row">
+          <label class="remember"><input type="checkbox" id="remember"> Remember me</label>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submitBtn">Sign in</button>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </form>
+
+      <div class="forgot-row">
+        <button type="button" class="link-btn" data-open="forgot-username">Forgot username?</button>
+        <button type="button" class="link-btn" data-open="forgot-password">Forgot password?</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>© Indian Institute of Astrophysics, Bangalore · NLOT Project</footer>
+
+  <!-- Bottom-right small button -->
+  <div class="other">
+    <ul class="other-menu" id="otherMenu">
+      <li><button type="button" data-action="register">Request an account</button></li>
+      <li><button type="button" data-action="help">Help</button></li>
+      <li><button type="button" data-action="contact">Contact NLOT team</button></li>
+    </ul>
+    <button type="button" class="other-btn" id="otherBtn" aria-expanded="false" aria-controls="otherMenu">Other</button>
+  </div>
+
+  <!-- Forgot username / password dialog -->
+  <div class="overlay" id="overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button type="button" class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <form id="recoverForm" novalidate>
+        <div class="field" id="recoverField">
+          <label for="recoverEmail">Email address</label>
+          <div class="input-wrap">
+            <input type="email" id="recoverEmail" placeholder="you@example.com" autocomplete="email">
+          </div>
+          <div class="error-msg">Enter a valid email address.</div>
+        </div>
+        <button type="submit" class="btn-primary" id="recoverBtn">Send</button>
+        <div class="status" id="recoverStatus" role="status" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      var $ = function (id) { return document.getElementById(id); };
+
+      /* ---------- IST clock ---------- */
+      var clock = $("clock");
+      function tick() {
+        try {
+          clock.textContent = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false });
+        } catch (e) {
+          clock.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false });
+        }
+      }
+      tick();
+      setInterval(tick, 1000);
+
+      /* ---------- Login form ---------- */
+      var username = $("username");
+      var password = $("password");
+      var status = $("status");
+      var submitBtn = $("submitBtn");
+
+      function setInvalid(fieldId, invalid) { $(fieldId).classList.toggle("invalid", invalid); }
+
+      try {
+        var saved = localStorage.getItem("nlotSavedUsername");
+        if (saved) { username.value = saved; $("remember").checked = true; }
+      } catch (e) { /* storage unavailable */ }
+
+      $("togglePw").addEventListener("click", function () {
+        var showing = password.type === "text";
+        password.type = showing ? "password" : "text";
+        this.textContent = showing ? "Show" : "Hide";
+        this.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        this.setAttribute("aria-pressed", String(!showing));
+      });
+
+      username.addEventListener("input", function () { setInvalid("userField", false); });
+      password.addEventListener("input", function () { setInvalid("passField", false); });
+
+      $("loginForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        status.textContent = "";
+        status.className = "status";
+
+        var u = username.value.trim();
+        var p = password.value;
+        setInvalid("userField", !u);
+        setInvalid("passField", !p);
+        if (!u) { username.focus(); return; }
+        if (!p) { password.focus(); return; }
+
+        try {
+          if ($("remember").checked) localStorage.setItem("nlotSavedUsername", u);
+          else localStorage.removeItem("nlotSavedUsername");
+        } catch (err) { /* ignore */ }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Signing in...";
+
+        /* ------------------------------------------------------------
+           REPLACE THIS BLOCK with your real login request, e.g.:
+
+           fetch("/api/login", {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ username: u, password: p })
+           }).then(function (r) { ... window.location.href = "dashboard.html"; });
+
+           The block below only simulates a server reply.
+        ------------------------------------------------------------ */
+        setTimeout(function () {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Sign in";
+          status.className = "status success";
+          status.textContent = "Signed in as " + u + ".";
+        }, 900);
+      });
+
+      /* ---------- Forgot username / password ---------- */
+      var overlay = $("overlay");
+      var recoverEmail = $("recoverEmail");
+      var recoverStatus = $("recoverStatus");
+      var mode = "forgot-username";
+      var lastFocus = null;
+
+      var copy = {
+        "forgot-username": {
+          title: "Forgot username",
+          text: "Enter the email address registered with your account and we will send your username to it.",
+          button: "Send my username",
+          done: "If an account uses this email, your username is on its way."
+        },
+        "forgot-password": {
+          title: "Reset password",
+          text: "Enter the email address registered with your account and we will send a link to reset your password.",
+          button: "Send reset link",
+          done: "If an account uses this email, a reset link is on its way."
+        }
+      };
+
+      function openModal(which) {
+        mode = which;
+        lastFocus = document.activeElement;
+        $("modalTitle").textContent = copy[which].title;
+        $("modalText").textContent = copy[which].text;
+        $("recoverBtn").textContent = copy[which].button;
+        recoverEmail.value = "";
+        setInvalid("recoverField", false);
+        recoverStatus.textContent = "";
+        recoverStatus.className = "status";
+        overlay.classList.add("open");
+        overlay.setAttribute("aria-hidden", "false");
+        recoverEmail.focus();
+      }
+
+      function closeModal() {
+        overlay.classList.remove("open");
+        overlay.setAttribute("aria-hidden", "true");
+        if (lastFocus) lastFocus.focus();
+      }
+
+      document.querySelectorAll("[data-open]").forEach(function (btn) {
+        btn.addEventListener("click", function () { openModal(btn.getAttribute("data-open")); });
+      });
+      $("modalClose").addEventListener("click", closeModal);
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+      recoverEmail.addEventListener("input", function () { setInvalid("recoverField", false); });
+
+      $("recoverForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoverEmail.value.trim());
+        setInvalid("recoverField", !valid);
+        if (!valid) { recoverEmail.focus(); return; }
+        // Replace with a real request to your server here.
+        recoverStatus.className = "status success";
+        recoverStatus.textContent = copy[mode].done;
+      });
+
+      /* ---------- Bottom-right "Other" menu ---------- */
+      var otherBtn = $("otherBtn");
+      var otherMenu = $("otherMenu");
+
+      otherBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = "/accounts/login/";
+      });
+
+      otherMenu.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = "/accounts/login/";
+      });
+
+      document.addEventListener("click", function (e) {
+        if (!e.target.closest(".other")) toggleMenu(false);
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (overlay.classList.contains("open")) closeModal();
+        else toggleMenu(false);
+      });
+    })();
+  </script>
+</body>
+</html>
